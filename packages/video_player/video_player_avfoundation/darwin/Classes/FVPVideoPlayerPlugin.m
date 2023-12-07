@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#define SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(v)  ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] != NSOrderedAscending)
+
 #import "FVPVideoPlayerPlugin.h"
 #import "FVPVideoPlayerPlugin_Test.h"
 
@@ -264,6 +266,14 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
   }
   AVURLAsset *urlAsset = [AVURLAsset URLAssetWithURL:url options:options];
   AVPlayerItem *item = [AVPlayerItem playerItemWithAsset:urlAsset];
+
+  if(SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"10.0")) {
+      NSLog(@"Setting interval to 2 seconds");
+      NSTimeInterval interval = 2; // set to  0 for default duration.
+      item.preferredForwardBufferDuration = interval;
+      [self player].automaticallyWaitsToMinimizeStalling = NO;
+  }
+
   return [self initWithPlayerItem:item
                      frameUpdater:frameUpdater
                       displayLink:(FVPDisplayLink *)displayLink
