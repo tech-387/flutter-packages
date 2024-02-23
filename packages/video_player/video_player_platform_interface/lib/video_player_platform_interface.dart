@@ -103,6 +103,11 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
     throw UnimplementedError('setMixWithOthers() has not been implemented.');
   }
 
+  /// Sets the audio mode to mix with other sources
+  Future<void> setCacheOptions(VideoPlayerCacheOptions options) {
+    throw UnimplementedError('setCacheOptions() has not been implemented.');
+  }
+
   /// Sets additional options on web
   Future<void> setWebOptions(int textureId, VideoPlayerWebOptions options) {
     throw UnimplementedError('setWebOptions() has not been implemented.');
@@ -367,7 +372,7 @@ class DurationRange {
   int get hashCode => Object.hash(start, end);
 }
 
-/// [VideoPlayerOptions] can be optionally used to set additional player settings
+/// [VideoPlayerOptions] can be optionally used to set additional player settings.
 @immutable
 class VideoPlayerOptions {
   /// Set additional optional player settings
@@ -379,6 +384,7 @@ class VideoPlayerOptions {
     this.mixWithOthers = false,
     this.allowBackgroundPlayback = false,
     this.webOptions,
+    this.cacheOptions,
   });
 
   /// Set this to true to keep playing video in background, when app goes in background.
@@ -394,6 +400,9 @@ class VideoPlayerOptions {
 
   /// Additional web controls
   final VideoPlayerWebOptions? webOptions;
+
+  /// Additional cache options.
+  final VideoPlayerCacheOptions? cacheOptions;
 }
 
 /// [VideoPlayerWebOptions] can be optionally used to set additional web settings
@@ -414,6 +423,25 @@ class VideoPlayerWebOptions {
 
   /// Whether remote playback is allowed
   final bool allowRemotePlayback;
+}
+
+/// [VideoPlayerCacheOptions] can be optionally used to set cache settings.
+@immutable
+class VideoPlayerCacheOptions {
+  /// [VideoPlayerCacheOptions] can be optionally used to set cache settings.
+  const VideoPlayerCacheOptions({
+    this.cacheDirectory = 'streaming',
+    this.maxCacheBytes = 700000000,
+  });
+
+  /// Directory in which player will cache media items.
+  /// Defaults to `streaming`.
+  final String cacheDirectory;
+
+  /// The maximum bytes to store in cache.
+  /// It exceeded older items will be evicted from cache.
+  /// Defaults to `700000000` bytes, or `700` MB.
+  final int maxCacheBytes;
 }
 
 /// [VideoPlayerWebOptions] can be used to set how control options are displayed

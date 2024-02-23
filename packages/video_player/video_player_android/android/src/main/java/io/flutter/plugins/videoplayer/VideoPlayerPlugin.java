@@ -8,6 +8,13 @@ import android.content.Context;
 import android.os.Build;
 import android.util.LongSparseArray;
 import androidx.annotation.NonNull;
+
+import com.google.android.exoplayer2.database.DatabaseProvider;
+import com.google.android.exoplayer2.database.StandaloneDatabaseProvider;
+import com.google.android.exoplayer2.upstream.cache.Cache;
+import com.google.android.exoplayer2.upstream.cache.LeastRecentlyUsedCacheEvictor;
+import com.google.android.exoplayer2.upstream.cache.SimpleCache;
+
 import io.flutter.FlutterInjector;
 import io.flutter.Log;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -22,6 +29,8 @@ import io.flutter.plugins.videoplayer.Messages.PositionMessage;
 import io.flutter.plugins.videoplayer.Messages.TextureMessage;
 import io.flutter.plugins.videoplayer.Messages.VolumeMessage;
 import io.flutter.view.TextureRegistry;
+
+import java.io.File;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
@@ -34,6 +43,15 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   private final LongSparseArray<VideoPlayer> videoPlayers = new LongSparseArray<>();
   private FlutterState flutterState;
   private final VideoPlayerOptions options = new VideoPlayerOptions();
+
+  // Note: This should be a singleton in your app.
+  DatabaseProvider databaseProvider = new StandaloneDatabaseProvider(flutterState.applicationContext);
+
+  // An on-the-fly cache should evict media when reaching a maximum disk space limit.
+  Cache cache = getDownloadCache(flutterState.applicationContext, databaseProvider);
+
+  private final String DOWNLOAD_CONTENT_DIRECTORY = "streaming";
+  private Cache downloadCache = null;
 
   /** Register this with the v2 embedding for the plugin to respond to lifecycle callbacks. */
   public VideoPlayerPlugin() {}
@@ -142,7 +160,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
               "asset:///" + assetLookupKey,
               null,
               new HashMap<>(),
-              options);
+              options,
+                  cache
+                  );
     } else {
       Map<String, String> httpHeaders = arg.getHttpHeaders();
       player =
@@ -153,11 +173,24 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
               arg.getUri(),
               arg.getFormatHint(),
               httpHeaders,
-              options);
+              options,
+                  cache);
     }
     videoPlayers.put(handle.id(), player);
 
     return new TextureMessage.Builder().setTextureId(handle.id()).build();
+  }
+
+  private Cache getDownloadCache(Context context, DatabaseProvider databaseProvider) {
+    if (downloadCache == null) {
+      final File downloadContentDirectory = new File(
+              context.getExternalCacheDir(),
+              DOWNLOAD_CONTENT_DIRECTORY
+      );
+      downloadCache =
+              new SimpleCache(downloadContentDirectory, new LeastRecentlyUsedCacheEvictor(700000000), databaseProvider);
+    }
+    return downloadCache;
   }
 
   public void dispose(@NonNull TextureMessage arg) {

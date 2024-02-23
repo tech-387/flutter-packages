@@ -56,6 +56,15 @@ class MixWithOthersMessage {
   bool mixWithOthers;
 }
 
+class CacheOptionsMessage {
+  CacheOptionsMessage({
+    required this.cacheDirectory,
+    required this.maxCacheBytes,
+  });
+  final String cacheDirectory;
+  final int maxCacheBytes;
+}
+
 @HostApi(dartHostTestHandler: 'TestHostVideoPlayerApi')
 abstract class AndroidVideoPlayerApi {
   void initialize();

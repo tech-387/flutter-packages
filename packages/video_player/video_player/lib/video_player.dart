@@ -435,6 +435,10 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
           .setMixWithOthers(videoPlayerOptions!.mixWithOthers);
     }
 
+    await _videoPlayerPlatform.setCacheOptions(
+      videoPlayerOptions?.cacheOptions ?? const VideoPlayerCacheOptions(),
+    );
+
     _textureId = (await _videoPlayerPlatform.create(dataSourceDescription)) ??
         kUninitializedTextureId;
     _creatingCompleter!.complete(null);

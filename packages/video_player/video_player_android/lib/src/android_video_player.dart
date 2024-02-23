@@ -170,6 +170,12 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
         .setMixWithOthers(MixWithOthersMessage(mixWithOthers: mixWithOthers));
   }
 
+  @override
+  Future<void> setCacheOptions(VideoPlayerCacheOptions options) {
+    // TODO: implement setCacheOptions
+    return super.setCacheOptions(options);
+  }
+
   EventChannel _eventChannelFor(int textureId) {
     return EventChannel('flutter.io/videoPlayer/videoEvents$textureId');
   }

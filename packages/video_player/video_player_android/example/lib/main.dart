@@ -4,9 +4,13 @@
 
 // ignore_for_file: public_member_api_docs
 
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
+import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 import 'mini_controller.dart';
+import 'package:collection/collection.dart';
 
 void main() {
   runApp(
@@ -108,51 +112,62 @@ class _BumbleBeeRemoteVideo extends StatefulWidget {
 }
 
 class _BumbleBeeRemoteVideoState extends State<_BumbleBeeRemoteVideo> {
-  late MiniController _controller;
+
+  final List<MiniController> controllers = [
+    MiniController.network(
+    'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/75654d70-9d85-4f02-8a64-72043cc36010/75654d70-9d85-4f02-8a64-72043cc36010.m3u8',
+    ),
+    MiniController.network(
+    'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/156a998f-e4c6-4625-ac68-8fe53ad8744f/156a998f-e4c6-4625-ac68-8fe53ad8744f.m3u8',
+    ),
+    MiniController.network(
+    'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/bfb536ce-27bd-48e1-9fa1-9b9723bb01b0/bfb536ce-27bd-48e1-9fa1-9b9723bb01b0.m3u8',
+    ),
+    MiniController.network(
+    'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/42b041c4-c116-4f97-955f-3e47f329872f/42b041c4-c116-4f97-955f-3e47f329872f.m3u8',
+    ),
+    MiniController.network(
+    'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/cb420205-6ec8-4119-9346-465d84bed9ee/cb420205-6ec8-4119-9346-465d84bed9ee.m3u8',
+    ),
+  ];
 
   @override
   void initState() {
     super.initState();
-    _controller = MiniController.network(
-      'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
-    );
-
-    _controller.addListener(() {
-      setState(() {});
+    
+    controllers.take(3).forEachIndexed((index, controller) {
+      controller.addListener(() {     setState(() {}); });
+      controller.initialize().then((value) {
+        log("Controller $index initialized ✅");
+      });
     });
-    _controller.initialize();
+
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    controllers.forEach((controller) { controller.dispose();});
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        children: <Widget>[
-          Container(padding: const EdgeInsets.only(top: 20.0)),
-          const Text('With remote mp4'),
-          Container(
-            padding: const EdgeInsets.all(20),
-            child: AspectRatio(
-              aspectRatio: _controller.value.aspectRatio,
-              child: Stack(
-                alignment: Alignment.bottomCenter,
-                children: <Widget>[
-                  VideoPlayer(_controller),
-                  _ControlsOverlay(controller: _controller),
-                  VideoProgressIndicator(_controller),
-                ],
-              ),
-            ),
+    return PageView.builder(itemBuilder: (context, index) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        child: AspectRatio(
+          aspectRatio: controllers[index].value.aspectRatio,
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: <Widget>[
+              VideoPlayer(controllers[index]),
+              _ControlsOverlay(controller: controllers[index]),
+              VideoProgressIndicator(controllers[index]),
+            ],
           ),
-        ],
-      ),
-    );
+        ),
+      );
+    }, itemCount: controllers.length,);
   }
 }
 

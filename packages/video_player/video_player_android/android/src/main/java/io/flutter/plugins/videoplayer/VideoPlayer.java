@@ -26,6 +26,7 @@ import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.Player.Listener;
 import com.google.android.exoplayer2.analytics.DefaultAnalyticsCollector;
 import com.google.android.exoplayer2.audio.AudioAttributes;
+import com.google.android.exoplayer2.database.DatabaseProvider;
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory;
 import com.google.android.exoplayer2.source.DefaultMediaSourceFactory;
 import com.google.android.exoplayer2.source.MediaSource;
@@ -40,10 +41,25 @@ import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultDataSource;
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
+import com.google.android.exoplayer2.upstream.cache.Cache;
+import com.google.android.exoplayer2.upstream.cache.CacheDataSource;
 import com.google.android.exoplayer2.util.Clock;
 import com.google.android.exoplayer2.util.Util;
 import io.flutter.plugin.common.EventChannel;
 import io.flutter.view.TextureRegistry;
+import android.os.Bundle;
+import android.widget.PopupMenu;
+import com.google.android.exoplayer2.ExoPlayer;
+import com.google.android.exoplayer2.MediaItem;
+import com.google.android.exoplayer2.Player;
+import com.google.android.exoplayer2.database.StandaloneDatabaseProvider;
+import com.google.android.exoplayer2.source.hls.HlsMediaSource;
+import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection;
+import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
+import com.google.android.exoplayer2.upstream.*;
+import com.google.android.exoplayer2.upstream.cache.*;
+import com.google.android.exoplayer2.util.Util;
+import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -74,6 +90,11 @@ final class VideoPlayer {
 
   private DefaultHttpDataSource.Factory httpDataSourceFactory = new DefaultHttpDataSource.Factory();
 
+  private final String DOWNLOAD_CONTENT_DIRECTORY = "streaming";
+  private Cache downloadCache = null;
+
+  private static final DatabaseProvider databaseProvider = null;
+
   VideoPlayer(
       Context context,
       EventChannel eventChannel,
@@ -81,7 +102,9 @@ final class VideoPlayer {
       String dataSource,
       String formatHint,
       @NonNull Map<String, String> httpHeaders,
-      VideoPlayerOptions options) {
+      VideoPlayerOptions options,
+      Cache cache
+      ) {
     this.eventChannel = eventChannel;
     this.textureEntry = textureEntry;
     this.options = options;
@@ -101,15 +124,37 @@ final class VideoPlayer {
     Uri uri = Uri.parse(dataSource);
 
     buildHttpDataSourceFactory(httpHeaders);
-    DataSource.Factory dataSourceFactory =
-        new DefaultDataSource.Factory(context, httpDataSourceFactory);
 
-    MediaSource mediaSource = buildMediaSource(uri, dataSourceFactory, formatHint);
+    MediaSource mediaSource = buildMediaSource(uri, buildCacheDataSourceFactory(context, cache), formatHint);
 
     exoPlayer.setMediaSource(mediaSource);
     exoPlayer.prepare();
 
     setUpVideoPlayer(exoPlayer, new QueuingEventSink());
+  }
+
+  private DataSource.Factory buildCacheDataSourceFactory(Context context, Cache cache) {
+    final CacheDataSink.Factory cacheSink = new CacheDataSink.Factory()
+            .setCache(cache);
+    final DefaultDataSource.Factory upstreamFactory = new DefaultDataSource.Factory(context, new DefaultHttpDataSource.Factory());
+    return new CacheDataSource.Factory()
+            .setCache(cache)
+            .setCacheWriteDataSinkFactory(cacheSink)
+            .setCacheReadDataSourceFactory(new FileDataSource.Factory())
+            .setUpstreamDataSourceFactory(upstreamFactory)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR);
+  }
+
+  private Cache getDownloadCache(Context context, DatabaseProvider databaseProvider) {
+    if (downloadCache == null) {
+      final File downloadContentDirectory = new File(
+              context.getExternalCacheDir(),
+              DOWNLOAD_CONTENT_DIRECTORY
+      );
+      downloadCache =
+              new SimpleCache(downloadContentDirectory, new LeastRecentlyUsedCacheEvictor(700000000), databaseProvider);
+    }
+    return downloadCache;
   }
 
   // Constructor used to directly test members of this class.
