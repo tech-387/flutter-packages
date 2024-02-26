@@ -104,13 +104,13 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
   }
 
   /// Sets the cache configuration options.
-  Future<void> setCacheOptions(VideoPlayerCacheOptions options) {
-    throw UnimplementedError('setCacheOptions() has not been implemented.');
+  Future<void> setCacheOptions(VideoPlayerCacheOptions options) async {
+    // throw UnimplementedError('setCacheOptions() has not been implemented.');
   }
 
   /// Sets the video buffer options.
-  Future<void> setBufferOptions(VideoPlayerBufferOptions options) {
-    throw UnimplementedError('setBufferOptions() has not been implemented.');
+  Future<void> setBufferOptions(VideoPlayerBufferOptions options) async {
+    // throw UnimplementedError('setBufferOptions() has not been implemented.');
   }
 
   /// Sets additional options on web.
@@ -458,10 +458,10 @@ class VideoPlayerCacheOptions {
   final int maxFileBytes;
 }
 
-/// [VideoPlayerCacheOptions] can be optionally used to set cache settings.
+/// [VideoPlayerCacheOptions] can be optionally used to set the buffer settings.
 @immutable
 class VideoPlayerBufferOptions {
-  /// [VideoPlayerBufferOptions] can be optionally used to set cache settings.
+  /// [VideoPlayerBufferOptions] can be optionally used to set the buffer settings.
   const VideoPlayerBufferOptions({
     this.minBufferMs = 15000,
     this.maxBufferMs = 30000,

@@ -14,6 +14,8 @@
 #import "FVPDisplayLink.h"
 #import "messages.g.h"
 
+#import <KTVHTTPCache/KTVHTTPCache.h>
+
 #if !__has_feature(objc_arc)
 #error Code Requires ARC.
 #endif
@@ -271,6 +273,7 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
       NSLog(@"Setting interval to 2 seconds");
       NSTimeInterval interval = 2; // set to  0 for default duration.
       item.preferredForwardBufferDuration = interval;
+      item.canUseNetworkResourcesForLiveStreamingWhilePaused = NO;
       [self player].automaticallyWaitsToMinimizeStalling = NO;
   }
 
@@ -695,6 +698,7 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
                         registrar:(NSObject<FlutterPluginRegistrar> *)registrar {
   self = [super init];
   NSAssert(self, @"super init cannot be nil");
+   [KTVHTTPCache proxyStart:nil];
   _registry = [registrar textures];
   _messenger = [registrar messenger];
   _registrar = registrar;
@@ -770,12 +774,24 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
       return nil;
     }
   } else if (input.uri) {
-    player = [[FVPVideoPlayer alloc] initWithURL:[NSURL URLWithString:input.uri]
+    // [KTVHTTPCache cacheSetMaxCacheLength: input ];
+      
+    // Enable console output logs.
+    //[KTVHTTPCache logSetConsoleLogEnable:YES];
+      
+    NSURL *originalURL = [NSURL URLWithString:input.uri];
+    NSURL *proxyURL = [KTVHTTPCache proxyURLWithOriginalURL:originalURL];
+    [KTVHTTPCache downloadSetAdditionalHeaders:input.httpHeaders];
+    player = [[FVPVideoPlayer alloc] initWithURL:proxyURL
                                     frameUpdater:frameUpdater
                                      displayLink:displayLink
                                      httpHeaders:input.httpHeaders
                                        avFactory:_avFactory
                                        registrar:self.registrar];
+      
+    // Get error information for a specified URL.
+    NSError *error = [KTVHTTPCache logErrorForURL:proxyURL];
+      
     return [self onPlayerSetup:player frameUpdater:frameUpdater];
   } else {
     *error = [FlutterError errorWithCode:@"video_player" message:@"not implemented" details:nil];
