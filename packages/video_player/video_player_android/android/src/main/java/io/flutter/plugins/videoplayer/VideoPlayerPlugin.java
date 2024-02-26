@@ -45,13 +45,13 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   private final VideoPlayerOptions options = new VideoPlayerOptions();
 
   // Note: This should be a singleton in your app.
-  DatabaseProvider databaseProvider = new StandaloneDatabaseProvider(flutterState.applicationContext);
+  // DatabaseProvider databaseProvider = new StandaloneDatabaseProvider(flutterState.applicationContext);
 
   // An on-the-fly cache should evict media when reaching a maximum disk space limit.
-  Cache cache = getDownloadCache(flutterState.applicationContext, databaseProvider);
+  // Cache cache = getDownloadCache(flutterState.applicationContext, databaseProvider);
 
-  private final String DOWNLOAD_CONTENT_DIRECTORY = "streaming";
-  private Cache downloadCache = null;
+  // private final String DOWNLOAD_CONTENT_DIRECTORY = "streaming";
+  // private Cache downloadCache = null;
 
   /** Register this with the v2 embedding for the plugin to respond to lifecycle callbacks. */
   public VideoPlayerPlugin() {}
@@ -160,8 +160,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
               "asset:///" + assetLookupKey,
               null,
               new HashMap<>(),
-              options,
-                  cache
+              options
                   );
     } else {
       Map<String, String> httpHeaders = arg.getHttpHeaders();
@@ -173,8 +172,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
               arg.getUri(),
               arg.getFormatHint(),
               httpHeaders,
-              options,
-                  cache);
+              options);
     }
     videoPlayers.put(handle.id(), player);
 
@@ -182,7 +180,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   }
 
   private Cache getDownloadCache(Context context, DatabaseProvider databaseProvider) {
-    if (downloadCache == null) {
+    /* if (downloadCache == null) {
       final File downloadContentDirectory = new File(
               context.getExternalCacheDir(),
               DOWNLOAD_CONTENT_DIRECTORY
@@ -190,7 +188,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
       downloadCache =
               new SimpleCache(downloadContentDirectory, new LeastRecentlyUsedCacheEvictor(700000000), databaseProvider);
     }
-    return downloadCache;
+    return downloadCache; */
+    return null;
   }
 
   public void dispose(@NonNull TextureMessage arg) {
@@ -243,6 +242,21 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   @Override
   public void setMixWithOthers(@NonNull MixWithOthersMessage arg) {
     options.mixWithOthers = arg.getMixWithOthers();
+  }
+
+  @Override
+  public void setCacheOptions(Messages.CacheOptionsMessage msg) {
+    options.cacheDirectory = msg.getCacheDirectory();
+    options.maxCacheBytes = msg.getMaxCacheBytes();
+    options.maxFileBytes = msg.getMaxFileBytes();
+  }
+
+  @Override
+  public void setBufferOptions(Messages.BufferOptionsMessage msg) {
+    options.minBufferMs = msg.getMinBufferMs();
+    options.maxBufferMs = msg.getMaxBufferMs();
+    options.bufferForPlaybackMs = msg.getBufferForPlaybackMs();
+    options.bufferForPlaybackAfterRebufferMs = msg.getBufferForPlaybackAfterRebufferMs();
   }
 
   private interface KeyForAssetFn {

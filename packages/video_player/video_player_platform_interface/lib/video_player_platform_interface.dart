@@ -98,17 +98,22 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
     throw UnimplementedError('buildView() has not been implemented.');
   }
 
-  /// Sets the audio mode to mix with other sources
+  /// Sets the audio mode to mix with other sources.
   Future<void> setMixWithOthers(bool mixWithOthers) {
     throw UnimplementedError('setMixWithOthers() has not been implemented.');
   }
 
-  /// Sets the audio mode to mix with other sources
+  /// Sets the cache configuration options.
   Future<void> setCacheOptions(VideoPlayerCacheOptions options) {
     throw UnimplementedError('setCacheOptions() has not been implemented.');
   }
 
-  /// Sets additional options on web
+  /// Sets the video buffer options.
+  Future<void> setBufferOptions(VideoPlayerBufferOptions options) {
+    throw UnimplementedError('setBufferOptions() has not been implemented.');
+  }
+
+  /// Sets additional options on web.
   Future<void> setWebOptions(int textureId, VideoPlayerWebOptions options) {
     throw UnimplementedError('setWebOptions() has not been implemented.');
   }
@@ -385,6 +390,7 @@ class VideoPlayerOptions {
     this.allowBackgroundPlayback = false,
     this.webOptions,
     this.cacheOptions,
+    this.bufferOptions,
   });
 
   /// Set this to true to keep playing video in background, when app goes in background.
@@ -403,6 +409,9 @@ class VideoPlayerOptions {
 
   /// Additional cache options.
   final VideoPlayerCacheOptions? cacheOptions;
+
+  /// Additional buffer options.
+  final VideoPlayerBufferOptions? bufferOptions;
 }
 
 /// [VideoPlayerWebOptions] can be optionally used to set additional web settings
@@ -431,17 +440,51 @@ class VideoPlayerCacheOptions {
   /// [VideoPlayerCacheOptions] can be optionally used to set cache settings.
   const VideoPlayerCacheOptions({
     this.cacheDirectory = 'streaming',
-    this.maxCacheBytes = 700000000,
+    this.maxCacheBytes = 1024 * 1024 * 1024,
+    this.maxFileBytes = 1024 * 1024 * 100,
   });
 
   /// Directory in which player will cache media items.
   /// Defaults to `streaming`.
   final String cacheDirectory;
 
-  /// The maximum bytes to store in cache.
-  /// It exceeded older items will be evicted from cache.
-  /// Defaults to `700000000` bytes, or `700` MB.
+  /// The maximum bytes to store in cache (maximum cache size).
+  /// If exceeded older items will be evicted from cache.
+  /// Defaults to `1024 * 1024 * 1024` bytes, or `1` GB.
   final int maxCacheBytes;
+
+  /// The maximum bytes to store in cache for a single file (maximum file size).
+  /// Defaults to `1024 * 1024 * 100L;` bytes, or `100` MB.
+  final int maxFileBytes;
+}
+
+/// [VideoPlayerCacheOptions] can be optionally used to set cache settings.
+@immutable
+class VideoPlayerBufferOptions {
+  /// [VideoPlayerBufferOptions] can be optionally used to set cache settings.
+  const VideoPlayerBufferOptions({
+    this.minBufferMs = 15000,
+    this.maxBufferMs = 30000,
+    this.bufferForPlaybackMs = 2000,
+    this.bufferForPlaybackAfterRebufferMs = 2000,
+  });
+
+  /// The minimum duration of media that the player will attempt to ensure is buffered at all times, in milliseconds.
+  /// Only on Android.
+  final int minBufferMs;
+
+  /// The maximum duration of media that the player will attempt to buffer, in milliseconds.
+  /// Only on Android.
+  final int maxBufferMs;
+
+  /// The duration of media that must be buffered for playback to start or resume following a user action such as a seek, in milliseconds.
+  /// Only on Android.
+  final int bufferForPlaybackMs;
+
+  /// The default duration of media that must be buffered for playback to resume after a rebuffer, in milliseconds.
+  /// A rebuffer is defined to be caused by buffer depletion rather than a user action.
+  /// Only on Android.
+  final int bufferForPlaybackAfterRebufferMs;
 }
 
 /// [VideoPlayerWebOptions] can be used to set how control options are displayed

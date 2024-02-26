@@ -172,8 +172,26 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
 
   @override
   Future<void> setCacheOptions(VideoPlayerCacheOptions options) {
-    // TODO: implement setCacheOptions
-    return super.setCacheOptions(options);
+    return _api.setCacheOptions(
+      CacheOptionsMessage(
+        cacheDirectory: options.cacheDirectory,
+        maxCacheBytes: options.maxCacheBytes,
+        maxFileBytes: options.maxFileBytes,
+      ),
+    );
+  }
+
+  @override
+  Future<void> setBufferOptions(VideoPlayerBufferOptions options) {
+    return _api.setBufferOptions(
+      BufferOptionsMessage(
+        minBufferMs: options.minBufferMs,
+        maxBufferMs: options.maxBufferMs,
+        bufferForPlaybackMs: options.bufferForPlaybackMs,
+        bufferForPlaybackAfterRebufferMs:
+            options.bufferForPlaybackAfterRebufferMs,
+      ),
+    );
   }
 
   EventChannel _eventChannelFor(int textureId) {

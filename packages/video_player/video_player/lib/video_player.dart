@@ -14,7 +14,13 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 import 'src/closed_caption_file.dart';
 
 export 'package:video_player_platform_interface/video_player_platform_interface.dart'
-    show DurationRange, DataSourceType, VideoFormat, VideoPlayerOptions;
+    show
+        DurationRange,
+        DataSourceType,
+        VideoFormat,
+        VideoPlayerOptions,
+        VideoPlayerCacheOptions,
+        VideoPlayerBufferOptions;
 
 export 'src/closed_caption_file.dart';
 
@@ -437,6 +443,10 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
 
     await _videoPlayerPlatform.setCacheOptions(
       videoPlayerOptions?.cacheOptions ?? const VideoPlayerCacheOptions(),
+    );
+
+    await _videoPlayerPlatform.setBufferOptions(
+      videoPlayerOptions?.bufferOptions ?? const VideoPlayerBufferOptions(),
     );
 
     _textureId = (await _videoPlayerPlatform.create(dataSourceDescription)) ??

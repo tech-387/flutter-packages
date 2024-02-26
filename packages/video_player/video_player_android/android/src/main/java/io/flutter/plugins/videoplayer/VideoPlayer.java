@@ -102,16 +102,19 @@ final class VideoPlayer {
       String dataSource,
       String formatHint,
       @NonNull Map<String, String> httpHeaders,
-      VideoPlayerOptions options,
-      Cache cache
+      VideoPlayerOptions options
       ) {
     this.eventChannel = eventChannel;
     this.textureEntry = textureEntry;
     this.options = options;
 
+    Log.i("Buffer", "minBufferMs="+options.minBufferMs + ",maxBufferMs="+options.maxBufferMs + ",bufferForPlaybackMs="+options.bufferForPlaybackMs + ",bufferForPlaybackAfterRebufferMs=" + options.bufferForPlaybackAfterRebufferMs);
+
     LoadControl loadControl = new DefaultLoadControl.Builder().setBufferDurationsMs(
-            1900, 2000, 1500, 1500
+            Math.toIntExact(options.minBufferMs), Math.toIntExact(options.maxBufferMs), Math.toIntExact(options.bufferForPlaybackMs), Math.toIntExact(options.bufferForPlaybackAfterRebufferMs)
     ).build();
+
+    Log.i("Cache", "cacheDirectory="+options.cacheDirectory + ",maxCacheBytes="+options.maxCacheBytes + ",maxFileBytes="+options.maxFileBytes);
 
     ExoPlayer exoPlayer = new ExoPlayer.Builder(context,
             new DefaultRenderersFactory(context),
@@ -125,12 +128,37 @@ final class VideoPlayer {
 
     buildHttpDataSourceFactory(httpHeaders);
 
-    MediaSource mediaSource = buildMediaSource(uri, buildCacheDataSourceFactory(context, cache), formatHint);
+    DataSource.Factory dataSourceFactory;
+    if (isHTTP(uri)) {
+      CacheDataSourceFactory cacheDataSourceFactory =
+              new CacheDataSourceFactory(
+                      context,
+                      options.maxCacheBytes,
+                      options.maxFileBytes , options.cacheDirectory);
+      if (httpHeaders != null && !httpHeaders.isEmpty()) {
+        cacheDataSourceFactory.setHeaders(httpHeaders);
+      }
+      dataSourceFactory = cacheDataSourceFactory;
+    } else {
+      dataSourceFactory = new DefaultDataSource.Factory(context);
+    }
+
+    // MediaSource mediaSource = buildMediaSource(uri, buildCacheDataSourceFactory(context, cache), formatHint);
+    MediaSource mediaSource = buildMediaSource(uri, dataSourceFactory, formatHint);
 
     exoPlayer.setMediaSource(mediaSource);
     exoPlayer.prepare();
 
     setUpVideoPlayer(exoPlayer, new QueuingEventSink());
+  }
+
+
+  private static boolean isHTTP(Uri uri) {
+    if (uri == null || uri.getScheme() == null) {
+      return false;
+    }
+    String scheme = uri.getScheme();
+    return scheme.equals("http") || scheme.equals("https");
   }
 
   private DataSource.Factory buildCacheDataSourceFactory(Context context, Cache cache) {
@@ -146,7 +174,7 @@ final class VideoPlayer {
   }
 
   private Cache getDownloadCache(Context context, DatabaseProvider databaseProvider) {
-    if (downloadCache == null) {
+    /* if (downloadCache == null) {
       final File downloadContentDirectory = new File(
               context.getExternalCacheDir(),
               DOWNLOAD_CONTENT_DIRECTORY
@@ -154,7 +182,8 @@ final class VideoPlayer {
       downloadCache =
               new SimpleCache(downloadContentDirectory, new LeastRecentlyUsedCacheEvictor(700000000), databaseProvider);
     }
-    return downloadCache;
+    return downloadCache; */
+    return null;
   }
 
   // Constructor used to directly test members of this class.

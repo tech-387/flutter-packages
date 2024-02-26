@@ -60,9 +60,24 @@ class CacheOptionsMessage {
   CacheOptionsMessage({
     required this.cacheDirectory,
     required this.maxCacheBytes,
+    required this.maxFileBytes,
   });
   final String cacheDirectory;
   final int maxCacheBytes;
+  final int maxFileBytes;
+}
+
+class BufferOptionsMessage {
+  BufferOptionsMessage({
+    required this.minBufferMs,
+    required this.maxBufferMs,
+    required this.bufferForPlaybackMs,
+    required this.bufferForPlaybackAfterRebufferMs,
+  });
+  final int minBufferMs;
+  final int maxBufferMs;
+  final int bufferForPlaybackMs;
+  final int bufferForPlaybackAfterRebufferMs;
 }
 
 @HostApi(dartHostTestHandler: 'TestHostVideoPlayerApi')
@@ -78,4 +93,6 @@ abstract class AndroidVideoPlayerApi {
   void seekTo(PositionMessage msg);
   void pause(TextureMessage msg);
   void setMixWithOthers(MixWithOthersMessage msg);
+  void setCacheOptions(CacheOptionsMessage msg);
+  void setBufferOptions(BufferOptionsMessage msg);
 }
