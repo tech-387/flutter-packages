@@ -31,7 +31,8 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
-  Future<int?> create(DataSource dataSource) async {
+  Future<int?> create(VideoPlayerBufferOptions videoPlayerBufferOptions,
+      DataSource dataSource) async {
     String? asset;
     String? packageName;
     String? uri;
@@ -60,6 +61,15 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
       uri: uri,
       httpHeaders: httpHeaders,
       formatHint: formatHint,
+      bufferOptions: BufferOptionsMessage(
+        preferredForwardBufferDuration:
+            videoPlayerBufferOptions.preferredForwardBufferDuration,
+        canUseNetworkResourcesForLiveStreamingWhilePaused:
+            videoPlayerBufferOptions
+                .canUseNetworkResourcesForLiveStreamingWhilePaused,
+        automaticallyWaitsToMinimizeStalling:
+            videoPlayerBufferOptions.automaticallyWaitsToMinimizeStalling,
+      ),
     );
 
     final TextureMessage response = await _api.create(message);
@@ -166,6 +176,18 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
   Future<void> setMixWithOthers(bool mixWithOthers) {
     return _api
         .setMixWithOthers(MixWithOthersMessage(mixWithOthers: mixWithOthers));
+  }
+
+  @override
+  Future<void> setCacheOptions(VideoPlayerCacheOptions options) {
+    return _api.setCacheOptions(
+      CacheOptionsMessage(
+        enableCache: options.enableCache,
+        cacheDirectory: options.cacheDirectory,
+        maxCacheBytes: options.maxCacheBytes,
+        maxFileBytes: options.maxFileBytes,
+      ),
+    );
   }
 
   EventChannel _eventChannelFor(int textureId) {

@@ -448,6 +448,7 @@ class VideoPlayerCacheOptions {
 
   /// Directory in which player will cache media items.
   /// Defaults to `streaming`.
+  /// Only on Android.
   final String cacheDirectory;
 
   /// The maximum bytes to store in cache (maximum cache size).
@@ -457,6 +458,7 @@ class VideoPlayerCacheOptions {
 
   /// The maximum bytes to store in cache for a single file (maximum file size).
   /// Defaults to `1024 * 1024 * 100L;` bytes, or `100` MB.
+  /// Only on Android.
   final int maxFileBytes;
 }
 

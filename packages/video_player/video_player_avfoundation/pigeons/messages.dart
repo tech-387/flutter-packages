@@ -50,11 +50,36 @@ class CreateMessage {
   String? packageName;
   String? formatHint;
   Map<String?, String?> httpHeaders;
+  BufferOptionsMessage? bufferOptions;
 }
 
 class MixWithOthersMessage {
   MixWithOthersMessage(this.mixWithOthers);
   bool mixWithOthers;
+}
+
+class CacheOptionsMessage {
+  CacheOptionsMessage({
+    required this.enableCache,
+    required this.cacheDirectory,
+    required this.maxCacheBytes,
+    required this.maxFileBytes,
+  });
+  final bool enableCache;
+  final String cacheDirectory;
+  final int maxCacheBytes;
+  final int maxFileBytes;
+}
+
+class BufferOptionsMessage {
+  BufferOptionsMessage({
+    required this.preferredForwardBufferDuration,
+    required this.canUseNetworkResourcesForLiveStreamingWhilePaused,
+    required this.automaticallyWaitsToMinimizeStalling,
+  });
+  final int preferredForwardBufferDuration;
+  final bool canUseNetworkResourcesForLiveStreamingWhilePaused;
+  final bool automaticallyWaitsToMinimizeStalling;
 }
 
 @HostApi(dartHostTestHandler: 'TestHostVideoPlayerApi')
@@ -82,4 +107,6 @@ abstract class AVFoundationVideoPlayerApi {
   void pause(TextureMessage msg);
   @ObjCSelector('setMixWithOthers:')
   void setMixWithOthers(MixWithOthersMessage msg);
+  @ObjCSelector('setCacheOptions:')
+  void setCacheOptions(CacheOptionsMessage msg);
 }
