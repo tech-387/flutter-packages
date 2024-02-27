@@ -49,6 +49,7 @@ class CreateMessage {
   String? packageName;
   String? formatHint;
   Map<String?, String?> httpHeaders;
+  BufferOptionsMessage? bufferOptions;
 }
 
 class MixWithOthersMessage {
@@ -58,10 +59,12 @@ class MixWithOthersMessage {
 
 class CacheOptionsMessage {
   CacheOptionsMessage({
+    required this.enableCache,
     required this.cacheDirectory,
     required this.maxCacheBytes,
     required this.maxFileBytes,
   });
+  final bool enableCache;
   final String cacheDirectory;
   final int maxCacheBytes;
   final int maxFileBytes;
@@ -94,5 +97,4 @@ abstract class AndroidVideoPlayerApi {
   void pause(TextureMessage msg);
   void setMixWithOthers(MixWithOthersMessage msg);
   void setCacheOptions(CacheOptionsMessage msg);
-  void setBufferOptions(BufferOptionsMessage msg);
 }

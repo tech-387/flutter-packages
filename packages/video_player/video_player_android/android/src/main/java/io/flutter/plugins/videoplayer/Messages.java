@@ -456,6 +456,16 @@ public class Messages {
       this.httpHeaders = setterArg;
     }
 
+    private @Nullable BufferOptionsMessage bufferOptions;
+
+    public @Nullable BufferOptionsMessage getBufferOptions() {
+      return bufferOptions;
+    }
+
+    public void setBufferOptions(@Nullable BufferOptionsMessage setterArg) {
+      this.bufferOptions = setterArg;
+    }
+
     /** Constructor is non-public to enforce null safety; use Builder. */
     CreateMessage() {}
 
@@ -496,6 +506,13 @@ public class Messages {
         return this;
       }
 
+      private @Nullable BufferOptionsMessage bufferOptions;
+
+      public @NonNull Builder setBufferOptions(@Nullable BufferOptionsMessage setterArg) {
+        this.bufferOptions = setterArg;
+        return this;
+      }
+
       public @NonNull CreateMessage build() {
         CreateMessage pigeonReturn = new CreateMessage();
         pigeonReturn.setAsset(asset);
@@ -503,18 +520,20 @@ public class Messages {
         pigeonReturn.setPackageName(packageName);
         pigeonReturn.setFormatHint(formatHint);
         pigeonReturn.setHttpHeaders(httpHeaders);
+        pigeonReturn.setBufferOptions(bufferOptions);
         return pigeonReturn;
       }
     }
 
     @NonNull
     ArrayList<Object> toList() {
-      ArrayList<Object> toListResult = new ArrayList<Object>(5);
+      ArrayList<Object> toListResult = new ArrayList<Object>(6);
       toListResult.add(asset);
       toListResult.add(uri);
       toListResult.add(packageName);
       toListResult.add(formatHint);
       toListResult.add(httpHeaders);
+      toListResult.add((bufferOptions == null) ? null : bufferOptions.toList());
       return toListResult;
     }
 
@@ -530,6 +549,8 @@ public class Messages {
       pigeonResult.setFormatHint((String) formatHint);
       Object httpHeaders = list.get(4);
       pigeonResult.setHttpHeaders((Map<String, String>) httpHeaders);
+      Object bufferOptions = list.get(5);
+      pigeonResult.setBufferOptions((bufferOptions == null) ? null : BufferOptionsMessage.fromList((ArrayList<Object>) bufferOptions));
       return pigeonResult;
     }
   }
@@ -585,6 +606,19 @@ public class Messages {
 
   /** Generated class from Pigeon that represents data sent in messages. */
   public static final class CacheOptionsMessage {
+    private @NonNull Boolean enableCache;
+
+    public @NonNull Boolean getEnableCache() {
+      return enableCache;
+    }
+
+    public void setEnableCache(@NonNull Boolean setterArg) {
+      if (setterArg == null) {
+        throw new IllegalStateException("Nonnull field \"enableCache\" is null.");
+      }
+      this.enableCache = setterArg;
+    }
+
     private @NonNull String cacheDirectory;
 
     public @NonNull String getCacheDirectory() {
@@ -629,6 +663,13 @@ public class Messages {
 
     public static final class Builder {
 
+      private @Nullable Boolean enableCache;
+
+      public @NonNull Builder setEnableCache(@NonNull Boolean setterArg) {
+        this.enableCache = setterArg;
+        return this;
+      }
+
       private @Nullable String cacheDirectory;
 
       public @NonNull Builder setCacheDirectory(@NonNull String setterArg) {
@@ -652,6 +693,7 @@ public class Messages {
 
       public @NonNull CacheOptionsMessage build() {
         CacheOptionsMessage pigeonReturn = new CacheOptionsMessage();
+        pigeonReturn.setEnableCache(enableCache);
         pigeonReturn.setCacheDirectory(cacheDirectory);
         pigeonReturn.setMaxCacheBytes(maxCacheBytes);
         pigeonReturn.setMaxFileBytes(maxFileBytes);
@@ -661,7 +703,8 @@ public class Messages {
 
     @NonNull
     ArrayList<Object> toList() {
-      ArrayList<Object> toListResult = new ArrayList<Object>(3);
+      ArrayList<Object> toListResult = new ArrayList<Object>(4);
+      toListResult.add(enableCache);
       toListResult.add(cacheDirectory);
       toListResult.add(maxCacheBytes);
       toListResult.add(maxFileBytes);
@@ -670,11 +713,13 @@ public class Messages {
 
     static @NonNull CacheOptionsMessage fromList(@NonNull ArrayList<Object> list) {
       CacheOptionsMessage pigeonResult = new CacheOptionsMessage();
-      Object cacheDirectory = list.get(0);
+      Object enableCache = list.get(0);
+      pigeonResult.setEnableCache((Boolean) enableCache);
+      Object cacheDirectory = list.get(1);
       pigeonResult.setCacheDirectory((String) cacheDirectory);
-      Object maxCacheBytes = list.get(1);
+      Object maxCacheBytes = list.get(2);
       pigeonResult.setMaxCacheBytes((maxCacheBytes == null) ? null : ((maxCacheBytes instanceof Integer) ? (Integer) maxCacheBytes : (Long) maxCacheBytes));
-      Object maxFileBytes = list.get(2);
+      Object maxFileBytes = list.get(3);
       pigeonResult.setMaxFileBytes((maxFileBytes == null) ? null : ((maxFileBytes instanceof Integer) ? (Integer) maxFileBytes : (Long) maxFileBytes));
       return pigeonResult;
     }
@@ -895,8 +940,6 @@ public class Messages {
     void setMixWithOthers(@NonNull MixWithOthersMessage msg);
 
     void setCacheOptions(@NonNull CacheOptionsMessage msg);
-
-    void setBufferOptions(@NonNull BufferOptionsMessage msg);
 
     /** The codec used by AndroidVideoPlayerApi. */
     static @NonNull MessageCodec<Object> getCodec() {
@@ -1178,30 +1221,6 @@ public class Messages {
                 CacheOptionsMessage msgArg = (CacheOptionsMessage) args.get(0);
                 try {
                   api.setCacheOptions(msgArg);
-                  wrapped.add(0, null);
-                }
- catch (Throwable exception) {
-                  ArrayList<Object> wrappedError = wrapError(exception);
-                  wrapped = wrappedError;
-                }
-                reply.reply(wrapped);
-              });
-        } else {
-          channel.setMessageHandler(null);
-        }
-      }
-      {
-        BasicMessageChannel<Object> channel =
-            new BasicMessageChannel<>(
-                binaryMessenger, "dev.flutter.pigeon.AndroidVideoPlayerApi.setBufferOptions", getCodec());
-        if (api != null) {
-          channel.setMessageHandler(
-              (message, reply) -> {
-                ArrayList<Object> wrapped = new ArrayList<Object>();
-                ArrayList<Object> args = (ArrayList<Object>) message;
-                BufferOptionsMessage msgArg = (BufferOptionsMessage) args.get(0);
-                try {
-                  api.setBufferOptions(msgArg);
                   wrapped.add(0, null);
                 }
  catch (Throwable exception) {

@@ -49,7 +49,10 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
   }
 
   /// Creates an instance of a video player and returns its textureId.
-  Future<int?> create(DataSource dataSource) {
+  Future<int?> create(
+    VideoPlayerBufferOptions videoPlayerBufferOptions,
+    DataSource dataSource,
+  ) {
     throw UnimplementedError('create() has not been implemented.');
   }
 
@@ -105,12 +108,7 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
 
   /// Sets the cache configuration options.
   Future<void> setCacheOptions(VideoPlayerCacheOptions options) async {
-    // throw UnimplementedError('setCacheOptions() has not been implemented.');
-  }
-
-  /// Sets the video buffer options.
-  Future<void> setBufferOptions(VideoPlayerBufferOptions options) async {
-    // throw UnimplementedError('setBufferOptions() has not been implemented.');
+    throw UnimplementedError('setCacheOptions() has not been implemented.');
   }
 
   /// Sets additional options on web.
@@ -439,10 +437,14 @@ class VideoPlayerWebOptions {
 class VideoPlayerCacheOptions {
   /// [VideoPlayerCacheOptions] can be optionally used to set cache settings.
   const VideoPlayerCacheOptions({
+    this.enableCache = false,
     this.cacheDirectory = 'streaming',
     this.maxCacheBytes = 1024 * 1024 * 1024,
     this.maxFileBytes = 1024 * 1024 * 100,
   });
+
+  /// Whether to enable video caching functionality.
+  final bool enableCache;
 
   /// Directory in which player will cache media items.
   /// Defaults to `streaming`.
@@ -467,6 +469,9 @@ class VideoPlayerBufferOptions {
     this.maxBufferMs = 30000,
     this.bufferForPlaybackMs = 2000,
     this.bufferForPlaybackAfterRebufferMs = 2000,
+    this.preferredForwardBufferDuration = 6,
+    this.canUseNetworkResourcesForLiveStreamingWhilePaused = false,
+    this.automaticallyWaitsToMinimizeStalling = false,
   });
 
   /// The minimum duration of media that the player will attempt to ensure is buffered at all times, in milliseconds.
@@ -485,6 +490,23 @@ class VideoPlayerBufferOptions {
   /// A rebuffer is defined to be caused by buffer depletion rather than a user action.
   /// Only on Android.
   final int bufferForPlaybackAfterRebufferMs;
+
+  /// Indicates the media duration the caller prefers the player to buffer from the network ahead of the playhead to guard against playback disruption.
+  /// The value is in seconds. If it is set to 0, the player will choose an appropriate level of buffering for most use cases.
+  /// Note that setting this property to a low value will increase the chance that playback will stall and re-buffer, while setting it to a high value will increase demand on system resources.
+  /// Note that the system may buffer less than the value of this property in order to manage resource consumption.
+  /// Only on iOS.
+  final int preferredForwardBufferDuration;
+
+  /// Indicates whether the player item can use network resources to keep playback state up to date while paused.
+  /// For live streaming content, the player item may need to use extra networking and power resources to keep playback state up to date when paused.
+  /// For example, when this property is set to YES, the seekableTimeRanges property will be periodically updated to reflect the current state of the live stream.
+  /// Only on iOS.
+  final bool canUseNetworkResourcesForLiveStreamingWhilePaused;
+
+  /// Indicates that the player is allowed to delay playback at the specified rate in order to minimize stalling.
+  /// Only on iOS.
+  final bool automaticallyWaitsToMinimizeStalling;
 }
 
 /// [VideoPlayerWebOptions] can be used to set how control options are displayed

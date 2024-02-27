@@ -102,19 +102,20 @@ final class VideoPlayer {
       String dataSource,
       String formatHint,
       @NonNull Map<String, String> httpHeaders,
-      VideoPlayerOptions options
+      VideoPlayerOptions options,
+      VideoPlayerBufferOptions bufferOptions
       ) {
     this.eventChannel = eventChannel;
     this.textureEntry = textureEntry;
     this.options = options;
 
-    Log.i("Buffer", "minBufferMs="+options.minBufferMs + ",maxBufferMs="+options.maxBufferMs + ",bufferForPlaybackMs="+options.bufferForPlaybackMs + ",bufferForPlaybackAfterRebufferMs=" + options.bufferForPlaybackAfterRebufferMs);
+    Log.i("Buffer", "minBufferMs="+bufferOptions.minBufferMs + ",maxBufferMs="+bufferOptions.maxBufferMs + ",bufferForPlaybackMs="+bufferOptions.bufferForPlaybackMs + ",bufferForPlaybackAfterRebufferMs=" + bufferOptions.bufferForPlaybackAfterRebufferMs);
 
     LoadControl loadControl = new DefaultLoadControl.Builder().setBufferDurationsMs(
-            Math.toIntExact(options.minBufferMs), Math.toIntExact(options.maxBufferMs), Math.toIntExact(options.bufferForPlaybackMs), Math.toIntExact(options.bufferForPlaybackAfterRebufferMs)
+            Math.toIntExact(bufferOptions.minBufferMs), Math.toIntExact(bufferOptions.maxBufferMs), Math.toIntExact(bufferOptions.bufferForPlaybackMs), Math.toIntExact(bufferOptions.bufferForPlaybackAfterRebufferMs)
     ).build();
 
-    Log.i("Cache", "cacheDirectory="+options.cacheDirectory + ",maxCacheBytes="+options.maxCacheBytes + ",maxFileBytes="+options.maxFileBytes);
+    Log.i("Cache", "enableCache="+options.enableCache+ ",cacheDirectory="+options.cacheDirectory + ",maxCacheBytes="+options.maxCacheBytes + ",maxFileBytes="+options.maxFileBytes);
 
     ExoPlayer exoPlayer = new ExoPlayer.Builder(context,
             new DefaultRenderersFactory(context),
@@ -129,7 +130,7 @@ final class VideoPlayer {
     buildHttpDataSourceFactory(httpHeaders);
 
     DataSource.Factory dataSourceFactory;
-    if (isHTTP(uri)) {
+    if (isHTTP(uri) && options.enableCache) {
       CacheDataSourceFactory cacheDataSourceFactory =
               new CacheDataSourceFactory(
                       context,

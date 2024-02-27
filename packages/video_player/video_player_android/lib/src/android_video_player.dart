@@ -31,7 +31,8 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
-  Future<int?> create(DataSource dataSource) async {
+  Future<int?> create(VideoPlayerBufferOptions videoPlayerBufferOptions,
+      DataSource dataSource) async {
     String? asset;
     String? packageName;
     String? uri;
@@ -61,6 +62,13 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
       uri: uri,
       httpHeaders: httpHeaders,
       formatHint: formatHint,
+      bufferOptions: BufferOptionsMessage(
+        minBufferMs: videoPlayerBufferOptions.minBufferMs,
+        maxBufferMs: videoPlayerBufferOptions.maxBufferMs,
+        bufferForPlaybackMs: videoPlayerBufferOptions.bufferForPlaybackMs,
+        bufferForPlaybackAfterRebufferMs:
+            videoPlayerBufferOptions.bufferForPlaybackAfterRebufferMs,
+      ),
     );
 
     final TextureMessage response = await _api.create(message);
@@ -166,30 +174,19 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
 
   @override
   Future<void> setMixWithOthers(bool mixWithOthers) {
-    return _api
-        .setMixWithOthers(MixWithOthersMessage(mixWithOthers: mixWithOthers));
+    return _api.setMixWithOthers(MixWithOthersMessage(
+      mixWithOthers: mixWithOthers,
+    ));
   }
 
   @override
   Future<void> setCacheOptions(VideoPlayerCacheOptions options) {
     return _api.setCacheOptions(
       CacheOptionsMessage(
+        enableCache: options.enableCache,
         cacheDirectory: options.cacheDirectory,
         maxCacheBytes: options.maxCacheBytes,
         maxFileBytes: options.maxFileBytes,
-      ),
-    );
-  }
-
-  @override
-  Future<void> setBufferOptions(VideoPlayerBufferOptions options) {
-    return _api.setBufferOptions(
-      BufferOptionsMessage(
-        minBufferMs: options.minBufferMs,
-        maxBufferMs: options.maxBufferMs,
-        bufferForPlaybackMs: options.bufferForPlaybackMs,
-        bufferForPlaybackAfterRebufferMs:
-            options.bufferForPlaybackAfterRebufferMs,
       ),
     );
   }

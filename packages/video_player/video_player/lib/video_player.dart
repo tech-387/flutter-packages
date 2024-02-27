@@ -437,20 +437,21 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     }
 
     if (videoPlayerOptions?.mixWithOthers != null) {
-      await _videoPlayerPlatform
-          .setMixWithOthers(videoPlayerOptions!.mixWithOthers);
+      await _videoPlayerPlatform.setMixWithOthers(
+        videoPlayerOptions!.mixWithOthers,
+      );
     }
 
     await _videoPlayerPlatform.setCacheOptions(
       videoPlayerOptions?.cacheOptions ?? const VideoPlayerCacheOptions(),
     );
 
-    await _videoPlayerPlatform.setBufferOptions(
-      videoPlayerOptions?.bufferOptions ?? const VideoPlayerBufferOptions(),
-    );
-
-    _textureId = (await _videoPlayerPlatform.create(dataSourceDescription)) ??
+    _textureId = (await _videoPlayerPlatform.create(
+            videoPlayerOptions?.bufferOptions ??
+                const VideoPlayerBufferOptions(),
+            dataSourceDescription)) ??
         kUninitializedTextureId;
+
     _creatingCompleter!.complete(null);
     final Completer<void> initializingCompleter = Completer<void>();
 
@@ -910,7 +911,7 @@ class VideoProgressColors {
   /// size of the video compared to either of those values.
   const VideoProgressColors({
     this.playedColor = const Color.fromRGBO(255, 0, 0, 0.7),
-    this.bufferedColor = const Color.fromRGBO(50, 50, 200, 0.2),
+    this.bufferedColor = const Color.fromRGBO(52, 76, 235, 1),
     this.backgroundColor = const Color.fromRGBO(200, 200, 200, 0.5),
   });
 

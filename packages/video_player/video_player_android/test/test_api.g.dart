@@ -104,8 +104,6 @@ abstract class TestHostVideoPlayerApi {
 
   void setCacheOptions(CacheOptionsMessage msg);
 
-  void setBufferOptions(BufferOptionsMessage msg);
-
   static void setup(TestHostVideoPlayerApi? api, {BinaryMessenger? binaryMessenger}) {
     {
       final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
@@ -326,25 +324,6 @@ abstract class TestHostVideoPlayerApi {
           assert(arg_msg != null,
               'Argument for dev.flutter.pigeon.AndroidVideoPlayerApi.setCacheOptions was null, expected non-null CacheOptionsMessage.');
           api.setCacheOptions(arg_msg!);
-          return <Object?>[];
-        });
-      }
-    }
-    {
-      final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
-          'dev.flutter.pigeon.AndroidVideoPlayerApi.setBufferOptions', codec,
-          binaryMessenger: binaryMessenger);
-      if (api == null) {
-        _testBinaryMessengerBinding!.defaultBinaryMessenger.setMockDecodedMessageHandler<Object?>(channel, null);
-      } else {
-        _testBinaryMessengerBinding!.defaultBinaryMessenger.setMockDecodedMessageHandler<Object?>(channel, (Object? message) async {
-          assert(message != null,
-          'Argument for dev.flutter.pigeon.AndroidVideoPlayerApi.setBufferOptions was null.');
-          final List<Object?> args = (message as List<Object?>?)!;
-          final BufferOptionsMessage? arg_msg = (args[0] as BufferOptionsMessage?);
-          assert(arg_msg != null,
-              'Argument for dev.flutter.pigeon.AndroidVideoPlayerApi.setBufferOptions was null, expected non-null BufferOptionsMessage.');
-          api.setBufferOptions(arg_msg!);
           return <Object?>[];
         });
       }

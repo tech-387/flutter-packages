@@ -6,6 +6,7 @@ package io.flutter.plugins.videoplayer;
 
 import android.content.Context;
 import android.os.Build;
+import android.util.Log;
 import android.util.LongSparseArray;
 import androidx.annotation.NonNull;
 
@@ -16,7 +17,6 @@ import com.google.android.exoplayer2.upstream.cache.LeastRecentlyUsedCacheEvicto
 import com.google.android.exoplayer2.upstream.cache.SimpleCache;
 
 import io.flutter.FlutterInjector;
-import io.flutter.Log;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.EventChannel;
@@ -41,8 +41,8 @@ import javax.net.ssl.HttpsURLConnection;
 public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   private static final String TAG = "VideoPlayerPlugin";
   private final LongSparseArray<VideoPlayer> videoPlayers = new LongSparseArray<>();
+  private VideoPlayerOptions options = new VideoPlayerOptions();
   private FlutterState flutterState;
-  private final VideoPlayerOptions options = new VideoPlayerOptions();
 
   // Note: This should be a singleton in your app.
   // DatabaseProvider databaseProvider = new StandaloneDatabaseProvider(flutterState.applicationContext);
@@ -144,6 +144,15 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
             flutterState.binaryMessenger, "flutter.io/videoPlayer/videoEvents" + handle.id());
 
     VideoPlayer player;
+    Messages.BufferOptionsMessage bufferOptionsMessage = arg.getBufferOptions();
+
+    VideoPlayerBufferOptions videoPlayerBufferOptions = new VideoPlayerBufferOptions(
+            bufferOptionsMessage.getMinBufferMs(),
+            bufferOptionsMessage.getMaxBufferMs(),
+            bufferOptionsMessage.getBufferForPlaybackMs(),
+            bufferOptionsMessage.getBufferForPlaybackAfterRebufferMs()
+    );
+
     if (arg.getAsset() != null) {
       String assetLookupKey;
       if (arg.getPackageName() != null) {
@@ -152,44 +161,36 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
       } else {
         assetLookupKey = flutterState.keyForAsset.get(arg.getAsset());
       }
-      player =
-          new VideoPlayer(
-              flutterState.applicationContext,
-              eventChannel,
-              handle,
-              "asset:///" + assetLookupKey,
-              null,
-              new HashMap<>(),
-              options
-                  );
+        player =
+            new VideoPlayer(
+                flutterState.applicationContext,
+                eventChannel,
+                handle,
+                "asset:///" + assetLookupKey,
+                null,
+                new HashMap<>(),
+                 options,
+                    videoPlayerBufferOptions
+                    );
+
     } else {
       Map<String, String> httpHeaders = arg.getHttpHeaders();
-      player =
-          new VideoPlayer(
-              flutterState.applicationContext,
-              eventChannel,
-              handle,
-              arg.getUri(),
-              arg.getFormatHint(),
-              httpHeaders,
-              options);
+        player =
+            new VideoPlayer(
+                flutterState.applicationContext,
+                eventChannel,
+                handle,
+                arg.getUri(),
+                arg.getFormatHint(),
+                httpHeaders,
+                    options,
+                    videoPlayerBufferOptions
+            );
+
     }
     videoPlayers.put(handle.id(), player);
 
     return new TextureMessage.Builder().setTextureId(handle.id()).build();
-  }
-
-  private Cache getDownloadCache(Context context, DatabaseProvider databaseProvider) {
-    /* if (downloadCache == null) {
-      final File downloadContentDirectory = new File(
-              context.getExternalCacheDir(),
-              DOWNLOAD_CONTENT_DIRECTORY
-      );
-      downloadCache =
-              new SimpleCache(downloadContentDirectory, new LeastRecentlyUsedCacheEvictor(700000000), databaseProvider);
-    }
-    return downloadCache; */
-    return null;
   }
 
   public void dispose(@NonNull TextureMessage arg) {
@@ -249,15 +250,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     options.cacheDirectory = msg.getCacheDirectory();
     options.maxCacheBytes = msg.getMaxCacheBytes();
     options.maxFileBytes = msg.getMaxFileBytes();
+    options.enableCache = msg.getEnableCache();
   }
 
-  @Override
-  public void setBufferOptions(Messages.BufferOptionsMessage msg) {
-    options.minBufferMs = msg.getMinBufferMs();
-    options.maxBufferMs = msg.getMaxBufferMs();
-    options.bufferForPlaybackMs = msg.getBufferForPlaybackMs();
-    options.bufferForPlaybackAfterRebufferMs = msg.getBufferForPlaybackAfterRebufferMs();
-  }
 
   private interface KeyForAssetFn {
     String get(String asset);

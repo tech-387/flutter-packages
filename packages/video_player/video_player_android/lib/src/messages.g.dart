@@ -143,6 +143,7 @@ class CreateMessage {
     this.packageName,
     this.formatHint,
     required this.httpHeaders,
+    this.bufferOptions,
   });
 
   String? asset;
@@ -155,6 +156,8 @@ class CreateMessage {
 
   Map<String?, String?> httpHeaders;
 
+  BufferOptionsMessage? bufferOptions;
+
   Object encode() {
     return <Object?>[
       asset,
@@ -162,6 +165,7 @@ class CreateMessage {
       packageName,
       formatHint,
       httpHeaders,
+      bufferOptions?.encode(),
     ];
   }
 
@@ -173,6 +177,9 @@ class CreateMessage {
       packageName: result[2] as String?,
       formatHint: result[3] as String?,
       httpHeaders: (result[4] as Map<Object?, Object?>?)!.cast<String?, String?>(),
+      bufferOptions: result[5] != null
+          ? BufferOptionsMessage.decode(result[5]! as List<Object?>)
+          : null,
     );
   }
 }
@@ -200,10 +207,13 @@ class MixWithOthersMessage {
 
 class CacheOptionsMessage {
   CacheOptionsMessage({
+    required this.enableCache,
     required this.cacheDirectory,
     required this.maxCacheBytes,
     required this.maxFileBytes,
   });
+
+  bool enableCache;
 
   String cacheDirectory;
 
@@ -213,6 +223,7 @@ class CacheOptionsMessage {
 
   Object encode() {
     return <Object?>[
+      enableCache,
       cacheDirectory,
       maxCacheBytes,
       maxFileBytes,
@@ -222,9 +233,10 @@ class CacheOptionsMessage {
   static CacheOptionsMessage decode(Object result) {
     result as List<Object?>;
     return CacheOptionsMessage(
-      cacheDirectory: result[0]! as String,
-      maxCacheBytes: result[1]! as int,
-      maxFileBytes: result[2]! as int,
+      enableCache: result[0]! as bool,
+      cacheDirectory: result[1]! as String,
+      maxCacheBytes: result[2]! as int,
+      maxFileBytes: result[3]! as int,
     );
   }
 }
@@ -593,28 +605,6 @@ class AndroidVideoPlayerApi {
   Future<void> setCacheOptions(CacheOptionsMessage arg_msg) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.AndroidVideoPlayerApi.setCacheOptions', codec,
-        binaryMessenger: _binaryMessenger);
-    final List<Object?>? replyList =
-        await channel.send(<Object?>[arg_msg]) as List<Object?>?;
-    if (replyList == null) {
-      throw PlatformException(
-        code: 'channel-error',
-        message: 'Unable to establish connection on channel.',
-      );
-    } else if (replyList.length > 1) {
-      throw PlatformException(
-        code: replyList[0]! as String,
-        message: replyList[1] as String?,
-        details: replyList[2],
-      );
-    } else {
-      return;
-    }
-  }
-
-  Future<void> setBufferOptions(BufferOptionsMessage arg_msg) async {
-    final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
-        'dev.flutter.pigeon.AndroidVideoPlayerApi.setBufferOptions', codec,
         binaryMessenger: _binaryMessenger);
     final List<Object?>? replyList =
         await channel.send(<Object?>[arg_msg]) as List<Object?>?;
