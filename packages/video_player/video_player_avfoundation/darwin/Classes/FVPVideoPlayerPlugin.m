@@ -822,20 +822,6 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
                                              registrar:self.registrar];
           return [self onPlayerSetup:player frameUpdater:frameUpdater];
       }
-      
-    NSURL *originalURL = [NSURL URLWithString:input.uri];
-    NSURL *proxyURL = [KTVHTTPCache proxyURLWithOriginalURL:originalURL];
-    [KTVHTTPCache downloadSetAdditionalHeaders:input.httpHeaders];
-    player = [[FVPVideoPlayer alloc] initWithURL:proxyURL
-                                    frameUpdater:frameUpdater
-                                     displayLink:displayLink
-                                     httpHeaders:input.httpHeaders
-                                       avFactory:_avFactory
-                                      videoPlayerOptions: _videoPlayerOptions
-                        videoPlayerBufferOptions: videoPlayerBufferOptions
-                                       registrar:self.registrar];
-      
-    return [self onPlayerSetup:player frameUpdater:frameUpdater];
   } else {
     *error = [FlutterError errorWithCode:@"video_player" message:@"not implemented" details:nil];
     return nil;
