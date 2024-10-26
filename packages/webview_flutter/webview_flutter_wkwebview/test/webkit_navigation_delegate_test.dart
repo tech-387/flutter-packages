@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
+import 'package:webview_flutter_wkwebview/src/common/web_kit.g.dart';
 import 'package:webview_flutter_wkwebview/src/foundation/foundation.dart';
 import 'package:webview_flutter_wkwebview/src/web_kit/web_kit.dart';
 import 'package:webview_flutter_wkwebview/src/webkit_proxy.dart';
@@ -41,7 +42,7 @@ void main() {
       webKitDelegate.setOnPageFinished((String url) => callbackUrl = url);
 
       CapturingNavigationDelegate.lastCreatedDelegate.didFinishNavigation!(
-        WKWebView.detached(),
+        WKWebViewIOS.detached(),
         'https://www.google.com',
       );
 
@@ -63,11 +64,65 @@ void main() {
 
       CapturingNavigationDelegate
           .lastCreatedDelegate.didStartProvisionalNavigation!(
-        WKWebView.detached(),
+        WKWebViewIOS.detached(),
         'https://www.google.com',
       );
 
       expect(callbackUrl, 'https://www.google.com');
+    });
+
+    test('setOnHttpError from decidePolicyForNavigationResponse', () {
+      final WebKitNavigationDelegate webKitDelegate = WebKitNavigationDelegate(
+        const WebKitNavigationDelegateCreationParams(
+          webKitProxy: WebKitProxy(
+            createNavigationDelegate: CapturingNavigationDelegate.new,
+            createUIDelegate: CapturingUIDelegate.new,
+          ),
+        ),
+      );
+
+      late final HttpResponseError callbackError;
+      void onHttpError(HttpResponseError error) {
+        callbackError = error;
+      }
+
+      webKitDelegate.setOnHttpError(onHttpError);
+
+      CapturingNavigationDelegate
+          .lastCreatedDelegate.decidePolicyForNavigationResponse!(
+        WKWebViewIOS.detached(),
+        const WKNavigationResponse(
+            response: NSHttpUrlResponse(statusCode: 401), forMainFrame: true),
+      );
+
+      expect(callbackError.response?.statusCode, 401);
+    });
+
+    test('setOnHttpError is not called for error codes < 400', () {
+      final WebKitNavigationDelegate webKitDelegate = WebKitNavigationDelegate(
+        const WebKitNavigationDelegateCreationParams(
+          webKitProxy: WebKitProxy(
+            createNavigationDelegate: CapturingNavigationDelegate.new,
+            createUIDelegate: CapturingUIDelegate.new,
+          ),
+        ),
+      );
+
+      HttpResponseError? callbackError;
+      void onHttpError(HttpResponseError error) {
+        callbackError = error;
+      }
+
+      webKitDelegate.setOnHttpError(onHttpError);
+
+      CapturingNavigationDelegate
+          .lastCreatedDelegate.decidePolicyForNavigationResponse!(
+        WKWebViewIOS.detached(),
+        const WKNavigationResponse(
+            response: NSHttpUrlResponse(statusCode: 399), forMainFrame: true),
+      );
+
+      expect(callbackError, isNull);
     });
 
     test('onWebResourceError from didFailNavigation', () {
@@ -88,7 +143,7 @@ void main() {
       webKitDelegate.setOnWebResourceError(onWebResourceError);
 
       CapturingNavigationDelegate.lastCreatedDelegate.didFailNavigation!(
-        WKWebView.detached(),
+        WKWebViewIOS.detached(),
         const NSError(
           code: WKErrorCode.webViewInvalidated,
           domain: 'domain',
@@ -127,7 +182,7 @@ void main() {
 
       CapturingNavigationDelegate
           .lastCreatedDelegate.didFailProvisionalNavigation!(
-        WKWebView.detached(),
+        WKWebViewIOS.detached(),
         const NSError(
           code: WKErrorCode.webViewInvalidated,
           domain: 'domain',
@@ -166,7 +221,7 @@ void main() {
 
       CapturingNavigationDelegate
           .lastCreatedDelegate.webViewWebContentProcessDidTerminate!(
-        WKWebView.detached(),
+        WKWebViewIOS.detached(),
       );
 
       expect(callbackError.description, '');
@@ -201,10 +256,12 @@ void main() {
       expect(
         CapturingNavigationDelegate
             .lastCreatedDelegate.decidePolicyForNavigationAction!(
-          WKWebView.detached(),
+          WKWebViewIOS.detached(),
           const WKNavigationAction(
             request: NSUrlRequest(url: 'https://www.google.com'),
-            targetFrame: WKFrameInfo(isMainFrame: false),
+            targetFrame: WKFrameInfo(
+                isMainFrame: false,
+                request: NSUrlRequest(url: 'https://google.com')),
             navigationType: WKNavigationType.linkActivated,
           ),
         ),
@@ -214,6 +271,82 @@ void main() {
       expect(callbackRequest.url, 'https://www.google.com');
       expect(callbackRequest.isMainFrame, isFalse);
     });
+
+    test('onHttpBasicAuthRequest emits host and realm', () {
+      final WebKitNavigationDelegate iosNavigationDelegate =
+          WebKitNavigationDelegate(
+        const WebKitNavigationDelegateCreationParams(
+          webKitProxy: WebKitProxy(
+            createNavigationDelegate: CapturingNavigationDelegate.new,
+          ),
+        ),
+      );
+
+      String? callbackHost;
+      String? callbackRealm;
+
+      iosNavigationDelegate.setOnHttpAuthRequest((HttpAuthRequest request) {
+        callbackHost = request.host;
+        callbackRealm = request.realm;
+      });
+
+      const String expectedHost = 'expectedHost';
+      const String expectedRealm = 'expectedRealm';
+
+      CapturingNavigationDelegate
+              .lastCreatedDelegate.didReceiveAuthenticationChallenge!(
+          WKWebViewIOS.detached(),
+          NSUrlAuthenticationChallenge.detached(
+            protectionSpace: NSUrlProtectionSpace.detached(
+              host: expectedHost,
+              realm: expectedRealm,
+              authenticationMethod: NSUrlAuthenticationMethod.httpBasic,
+            ),
+          ),
+          (NSUrlSessionAuthChallengeDisposition disposition,
+              NSUrlCredential? credential) {});
+
+      expect(callbackHost, expectedHost);
+      expect(callbackRealm, expectedRealm);
+    });
+
+    test('onHttpNtlmAuthRequest emits host and realm', () {
+      final WebKitNavigationDelegate iosNavigationDelegate =
+          WebKitNavigationDelegate(
+        const WebKitNavigationDelegateCreationParams(
+          webKitProxy: WebKitProxy(
+            createNavigationDelegate: CapturingNavigationDelegate.new,
+          ),
+        ),
+      );
+
+      String? callbackHost;
+      String? callbackRealm;
+
+      iosNavigationDelegate.setOnHttpAuthRequest((HttpAuthRequest request) {
+        callbackHost = request.host;
+        callbackRealm = request.realm;
+      });
+
+      const String expectedHost = 'expectedHost';
+      const String expectedRealm = 'expectedRealm';
+
+      CapturingNavigationDelegate
+              .lastCreatedDelegate.didReceiveAuthenticationChallenge!(
+          WKWebViewIOS.detached(),
+          NSUrlAuthenticationChallenge.detached(
+            protectionSpace: NSUrlProtectionSpace.detached(
+              host: expectedHost,
+              realm: expectedRealm,
+              authenticationMethod: NSUrlAuthenticationMethod.httpNtlm,
+            ),
+          ),
+          (NSUrlSessionAuthChallengeDisposition disposition,
+              NSUrlCredential? credential) {});
+
+      expect(callbackHost, expectedHost);
+      expect(callbackRealm, expectedRealm);
+    });
   });
 }
 
@@ -222,10 +355,12 @@ class CapturingNavigationDelegate extends WKNavigationDelegate {
   CapturingNavigationDelegate({
     super.didFinishNavigation,
     super.didStartProvisionalNavigation,
+    super.decidePolicyForNavigationResponse,
     super.didFailNavigation,
     super.didFailProvisionalNavigation,
     super.decidePolicyForNavigationAction,
     super.webViewWebContentProcessDidTerminate,
+    super.didReceiveAuthenticationChallenge,
   }) : super.detached() {
     lastCreatedDelegate = this;
   }
@@ -238,6 +373,9 @@ class CapturingUIDelegate extends WKUIDelegate {
   CapturingUIDelegate({
     super.onCreateWebView,
     super.requestMediaCapturePermission,
+    super.runJavaScriptAlertDialog,
+    super.runJavaScriptConfirmDialog,
+    super.runJavaScriptTextInputDialog,
     super.instanceManager,
   }) : super.detached() {
     lastCreatedDelegate = this;

@@ -1,6 +1,11 @@
 ## NEXT
 
-* Updates minimum supported SDK version to Flutter 3.10/Dart 3.0.
+* Updates minimum supported SDK version to Flutter 3.19/Dart 3.3.
+
+## 2.3.0
+
+* Replaces `win32` dependency with direct FFI usage.
+* Updates minimum supported SDK version to Flutter 3.16/Dart 3.2.
 
 ## 2.2.1
 

@@ -5,8 +5,6 @@
 package io.flutter.plugins.pathprovider;
 
 import android.content.Context;
-import android.os.Build.VERSION;
-import android.os.Build.VERSION_CODES;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -24,9 +22,9 @@ public class PathProviderPlugin implements FlutterPlugin, PathProviderApi {
 
   public PathProviderPlugin() {}
 
-  private void setup(BinaryMessenger messenger, Context context) {
+  private void setUp(BinaryMessenger messenger, Context context) {
     try {
-      PathProviderApi.setup(messenger, this);
+      PathProviderApi.setUp(messenger, this);
     } catch (Exception ex) {
       Log.e(TAG, "Received exception while setting up PathProviderPlugin", ex);
     }
@@ -34,21 +32,14 @@ public class PathProviderPlugin implements FlutterPlugin, PathProviderApi {
     this.context = context;
   }
 
-  @SuppressWarnings("deprecation")
-  public static void registerWith(
-      @NonNull io.flutter.plugin.common.PluginRegistry.Registrar registrar) {
-    PathProviderPlugin instance = new PathProviderPlugin();
-    instance.setup(registrar.messenger(), registrar.context());
-  }
-
   @Override
   public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
-    setup(binding.getBinaryMessenger(), binding.getApplicationContext());
+    setUp(binding.getBinaryMessenger(), binding.getApplicationContext());
   }
 
   @Override
   public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
-    PathProviderApi.setup(binding.getBinaryMessenger(), null);
+    PathProviderApi.setUp(binding.getBinaryMessenger(), null);
   }
 
   @Override
@@ -110,14 +101,7 @@ public class PathProviderPlugin implements FlutterPlugin, PathProviderApi {
   private List<String> getPathProviderExternalCacheDirectories() {
     final List<String> paths = new ArrayList<>();
 
-    if (VERSION.SDK_INT >= VERSION_CODES.KITKAT) {
-      for (File dir : context.getExternalCacheDirs()) {
-        if (dir != null) {
-          paths.add(dir.getAbsolutePath());
-        }
-      }
-    } else {
-      File dir = context.getExternalCacheDir();
+    for (File dir : context.getExternalCacheDirs()) {
       if (dir != null) {
         paths.add(dir.getAbsolutePath());
       }
@@ -159,14 +143,7 @@ public class PathProviderPlugin implements FlutterPlugin, PathProviderApi {
       @NonNull Messages.StorageDirectory directory) {
     final List<String> paths = new ArrayList<>();
 
-    if (VERSION.SDK_INT >= VERSION_CODES.KITKAT) {
-      for (File dir : context.getExternalFilesDirs(getStorageDirectoryString(directory))) {
-        if (dir != null) {
-          paths.add(dir.getAbsolutePath());
-        }
-      }
-    } else {
-      File dir = context.getExternalFilesDir(getStorageDirectoryString(directory));
+    for (File dir : context.getExternalFilesDirs(getStorageDirectoryString(directory))) {
       if (dir != null) {
         paths.add(dir.getAbsolutePath());
       }

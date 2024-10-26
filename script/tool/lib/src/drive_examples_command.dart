@@ -13,10 +13,10 @@ import 'common/package_looping_command.dart';
 import 'common/plugin_utils.dart';
 import 'common/repository_package.dart';
 
-const int _exitNoPlatformFlags = 2;
+const int _exitInvalidArgs = 2;
 const int _exitNoAvailableDevice = 3;
 
-// From https://docs.flutter.dev/testing/integration-tests#running-in-a-browser
+// From https://flutter.dev/to/integration-test-on-web
 const int _chromeDriverPort = 4444;
 
 /// A command to run the integration tests for a package's example applications.
@@ -40,6 +40,8 @@ class DriveExamplesCommand extends PackageLoopingCommand {
         help: 'Runs the web implementation of the examples');
     argParser.addFlag(platformWindows,
         help: 'Runs the Windows implementation of the examples');
+    argParser.addFlag(kWebWasmFlag,
+        help: 'Compile to WebAssembly rather than JavaScript');
     argParser.addOption(
       kEnableExperiment,
       defaultsTo: '',
@@ -84,7 +86,7 @@ class DriveExamplesCommand extends PackageLoopingCommand {
       printError(
           'Exactly one of ${platformSwitches.map((String platform) => '--$platform').join(', ')} '
           'must be specified.');
-      throw ToolExit(_exitNoPlatformFlags);
+      throw ToolExit(_exitInvalidArgs);
     }
 
     String? androidDevice;
@@ -107,18 +109,32 @@ class DriveExamplesCommand extends PackageLoopingCommand {
       iOSDevice = devices.first;
     }
 
+    final bool useWasm = getBoolArg(kWebWasmFlag);
+    final bool hasPlatformWeb = getBoolArg(platformWeb);
+    if (useWasm && !hasPlatformWeb) {
+      printError('--wasm is only supported on the web platform');
+      throw ToolExit(_exitInvalidArgs);
+    }
+
     _targetDeviceFlags = <String, List<String>>{
       if (getBoolArg(platformAndroid))
         platformAndroid: <String>['-d', androidDevice!],
       if (getBoolArg(platformIOS)) platformIOS: <String>['-d', iOSDevice!],
       if (getBoolArg(platformLinux)) platformLinux: <String>['-d', 'linux'],
       if (getBoolArg(platformMacOS)) platformMacOS: <String>['-d', 'macos'],
-      if (getBoolArg(platformWeb))
+      if (hasPlatformWeb)
         platformWeb: <String>[
           '-d',
           'web-server',
           '--web-port=7357',
           '--browser-name=chrome',
+          if (useWasm)
+            '--wasm'
+          // TODO(dit): Clean this up, https://github.com/flutter/flutter/issues/151869
+          else if (platform.environment['CHANNEL']?.toLowerCase() == 'master')
+            '--web-renderer=canvaskit'
+          else
+            '--web-renderer=html',
           if (platform.environment.containsKey('CHROME_EXECUTABLE'))
             '--chrome-binary=${platform.environment['CHROME_EXECUTABLE']}',
         ],
@@ -317,7 +333,8 @@ class DriveExamplesCommand extends PackageLoopingCommand {
         example.directory.childDirectory('integration_test');
 
     if (integrationTestDir.existsSync()) {
-      await for (final FileSystemEntity file in integrationTestDir.list()) {
+      await for (final FileSystemEntity file
+          in integrationTestDir.list(recursive: true)) {
         if (file is File && file.basename.endsWith('_test.dart')) {
           tests.add(file);
         }
@@ -403,8 +420,10 @@ class DriveExamplesCommand extends PackageLoopingCommand {
     // Workaround for https://github.com/flutter/flutter/issues/135673
     // Once that is fixed on stable, this logic can be removed and the command
     // can always just be run with "integration_test".
-    final bool needsMultipleInvocations =
-        testFiles.length > 1 && getBoolArg(platformMacOS);
+    final bool needsMultipleInvocations = testFiles.length > 1 &&
+        (getBoolArg(platformLinux) ||
+            getBoolArg(platformMacOS) ||
+            getBoolArg(platformWindows));
     final Iterable<String> individualRunTargets = needsMultipleInvocations
         ? testFiles
             .map((File f) => getRelativePosixPath(f, from: example.directory))

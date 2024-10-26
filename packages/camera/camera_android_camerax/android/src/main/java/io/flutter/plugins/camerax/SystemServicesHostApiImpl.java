@@ -6,15 +6,14 @@ package io.flutter.plugins.camerax;
 
 import android.app.Activity;
 import android.content.Context;
+import android.os.Build;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import io.flutter.embedding.engine.systemchannels.PlatformChannel.DeviceOrientation;
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugins.camerax.CameraPermissionsManager.PermissionsRegistry;
 import io.flutter.plugins.camerax.GeneratedCameraXLibrary.CameraPermissionsErrorData;
 import io.flutter.plugins.camerax.GeneratedCameraXLibrary.Result;
-import io.flutter.plugins.camerax.GeneratedCameraXLibrary.SystemServicesFlutterApi;
 import io.flutter.plugins.camerax.GeneratedCameraXLibrary.SystemServicesHostApi;
 import java.io.File;
 import java.io.IOException;
@@ -22,10 +21,9 @@ import java.io.IOException;
 public class SystemServicesHostApiImpl implements SystemServicesHostApi {
   private final BinaryMessenger binaryMessenger;
   private final InstanceManager instanceManager;
-  private Context context;
+  @Nullable private Context context;
 
   @VisibleForTesting public @NonNull CameraXProxy cameraXProxy = new CameraXProxy();
-  @VisibleForTesting public @Nullable DeviceOrientationManager deviceOrientationManager;
   @VisibleForTesting public @NonNull SystemServicesFlutterApiImpl systemServicesFlutterApi;
 
   private Activity activity;
@@ -50,7 +48,7 @@ public class SystemServicesHostApiImpl implements SystemServicesHostApi {
     this.activity = activity;
   }
 
-  public void setPermissionsRegistry(@NonNull PermissionsRegistry permissionsRegistry) {
+  public void setPermissionsRegistry(@Nullable PermissionsRegistry permissionsRegistry) {
     this.permissionsRegistry = permissionsRegistry;
   }
 
@@ -63,6 +61,10 @@ public class SystemServicesHostApiImpl implements SystemServicesHostApi {
   @Override
   public void requestCameraPermissions(
       @NonNull Boolean enableAudio, @NonNull Result<CameraPermissionsErrorData> result) {
+    if (activity == null) {
+      throw new IllegalStateException("Activity must be set to request camera permissions.");
+    }
+
     CameraPermissionsManager cameraPermissionsManager =
         cameraXProxy.createCameraPermissionsManager();
     cameraPermissionsManager.requestPermissions(
@@ -84,50 +86,14 @@ public class SystemServicesHostApiImpl implements SystemServicesHostApi {
         });
   }
 
-  /**
-   * Starts listening for device orientation changes using an instance of a {@link
-   * DeviceOrientationManager}.
-   *
-   * <p>Whenever a change in device orientation is detected by the {@code DeviceOrientationManager},
-   * the {@link SystemServicesFlutterApi} will be used to notify the Dart side.
-   */
-  @Override
-  public void startListeningForDeviceOrientationChange(
-      @NonNull Boolean isFrontFacing, @NonNull Long sensorOrientation) {
-    deviceOrientationManager =
-        cameraXProxy.createDeviceOrientationManager(
-            activity,
-            isFrontFacing,
-            sensorOrientation.intValue(),
-            (DeviceOrientation newOrientation) -> {
-              systemServicesFlutterApi.sendDeviceOrientationChangedEvent(
-                  serializeDeviceOrientation(newOrientation), reply -> {});
-            });
-    deviceOrientationManager.start();
-  }
-
-  /** Serializes {@code DeviceOrientation} into a String that the Dart side is able to recognize. */
-  String serializeDeviceOrientation(DeviceOrientation orientation) {
-    return orientation.toString();
-  }
-
-  /**
-   * Tells the {@code deviceOrientationManager} to stop listening for orientation updates.
-   *
-   * <p>Has no effect if the {@code deviceOrientationManager} was never created to listen for device
-   * orientation updates.
-   */
-  @Override
-  public void stopListeningForDeviceOrientationChange() {
-    if (deviceOrientationManager != null) {
-      deviceOrientationManager.stop();
-    }
-  }
-
   /** Returns a path to be used to create a temp file in the current cache directory. */
   @Override
   @NonNull
   public String getTempFilePath(@NonNull String prefix, @NonNull String suffix) {
+    if (context == null) {
+      throw new IllegalStateException("Context must be set to create a temporary file.");
+    }
+
     try {
       File path = File.createTempFile(prefix, suffix, context.getCacheDir());
       return path.toString();
@@ -137,5 +103,19 @@ public class SystemServicesHostApiImpl implements SystemServicesHostApi {
           "SystemServicesHostApiImpl.getTempFilePath encountered an exception: " + e.toString(),
           null);
     }
+  }
+
+  /**
+   * Returns whether or not Impeller uses an {@code ImageReader} backend to provide a {@code
+   * Surface} to CameraX to build the preview. If it is backed by an {@code ImageReader}, then
+   * CameraX will not automatically apply the transformation needed to correct the preview.
+   *
+   * <p>This is determined by the engine, which approximately uses {@code SurfaceTexture}s on
+   * Android SDKs below 29.
+   */
+  @Override
+  @NonNull
+  public Boolean isPreviewPreTransformed() {
+    return Build.VERSION.SDK_INT < 29;
   }
 }

@@ -31,8 +31,11 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
-  Future<int?> create(VideoPlayerBufferOptions videoPlayerBufferOptions,
-      DataSource dataSource) async {
+  Future<int?> create(
+    DataSource dataSource, {
+    VideoPlayerBufferOptions videoPlayerBufferOptions =
+        const VideoPlayerBufferOptions(),
+  }) async {
     String? asset;
     String? packageName;
     String? uri;
@@ -42,19 +45,15 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
       case DataSourceType.asset:
         asset = dataSource.asset;
         packageName = dataSource.package;
-        break;
       case DataSourceType.network:
         uri = dataSource.uri;
         formatHint = _videoFormatStringMap[dataSource.formatHint];
         httpHeaders = dataSource.httpHeaders;
-        break;
       case DataSourceType.file:
         uri = dataSource.uri;
         httpHeaders = dataSource.httpHeaders;
-        break;
       case DataSourceType.contentUri:
         uri = dataSource.uri;
-        break;
     }
     final CreateMessage message = CreateMessage(
       asset: asset,

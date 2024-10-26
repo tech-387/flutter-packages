@@ -4,6 +4,7 @@
 
 #import <Foundation/Foundation.h>
 #import <StoreKit/StoreKit.h>
+#import "messages.g.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -56,7 +57,34 @@ NS_ASSUME_NONNULL_BEGIN
                                                   withError:(NSString *_Nullable *_Nullable)error
     API_AVAILABLE(ios(12.2));
 
++ (nullable FIASKPaymentTransactionMessage *)convertTransactionToPigeon:
+    (nullable SKPaymentTransaction *)transaction;
+
++ (nullable FIASKStorefrontMessage *)convertStorefrontToPigeon:(nullable SKStorefront *)storefront
+    API_AVAILABLE(ios(13.0));
+
++ (nullable FIASKPaymentDiscountMessage *)convertPaymentDiscountToPigeon:
+    (nullable SKPaymentDiscount *)discount API_AVAILABLE(ios(12.2));
+
++ (nullable FIASKPaymentMessage *)convertPaymentToPigeon:(nullable SKPayment *)payment
+    API_AVAILABLE(ios(12.2));
+
++ (nullable FIASKErrorMessage *)convertSKErrorToPigeon:(nullable NSError *)error;
+
++ (nullable FIASKProductsResponseMessage *)convertProductsResponseToPigeon:
+    (nullable SKProductsResponse *)payment;
+
++ (nullable FIASKProductMessage *)convertProductToPigeon:(nullable SKProduct *)product
+    API_AVAILABLE(ios(12.2));
+
++ (nullable FIASKProductDiscountMessage *)convertProductDiscountToPigeon:
+    (nullable SKProductDiscount *)productDiscount API_AVAILABLE(ios(12.2));
+
++ (nullable FIASKPriceLocaleMessage *)convertNSLocaleToPigeon:(nullable NSLocale *)locale
+    API_AVAILABLE(ios(12.2));
+
++ (nullable FIASKProductSubscriptionPeriodMessage *)convertSKProductSubscriptionPeriodToPigeon:
+    (nullable SKProductSubscriptionPeriod *)period API_AVAILABLE(ios(12.2));
 @end
-;
 
 NS_ASSUME_NONNULL_END

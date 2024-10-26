@@ -64,6 +64,25 @@ void defineTests() {
     );
 
     testWidgets(
+      'should work with table alignments',
+      (WidgetTester tester) async {
+        const String data =
+            '|Header 1|Header 2|Header 3|\n|:----|:----:|----:|\n|Col 1|Col 2|Col 3|';
+        await tester.pumpWidget(
+          boilerplate(
+            const MarkdownBody(data: data),
+          ),
+        );
+
+        final Iterable<Wrap> wraps = tester.widgetList(find.byType(Wrap));
+
+        expect(wraps.first.alignment, WrapAlignment.start);
+        expect(wraps.elementAt(1).alignment, WrapAlignment.center);
+        expect(wraps.last.alignment, WrapAlignment.end);
+      },
+    );
+
+    testWidgets(
       'should work with styling',
       (WidgetTester tester) async {
         const String data = '|Header|\n|----|\n|*italic*|';
@@ -74,11 +93,11 @@ void defineTests() {
         );
 
         final Iterable<Widget> widgets = tester.allWidgets;
-        final RichText richText = widgets
-            .lastWhere((Widget widget) => widget is RichText) as RichText;
+        final Text text =
+            widgets.lastWhere((Widget widget) => widget is Text) as Text;
 
         expectTextStrings(widgets, <String>['Header', 'italic']);
-        expect(richText.text.style!.fontStyle, FontStyle.italic);
+        expect(text.textSpan!.style!.fontStyle, FontStyle.italic);
       },
     );
 
@@ -201,13 +220,13 @@ void defineTests() {
 
         expectTableSize(2, 2);
 
-        expect(find.byType(RichText), findsNWidgets(4));
+        expect(find.byType(Text), findsNWidgets(4));
         final List<String?> cellText = find
-            .byType(RichText)
+            .byType(Text)
             .evaluate()
             .map((Element e) => e.widget)
-            .cast<RichText>()
-            .map((RichText richText) => richText.text)
+            .cast<Text>()
+            .map((Text text) => text.textSpan!)
             .cast<TextSpan>()
             .map((TextSpan e) => e.text)
             .toList();
@@ -243,11 +262,11 @@ void defineTests() {
 
         expect(find.byType(RichText), findsNWidgets(6));
         final List<String?> cellText = find
-            .byType(RichText)
+            .byType(Text)
             .evaluate()
             .map((Element e) => e.widget)
-            .cast<RichText>()
-            .map((RichText richText) => richText.text)
+            .cast<Text>()
+            .map((Text richText) => richText.textSpan!)
             .cast<TextSpan>()
             .map((TextSpan e) => e.text)
             .toList();
@@ -284,13 +303,13 @@ void defineTests() {
 
           expectTableSize(2, 2);
 
-          expect(find.byType(RichText), findsNWidgets(4));
+          expect(find.byType(Text), findsNWidgets(4));
           final List<String?> cellText = find
-              .byType(RichText)
+              .byType(Text)
               .evaluate()
               .map((Element e) => e.widget)
-              .cast<RichText>()
-              .map((RichText richText) => richText.text)
+              .cast<Text>()
+              .map((Text text) => text.textSpan!)
               .cast<TextSpan>()
               .map((TextSpan e) => e.text)
               .toList();
@@ -323,13 +342,13 @@ void defineTests() {
 
           expectTableSize(2, 2);
 
-          expect(find.byType(RichText), findsNWidgets(4));
+          expect(find.byType(Text), findsNWidgets(4));
           final List<String?> cellText = find
-              .byType(RichText)
+              .byType(Text)
               .evaluate()
               .map((Element e) => e.widget)
-              .cast<RichText>()
-              .map((RichText richText) => richText.text)
+              .cast<Text>()
+              .map((Text text) => text.textSpan!)
               .cast<TextSpan>()
               .map((TextSpan e) => e.text)
               .toList();
@@ -363,13 +382,13 @@ void defineTests() {
 
           expectTableSize(1, 3);
 
-          expect(find.byType(RichText), findsNWidgets(4));
+          expect(find.byType(Text), findsNWidgets(4));
           final List<String?> cellText = find
-              .byType(RichText)
+              .byType(Text)
               .evaluate()
               .map((Element e) => e.widget)
-              .cast<RichText>()
-              .map((RichText richText) => richText.text)
+              .cast<Text>()
+              .map((Text text) => text.textSpan!)
               .cast<TextSpan>()
               .map((TextSpan e) => e.text)
               .toList();
@@ -407,13 +426,13 @@ void defineTests() {
 
           expectTableSize(2, 2);
 
-          expect(find.byType(RichText), findsNWidgets(5));
+          expect(find.byType(Text), findsNWidgets(5));
           final List<String?> text = find
-              .byType(RichText)
+              .byType(Text)
               .evaluate()
               .map((Element e) => e.widget)
-              .cast<RichText>()
-              .map((RichText richText) => richText.text)
+              .cast<Text>()
+              .map((Text text) => text.textSpan!)
               .cast<TextSpan>()
               .map((TextSpan e) => e.text)
               .toList();
@@ -451,13 +470,13 @@ void defineTests() {
 
           expectTableSize(3, 2);
 
-          expect(find.byType(RichText), findsNWidgets(7));
+          expect(find.byType(Text), findsNWidgets(7));
           final List<String?> text = find
-              .byType(RichText)
+              .byType(Text)
               .evaluate()
               .map((Element e) => e.widget)
-              .cast<RichText>()
-              .map((RichText richText) => richText.text)
+              .cast<Text>()
+              .map((Text text) => text.textSpan!)
               .cast<TextSpan>()
               .map((TextSpan e) => e.text)
               .toList();
@@ -485,11 +504,11 @@ void defineTests() {
 
           expect(find.byType(Table), findsNothing);
           final List<String?> text = find
-              .byType(RichText)
+              .byType(Text)
               .evaluate()
               .map((Element e) => e.widget)
-              .cast<RichText>()
-              .map((RichText richText) => richText.text)
+              .cast<Text>()
+              .map((Text text) => text.textSpan!)
               .cast<TextSpan>()
               .map((TextSpan e) => e.text)
               .toList();
@@ -519,13 +538,13 @@ void defineTests() {
 
           expectTableSize(3, 2);
 
-          expect(find.byType(RichText), findsNWidgets(6));
+          expect(find.byType(Text), findsNWidgets(6));
           final List<String?> cellText = find
-              .byType(RichText)
+              .byType(Text)
               .evaluate()
               .map((Element e) => e.widget)
-              .cast<RichText>()
-              .map((RichText richText) => richText.text)
+              .cast<Text>()
+              .map((Text text) => text.textSpan!)
               .cast<TextSpan>()
               .map((TextSpan e) => e.text)
               .toList();
@@ -555,13 +574,13 @@ void defineTests() {
 
           expectTableSize(1, 2);
 
-          expect(find.byType(RichText), findsNWidgets(2));
+          expect(find.byType(Text), findsNWidgets(2));
           final List<String?> cellText = find
-              .byType(RichText)
+              .byType(Text)
               .evaluate()
               .map((Element e) => e.widget)
-              .cast<RichText>()
-              .map((RichText richText) => richText.text)
+              .cast<Text>()
+              .map((Text text) => text.textSpan!)
               .cast<TextSpan>()
               .map((TextSpan e) => e.text)
               .toList();

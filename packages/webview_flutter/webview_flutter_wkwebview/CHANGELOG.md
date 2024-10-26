@@ -1,5 +1,49 @@
-## NEXT
+## 3.16.0
 
+* Supports NTLM for authentication.
+
+## 3.15.0
+
+* Adds macOS support.
+
+## 3.14.0
+
+* Adds Swift Package Manager compatibility.
+
+## 3.13.1
+
+* Fixes `JSON.stringify()` cannot serialize cyclic structures.
+
+## 3.13.0
+
+* Adds `decidePolicyForNavigationResponse` to internal WKNavigationDelegate to support the
+  `PlatformNavigationDelegate.onHttpError` callback.
+
+## 3.12.0
+
+* Adds support for `setOnScrollPositionChange` method to the `WebKitWebViewController`.
+
+## 3.11.0
+
+* Adds support to show JavaScript dialog. See `PlatformWebViewController.setOnJavaScriptAlertDialog`, `PlatformWebViewController.setOnJavaScriptConfirmDialog` and `PlatformWebViewController.setOnJavaScriptTextInputDialog`.
+
+## 3.10.3
+
+* Adds a check that throws an `ArgumentError` when `WebKitWebViewController.addJavaScriptChannel`
+  receives a `JavaScriptChannelParams` with a name that is not unique.
+* Updates minimum iOS version to 12.0 and minimum Flutter version to 3.16.6.
+
+## 3.10.2
+
+* Adds privacy manifest.
+
+## 3.10.1
+
+* Fixes new lint warnings.
+
+## 3.10.0
+
+* Adds support for `PlatformNavigationDelegate.setOnHttpAuthRequest`.
 * Updates minimum supported SDK version to Flutter 3.10/Dart 3.0.
 
 ## 3.9.4
@@ -52,7 +96,7 @@
 
 * Introduces `NSError.toString` for better diagnostics.
 
-## 3.6.2 
+## 3.6.2
 
 * Fixes unawaited_futures violations.
 

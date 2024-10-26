@@ -41,7 +41,6 @@ void main() {
     bool includeTargetCompat = false,
     bool commentSourceLanguage = false,
     bool includeNamespace = true,
-    bool conditionalizeNamespace = true,
     bool commentNamespace = false,
     bool warningsConfigured = true,
   }) {
@@ -54,7 +53,7 @@ void main() {
     lintOptions {
         checkAllWarnings true
         warningsAsErrors true
-        disable 'AndroidGradlePluginVersion', 'InvalidPackage', 'GradleDependency'
+        disable 'AndroidGradlePluginVersion', 'InvalidPackage', 'GradleDependency', 'NewerVersionAvailable'
         baseline file("lint-baseline.xml")
     }
 ''';
@@ -67,18 +66,11 @@ java {
 
 ''';
     final String sourceCompat =
-        '${commentSourceLanguage ? '// ' : ''}sourceCompatibility JavaVersion.VERSION_1_8';
+        '${commentSourceLanguage ? '// ' : ''}sourceCompatibility JavaVersion.VERSION_11';
     final String targetCompat =
-        '${commentSourceLanguage ? '// ' : ''}targetCompatibility JavaVersion.VERSION_1_8';
-    String namespace =
+        '${commentSourceLanguage ? '// ' : ''}targetCompatibility JavaVersion.VERSION_11';
+    final String namespace =
         "    ${commentNamespace ? '// ' : ''}namespace '$_defaultFakeNamespace'";
-    if (conditionalizeNamespace) {
-      namespace = '''
-    if (project.android.hasProperty("namespace")) {
-    $namespace
-    }
-''';
-    }
 
     buildGradle.writeAsStringSync('''
 group 'dev.flutter.plugins.fake'
@@ -96,7 +88,7 @@ apply plugin: 'com.android.library'
 ${includeLanguageVersion ? javaSection : ''}
 android {
 ${includeNamespace ? namespace : ''}
-    compileSdkVersion 33
+    compileSdk 33
 
     defaultConfig {
         minSdkVersion 30
@@ -234,7 +226,7 @@ apply from: "\$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
     ${includeNamespace ? namespace : ''}
-    compileSdkVersion flutter.compileSdkVersion
+    compileSdk flutter.compileSdkVersion
 
     lintOptions {
         disable 'InvalidPackage'
@@ -486,28 +478,6 @@ dependencies {
       containsAllInOrder(<Matcher>[
         contains(
             'build.gradle "namespace" must match the "package" attribute in AndroidManifest.xml'),
-      ]),
-    );
-  });
-
-  test('fails when plugin namespace is not conditional', () async {
-    final RepositoryPackage package =
-        createFakePlugin('a_plugin', packagesDir, examples: <String>[]);
-    writeFakePluginBuildGradle(package,
-        includeLanguageVersion: true, conditionalizeNamespace: false);
-    writeFakeManifest(package);
-
-    Error? commandError;
-    final List<String> output = await runCapturingPrint(
-        runner, <String>['gradle-check'], errorHandler: (Error e) {
-      commandError = e;
-    });
-
-    expect(commandError, isA<ToolExit>());
-    expect(
-      output,
-      containsAllInOrder(<Matcher>[
-        contains('build.gradle for a plugin must conditionalize "namespace"'),
       ]),
     );
   });

@@ -9,7 +9,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:webview_flutter_wkwebview/src/common/instance_manager.dart';
+import 'package:webview_flutter_wkwebview/src/common/web_kit.g.dart';
 import 'package:webview_flutter_wkwebview/src/ui_kit/ui_kit.dart';
+import 'package:webview_flutter_wkwebview/src/ui_kit/ui_kit_api_impls.dart';
 import 'package:webview_flutter_wkwebview/src/web_kit/web_kit.dart';
 
 import '../common/test_web_kit.g.dart';
@@ -19,6 +21,7 @@ import 'ui_kit_test.mocks.dart';
   TestWKWebViewConfigurationHostApi,
   TestWKWebViewHostApi,
   TestUIScrollViewHostApi,
+  TestUIScrollViewDelegateHostApi,
   TestUIViewHostApi,
 ])
 void main() {
@@ -39,13 +42,13 @@ void main() {
 
       setUp(() {
         mockPlatformHostApi = MockTestUIScrollViewHostApi();
-        TestUIScrollViewHostApi.setup(mockPlatformHostApi);
+        TestUIScrollViewHostApi.setUp(mockPlatformHostApi);
 
-        TestWKWebViewConfigurationHostApi.setup(
+        TestWKWebViewConfigurationHostApi.setUp(
           MockTestWKWebViewConfigurationHostApi(),
         );
-        TestWKWebViewHostApi.setup(MockTestWKWebViewHostApi());
-        final WKWebView webView = WKWebView(
+        TestWKWebViewHostApi.setUp(MockTestWKWebViewHostApi());
+        final WKWebView webView = WKWebViewIOS(
           WKWebViewConfiguration(instanceManager: instanceManager),
           instanceManager: instanceManager,
         );
@@ -58,9 +61,9 @@ void main() {
       });
 
       tearDown(() {
-        TestUIScrollViewHostApi.setup(null);
-        TestWKWebViewConfigurationHostApi.setup(null);
-        TestWKWebViewHostApi.setup(null);
+        TestUIScrollViewHostApi.setUp(null);
+        TestWKWebViewConfigurationHostApi.setUp(null);
+        TestWKWebViewHostApi.setUp(null);
       });
 
       test('getContentOffset', () async {
@@ -85,6 +88,58 @@ void main() {
           10.0,
         ));
       });
+
+      test('setDelegate', () async {
+        final UIScrollViewDelegate delegate = UIScrollViewDelegate.detached(
+          instanceManager: instanceManager,
+        );
+        const int delegateIdentifier = 10;
+        instanceManager.addHostCreatedInstance(delegate, delegateIdentifier);
+        await scrollView.setDelegate(delegate);
+        verify(mockPlatformHostApi.setDelegate(
+          scrollViewInstanceId,
+          delegateIdentifier,
+        ));
+      });
+    });
+
+    group('UIScrollViewDelegate', () {
+      // Ensure the test host api is removed after each test run.
+      tearDown(() => TestUIScrollViewDelegateHostApi.setUp(null));
+
+      test('Host API create', () {
+        final MockTestUIScrollViewDelegateHostApi mockApi =
+            MockTestUIScrollViewDelegateHostApi();
+        TestUIScrollViewDelegateHostApi.setUp(mockApi);
+
+        UIScrollViewDelegate(instanceManager: instanceManager);
+        verify(mockApi.create(0));
+      });
+
+      test('scrollViewDidScroll', () {
+        final UIScrollViewDelegateFlutterApi flutterApi =
+            UIScrollViewDelegateFlutterApiImpl(
+          instanceManager: instanceManager,
+        );
+
+        final UIScrollView scrollView = UIScrollView.detached(
+          instanceManager: instanceManager,
+        );
+        instanceManager.addHostCreatedInstance(scrollView, 0);
+
+        List<Object?>? args;
+        final UIScrollViewDelegate scrollViewDelegate =
+            UIScrollViewDelegate.detached(
+          scrollViewDidScroll: (UIScrollView scrollView, double x, double y) {
+            args = <Object?>[scrollView, x, y];
+          },
+          instanceManager: instanceManager,
+        );
+        instanceManager.addHostCreatedInstance(scrollViewDelegate, 1);
+
+        flutterApi.scrollViewDidScroll(1, 0, 5, 6);
+        expect(args, <Object?>[scrollView, 5, 6]);
+      });
     });
 
     group('UIView', () {
@@ -95,14 +150,14 @@ void main() {
 
       setUp(() {
         mockPlatformHostApi = MockTestUIViewHostApi();
-        TestUIViewHostApi.setup(mockPlatformHostApi);
+        TestUIViewHostApi.setUp(mockPlatformHostApi);
 
-        view = UIView.detached(instanceManager: instanceManager);
+        view = UIViewBase.detached(instanceManager: instanceManager);
         viewInstanceId = instanceManager.addDartCreatedInstance(view);
       });
 
       tearDown(() {
-        TestUIViewHostApi.setup(null);
+        TestUIViewHostApi.setUp(null);
       });
 
       test('setBackgroundColor', () async {

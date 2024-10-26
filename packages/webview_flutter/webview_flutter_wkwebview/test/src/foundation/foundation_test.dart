@@ -17,6 +17,7 @@ import 'foundation_test.mocks.dart';
 
 @GenerateMocks(<Type>[
   TestNSObjectHostApi,
+  TestNSUrlCredentialHostApi,
   TestNSUrlHostApi,
 ])
 void main() {
@@ -36,14 +37,14 @@ void main() {
 
       setUp(() {
         mockPlatformHostApi = MockTestNSObjectHostApi();
-        TestNSObjectHostApi.setup(mockPlatformHostApi);
+        TestNSObjectHostApi.setUp(mockPlatformHostApi);
 
         object = NSObject.detached(instanceManager: instanceManager);
         instanceManager.addDartCreatedInstance(object);
       });
 
       tearDown(() {
-        TestNSObjectHostApi.setup(null);
+        TestNSObjectHostApi.setUp(null);
       });
 
       test('addObserver', () async {
@@ -221,11 +222,11 @@ void main() {
 
     group('NSUrl', () {
       // Ensure the test host api is removed after each test run.
-      tearDown(() => TestNSUrlHostApi.setup(null));
+      tearDown(() => TestNSUrlHostApi.setUp(null));
 
       test('getAbsoluteString', () async {
         final MockTestNSUrlHostApi mockApi = MockTestNSUrlHostApi();
-        TestNSUrlHostApi.setup(mockApi);
+        TestNSUrlHostApi.setUp(mockApi);
 
         final NSUrl url = NSUrl.detached(instanceManager: instanceManager);
         instanceManager.addHostCreatedInstance(url, 0);
@@ -243,6 +244,102 @@ void main() {
         flutterApi.create(0);
 
         expect(instanceManager.getInstanceWithWeakReference(0), isA<NSUrl>());
+      });
+    });
+
+    group('NSUrlCredential', () {
+      tearDown(() {
+        TestNSUrlCredentialHostApi.setUp(null);
+      });
+
+      test('HostApi createWithUser', () {
+        final MockTestNSUrlCredentialHostApi mockApi =
+            MockTestNSUrlCredentialHostApi();
+        TestNSUrlCredentialHostApi.setUp(mockApi);
+
+        final InstanceManager instanceManager = InstanceManager(
+          onWeakReferenceRemoved: (_) {},
+        );
+
+        const String user = 'testString';
+        const String password = 'testString2';
+
+        const NSUrlCredentialPersistence persistence =
+            NSUrlCredentialPersistence.permanent;
+
+        final NSUrlCredential instance = NSUrlCredential.withUser(
+          user: user,
+          password: password,
+          persistence: persistence,
+          instanceManager: instanceManager,
+        );
+
+        verify(mockApi.createWithUser(
+          instanceManager.getIdentifier(instance),
+          user,
+          password,
+          persistence,
+        ));
+      });
+    });
+
+    group('NSUrlProtectionSpace', () {
+      test('FlutterAPI create', () {
+        final InstanceManager instanceManager = InstanceManager(
+          onWeakReferenceRemoved: (_) {},
+        );
+
+        final NSUrlProtectionSpaceFlutterApiImpl api =
+            NSUrlProtectionSpaceFlutterApiImpl(
+          instanceManager: instanceManager,
+        );
+
+        const int instanceIdentifier = 0;
+
+        api.create(
+          instanceIdentifier,
+          'testString',
+          'testString',
+          'testAuthenticationMethod',
+        );
+
+        expect(
+          instanceManager.getInstanceWithWeakReference(instanceIdentifier),
+          isA<NSUrlProtectionSpace>(),
+        );
+      });
+    });
+
+    group('NSUrlAuthenticationChallenge', () {
+      test('FlutterAPI create', () {
+        final InstanceManager instanceManager = InstanceManager(
+          onWeakReferenceRemoved: (_) {},
+        );
+
+        final NSUrlAuthenticationChallengeFlutterApiImpl api =
+            NSUrlAuthenticationChallengeFlutterApiImpl(
+          instanceManager: instanceManager,
+        );
+
+        const int instanceIdentifier = 0;
+
+        const int protectionSpaceIdentifier = 1;
+        instanceManager.addHostCreatedInstance(
+          NSUrlProtectionSpace.detached(
+            host: null,
+            realm: null,
+            authenticationMethod: null,
+            instanceManager: instanceManager,
+          ),
+          protectionSpaceIdentifier,
+        );
+
+        api.create(instanceIdentifier, protectionSpaceIdentifier);
+
+        expect(
+          instanceManager.getInstanceWithWeakReference(instanceIdentifier),
+          isA<NSUrlAuthenticationChallenge>(),
+        );
       });
     });
   });

@@ -2,16 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:webview_flutter_wkwebview/src/common/instance_manager.dart';
 import 'package:webview_flutter_wkwebview/src/foundation/foundation.dart';
+import 'package:webview_flutter_wkwebview/src/ui_kit/ui_kit.dart';
 import 'package:webview_flutter_wkwebview/src/web_kit/web_kit.dart';
 import 'package:webview_flutter_wkwebview/src/webkit_proxy.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
-
+import 'webkit_webview_controller_test.mocks.dart'
+    show MockUIScrollViewDelegate;
 import 'webkit_webview_widget_test.mocks.dart';
 
 @GenerateMocks(<Type>[WKUIDelegate, WKWebViewConfiguration])
@@ -39,7 +43,8 @@ void main() {
         Builder(builder: (BuildContext context) => widget.build(context)),
       );
 
-      expect(find.byType(UiKitView), findsOneWidget);
+      expect(find.byType(Platform.isMacOS ? AppKitView : UiKitView),
+          findsOneWidget);
       expect(find.byKey(const Key('keyValue')), findsOneWidget);
     });
 
@@ -185,7 +190,7 @@ WebKitWebViewController createTestWebViewController(
         )? observeValue,
         InstanceManager? instanceManager,
       }) {
-        final WKWebView webView = WKWebView.detached(
+        final WKWebView webView = WKWebViewIOS.detached(
           instanceManager: testInstanceManager,
         );
         testInstanceManager.addDartCreatedInstance(webView);
@@ -195,6 +200,9 @@ WebKitWebViewController createTestWebViewController(
       }, createUIDelegate: ({
         dynamic onCreateWebView,
         dynamic requestMediaCapturePermission,
+        dynamic runJavaScriptAlertDialog,
+        dynamic runJavaScriptConfirmDialog,
+        dynamic runJavaScriptTextInputDialog,
         InstanceManager? instanceManager,
       }) {
         final MockWKUIDelegate mockWKUIDelegate = MockWKUIDelegate();
@@ -202,6 +210,16 @@ WebKitWebViewController createTestWebViewController(
 
         testInstanceManager.addDartCreatedInstance(mockWKUIDelegate);
         return mockWKUIDelegate;
+      }, createUIScrollViewDelegate: ({
+        void Function(UIScrollView, double, double)? scrollViewDidScroll,
+      }) {
+        final MockUIScrollViewDelegate mockScrollViewDelegate =
+            MockUIScrollViewDelegate();
+        when(mockScrollViewDelegate.copy())
+            .thenReturn(MockUIScrollViewDelegate());
+
+        testInstanceManager.addDartCreatedInstance(mockScrollViewDelegate);
+        return mockScrollViewDelegate;
       }),
     ),
   );

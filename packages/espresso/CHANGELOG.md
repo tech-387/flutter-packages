@@ -1,5 +1,40 @@
-## NEXT
+## 0.4.0+3
 
+* Updates Java compatibility version to 11.
+* Updates minimum supported SDK version to Flutter 3.24/Dart 3.5.
+
+## 0.4.0+2
+
+* Bumps `com.google.guava:guava` from `31.1` to `33.3.1`.
+
+## 0.4.0+1
+
+* Updates lint checks to ignore NewerVersionAvailable.
+
+## 0.4.0
+
+* Updates androidx.test.espresso version to 3.6.1.
+* Updates androidx.test to 1.6.1.
+* Removes androidx.test.annotation.ExperimentalTestApi.
+
+## 0.3.0+10
+
+* Removes additional references to v1 Android embedding.
+
+## 0.3.0+9
+
+* Updates minimum supported SDK version to Flutter 3.22/Dart 3.4.
+* Removes support for apps using the v1 Android embedding.
+
+## 0.3.0+8
+
+* Updates minSdkVersion to 19.
+* Updates minimum supported SDK version to Flutter 3.16/Dart 3.2.
+* Updates compileSdk version to 34.
+
+## 0.3.0+7
+
+* Replaces call to deprecated `getObservatoryUri`.
 * Updates minimum supported SDK version to Flutter 3.10/Dart 3.0.
 
 ## 0.3.0+6

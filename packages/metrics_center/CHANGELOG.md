@@ -1,6 +1,12 @@
 ## NEXT
 
-* Updates minimum supported SDK version to Flutter 3.10/Dart 3.0.
+* Updates minimum supported SDK version to Flutter 3.19/Dart 3.3.
+* Update dependency `http: ^1.0.0`
+
+## 1.0.13
+
+* Updates minimum supported SDK version to Flutter 3.13/Dart 3.1.
+* Updates dependency on `package:googleapis` to `^12.0.0`.
 
 ## 1.0.12
 
