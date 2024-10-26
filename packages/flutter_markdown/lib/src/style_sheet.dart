@@ -38,6 +38,7 @@ class MarkdownStyleSheet {
     this.tableHead,
     this.tableBody,
     this.tableHeadAlign,
+    this.tablePadding,
     this.tableBorder,
     this.tableColumnWidth,
     this.tableCellsPadding,
@@ -59,8 +60,20 @@ class MarkdownStyleSheet {
     this.orderedListAlign = WrapAlignment.start,
     this.blockquoteAlign = WrapAlignment.start,
     this.codeblockAlign = WrapAlignment.start,
-    this.textScaleFactor,
-  }) : _styles = <String, TextStyle?>{
+    this.superscriptFontFeatureTag,
+    @Deprecated('Use textScaler instead.') this.textScaleFactor,
+    TextScaler? textScaler,
+  })  : assert(
+          textScaler == null || textScaleFactor == null,
+          'textScaleFactor is deprecated and cannot be specified when textScaler is specified.',
+        ),
+        textScaler = textScaler ??
+            // Internally, only textScaler is used, so convert the scale factor
+            // to a linear scaler.
+            (textScaleFactor == null
+                ? null
+                : TextScaler.linear(textScaleFactor)),
+        _styles = <String, TextStyle?>{
           'a': a,
           'p': p,
           'li': p,
@@ -91,7 +104,7 @@ class MarkdownStyleSheet {
       p: theme.textTheme.bodyMedium,
       pPadding: EdgeInsets.zero,
       code: theme.textTheme.bodyMedium!.copyWith(
-        backgroundColor: theme.cardTheme.color ?? theme.cardColor,
+        backgroundColor: theme.cardTheme.color,
         fontFamily: 'monospace',
         fontSize: theme.textTheme.bodyMedium!.fontSize! * 0.85,
       ),
@@ -122,6 +135,7 @@ class MarkdownStyleSheet {
       tableHead: const TextStyle(fontWeight: FontWeight.w600),
       tableBody: theme.textTheme.bodyMedium,
       tableHeadAlign: TextAlign.center,
+      tablePadding: const EdgeInsets.only(bottom: 4.0),
       tableBorder: TableBorder.all(
         color: theme.dividerColor,
       ),
@@ -161,9 +175,6 @@ class MarkdownStyleSheet {
       p: theme.textTheme.textStyle,
       pPadding: EdgeInsets.zero,
       code: theme.textTheme.textStyle.copyWith(
-        backgroundColor: theme.brightness == Brightness.dark
-            ? CupertinoColors.systemGrey6.darkColor
-            : CupertinoColors.systemGrey6.color,
         fontFamily: 'monospace',
         fontSize: theme.textTheme.textStyle.fontSize! * 0.85,
       ),
@@ -219,6 +230,7 @@ class MarkdownStyleSheet {
       ),
       tableBody: theme.textTheme.textStyle,
       tableHeadAlign: TextAlign.center,
+      tablePadding: const EdgeInsets.only(bottom: 8),
       tableBorder: TableBorder.all(color: CupertinoColors.separator, width: 0),
       tableColumnWidth: const FlexColumnWidth(),
       tableCellsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -269,7 +281,7 @@ class MarkdownStyleSheet {
       p: theme.textTheme.bodyMedium,
       pPadding: EdgeInsets.zero,
       code: theme.textTheme.bodyMedium!.copyWith(
-        backgroundColor: theme.cardTheme.color ?? theme.cardColor,
+        backgroundColor: theme.cardTheme.color,
         fontFamily: 'monospace',
         fontSize: theme.textTheme.bodyMedium!.fontSize! * 0.85,
       ),
@@ -300,6 +312,7 @@ class MarkdownStyleSheet {
       tableHead: const TextStyle(fontWeight: FontWeight.w600),
       tableBody: theme.textTheme.bodyMedium,
       tableHeadAlign: TextAlign.center,
+      tablePadding: const EdgeInsets.only(bottom: 4.0),
       tableBorder: TableBorder.all(
         color: theme.dividerColor,
       ),
@@ -359,6 +372,7 @@ class MarkdownStyleSheet {
     TextStyle? tableHead,
     TextStyle? tableBody,
     TextAlign? tableHeadAlign,
+    EdgeInsets? tablePadding,
     TableBorder? tableBorder,
     TableColumnWidth? tableColumnWidth,
     EdgeInsets? tableCellsPadding,
@@ -380,8 +394,20 @@ class MarkdownStyleSheet {
     WrapAlignment? orderedListAlign,
     WrapAlignment? blockquoteAlign,
     WrapAlignment? codeblockAlign,
-    double? textScaleFactor,
+    String? superscriptFontFeatureTag,
+    @Deprecated('Use textScaler instead.') double? textScaleFactor,
+    TextScaler? textScaler,
   }) {
+    assert(
+      textScaler == null || textScaleFactor == null,
+      'textScaleFactor is deprecated and cannot be specified when textScaler is specified.',
+    );
+    // If either of textScaler or textScaleFactor is non-null, pass null for the
+    // other instead of the previous value, since only one is allowed.
+    final TextScaler? newTextScaler =
+        textScaler ?? (textScaleFactor == null ? this.textScaler : null);
+    final double? nextTextScaleFactor =
+        textScaleFactor ?? (textScaler == null ? this.textScaleFactor : null);
     return MarkdownStyleSheet(
       a: a ?? this.a,
       p: p ?? this.p,
@@ -412,6 +438,7 @@ class MarkdownStyleSheet {
       tableHead: tableHead ?? this.tableHead,
       tableBody: tableBody ?? this.tableBody,
       tableHeadAlign: tableHeadAlign ?? this.tableHeadAlign,
+      tablePadding: tablePadding ?? this.tablePadding,
       tableBorder: tableBorder ?? this.tableBorder,
       tableColumnWidth: tableColumnWidth ?? this.tableColumnWidth,
       tableCellsPadding: tableCellsPadding ?? this.tableCellsPadding,
@@ -435,7 +462,10 @@ class MarkdownStyleSheet {
       orderedListAlign: orderedListAlign ?? this.orderedListAlign,
       blockquoteAlign: blockquoteAlign ?? this.blockquoteAlign,
       codeblockAlign: codeblockAlign ?? this.codeblockAlign,
-      textScaleFactor: textScaleFactor ?? this.textScaleFactor,
+      superscriptFontFeatureTag:
+          superscriptFontFeatureTag ?? this.superscriptFontFeatureTag,
+      textScaler: newTextScaler,
+      textScaleFactor: nextTextScaleFactor,
     );
   }
 
@@ -475,6 +505,7 @@ class MarkdownStyleSheet {
       tableHead: tableHead!.merge(other.tableHead),
       tableBody: tableBody!.merge(other.tableBody),
       tableHeadAlign: other.tableHeadAlign,
+      tablePadding: other.tablePadding,
       tableBorder: other.tableBorder,
       tableColumnWidth: other.tableColumnWidth,
       tableCellsPadding: other.tableCellsPadding,
@@ -497,6 +528,12 @@ class MarkdownStyleSheet {
       blockquoteAlign: other.blockquoteAlign,
       codeblockAlign: other.codeblockAlign,
       textScaleFactor: other.textScaleFactor,
+      superscriptFontFeatureTag: other.superscriptFontFeatureTag,
+      // Only one of textScaler and textScaleFactor can be passed. If
+      // other.textScaleFactor is non-null, then the sheet was created with a
+      // textScaleFactor and the textScaler was derived from that, so should be
+      // ignored so that the textScaleFactor continues to be set.
+      textScaler: other.textScaleFactor == null ? other.textScaler : null,
     );
   }
 
@@ -587,6 +624,9 @@ class MarkdownStyleSheet {
   /// The [TextAlign] to use for `th` elements.
   final TextAlign? tableHeadAlign;
 
+  /// The padding to use for `table` elements.
+  final EdgeInsets? tablePadding;
+
   /// The [TableBorder] to use for `table` elements.
   final TableBorder? tableBorder;
 
@@ -650,8 +690,19 @@ class MarkdownStyleSheet {
   /// The [WrapAlignment] to use for a code block. Defaults to start.
   final WrapAlignment codeblockAlign;
 
-  /// The text scale factor to use in textual elements
+  /// The text scaler to use in textual elements.
+  final TextScaler? textScaler;
+
+  /// The text scale factor to use in textual elements.
+  ///
+  /// This will be non-null only if the sheet was created with the deprecated
+  /// [textScaleFactor] instead of [textScaler].
+  @Deprecated('Use textScaler instead.')
   final double? textScaleFactor;
+
+  /// Custom font feature tag for font which does not support `sups'
+  /// feature to create superscript in footnotes.
+  final String? superscriptFontFeatureTag;
 
   /// A [Map] from element name to the corresponding [TextStyle] object.
   Map<String, TextStyle?> get styles => _styles;
@@ -696,6 +747,7 @@ class MarkdownStyleSheet {
         other.tableHead == tableHead &&
         other.tableBody == tableBody &&
         other.tableHeadAlign == tableHeadAlign &&
+        other.tablePadding == tablePadding &&
         other.tableBorder == tableBorder &&
         other.tableColumnWidth == tableColumnWidth &&
         other.tableCellsPadding == tableCellsPadding &&
@@ -717,7 +769,8 @@ class MarkdownStyleSheet {
         other.orderedListAlign == orderedListAlign &&
         other.blockquoteAlign == blockquoteAlign &&
         other.codeblockAlign == codeblockAlign &&
-        other.textScaleFactor == textScaleFactor;
+        other.superscriptFontFeatureTag == superscriptFontFeatureTag &&
+        other.textScaler == textScaler;
   }
 
   @override
@@ -753,6 +806,7 @@ class MarkdownStyleSheet {
       tableHead,
       tableBody,
       tableHeadAlign,
+      tablePadding,
       tableBorder,
       tableColumnWidth,
       tableCellsPadding,
@@ -774,7 +828,9 @@ class MarkdownStyleSheet {
       orderedListAlign,
       blockquoteAlign,
       codeblockAlign,
+      textScaler,
       textScaleFactor,
+      superscriptFontFeatureTag,
     ]);
   }
 }

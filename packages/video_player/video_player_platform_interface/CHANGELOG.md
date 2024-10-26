@@ -1,5 +1,11 @@
-## NEXT
+## 6.2.3
 
+* Updates minimum supported SDK version to Flutter 3.19/Dart 3.3.
+* Clarified that `VideoEventType.initialized` cannot be sent more than once.
+
+## 6.2.2
+
+* Updates minimum required plugin_platform_interface version to 2.1.7.
 * Updates minimum supported SDK version to Flutter 3.10/Dart 3.0.
 
 ## 6.2.1

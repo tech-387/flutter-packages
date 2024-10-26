@@ -1,3 +1,11 @@
+## NEXT
+
+* Updates minimum supported SDK version to Flutter 3.19/Dart 3.3.
+
+## 2.1.8
+
+* Fixes new lint warnings.
+
 ## 2.1.7
 
 * Changes `MockPlatformInterfaceMixin` to a `mixin class` for better

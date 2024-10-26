@@ -58,8 +58,8 @@ enum _SlotIds {
 ///         key: const Key('Primary Navigation Medium'),
 ///         builder: (_) => AdaptiveScaffold.toNavigationRail(destinations: destinations),
 ///       ),
-///       Breakpoints.large: SlotLayout.from(
-///         key: const Key('Primary Navigation Large'),
+///       Breakpoints.mediumLarge: SlotLayout.from(
+///         key: const Key('Primary Navigation MediumLarge'),
 ///         inAnimation: leftOutIn,
 ///         builder: (_) => AdaptiveScaffold.toNavigationRail(extended: true, destinations: destinations),
 ///       ),
@@ -117,6 +117,7 @@ class AdaptiveLayout extends StatefulWidget {
     this.body,
     this.secondaryBody,
     this.bodyRatio,
+    this.transitionDuration = const Duration(seconds: 1),
     this.internalAnimations = true,
     this.bodyOrientation = Axis.horizontal,
   });
@@ -181,6 +182,11 @@ class AdaptiveLayout extends StatefulWidget {
   /// hinge when there is one.
   final double? bodyRatio;
 
+  /// Defines the duration of transition between layouts.
+  ///
+  /// Defaults to [Duration(seconds: 1)].
+  final Duration transitionDuration;
+
   /// Whether or not the developer wants the smooth entering slide transition on
   /// [secondaryBody].
   ///
@@ -213,7 +219,7 @@ class _AdaptiveLayoutState extends State<AdaptiveLayout>
   void initState() {
     if (widget.internalAnimations) {
       _controller = AnimationController(
-        duration: const Duration(seconds: 1),
+        duration: widget.transitionDuration,
         vsync: this,
       )..forward();
     } else {
@@ -287,7 +293,7 @@ class _AdaptiveLayoutState extends State<AdaptiveLayout>
     });
 
     Rect? hinge;
-    for (final DisplayFeature e in MediaQuery.of(context).displayFeatures) {
+    for (final DisplayFeature e in MediaQuery.displayFeaturesOf(context)) {
       if (e.type == DisplayFeatureType.hinge ||
           e.type == DisplayFeatureType.fold) {
         if (e.bounds.left != 0) {

@@ -1,5 +1,16 @@
-## NEXT
+## 3.1.3
 
+* Updates minimum supported SDK version to Flutter 3.19/Dart 3.3.
+* Fixes handling of `file:` URLs that contain UTF-8 encoded paths.
+
+## 3.1.2
+
+* Updates to pigeon 21.
+* Updates minimum supported SDK version to Flutter 3.16/Dart 3.2.
+
+## 3.1.1
+
+* Updates `launchUrl` to return false instead of throwing when there is no handler.
 * Updates minimum supported SDK version to Flutter 3.10/Dart 3.0.
 
 ## 3.1.0

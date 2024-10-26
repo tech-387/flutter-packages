@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:flutter/foundation.dart'
-    show immutable, listEquals, VoidCallback;
+    show VoidCallback, immutable, listEquals;
 import 'package:flutter/material.dart' show Color, Colors;
 
 import 'types.dart';
@@ -96,7 +96,7 @@ class Polyline implements MapsObject<Polyline> {
   /// Supported on Android only.
   final Cap endCap;
 
-  /// True if the marker is visible.
+  /// True if the polyline is visible.
   final bool visible;
 
   /// Width of the polyline, used to define the width of the line segment to be drawn.

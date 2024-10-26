@@ -210,20 +210,16 @@ class VersionCheckCommand extends PackageLoopingCommand {
     switch (versionState) {
       case _CurrentVersionState.unchanged:
         versionChanged = false;
-        break;
       case _CurrentVersionState.validIncrease:
       case _CurrentVersionState.validRevert:
       case _CurrentVersionState.newPackage:
         versionChanged = true;
-        break;
       case _CurrentVersionState.invalidChange:
         versionChanged = true;
         errors.add('Disallowed version change.');
-        break;
       case _CurrentVersionState.unknown:
         versionChanged = false;
         errors.add('Unable to determine previous version.');
-        break;
     }
 
     if (!(await _validateChangelogVersion(package,
@@ -362,7 +358,7 @@ ${indentation}HTTP response: ${pubVersionFinderResponse.httpResponse.body}
           '${indentation}Breaking changes to platform interfaces are not '
           'allowed without explicit justification.\n'
           '${indentation}See '
-          'https://github.com/flutter/flutter/wiki/Contributing-to-Plugins-and-Packages '
+          'https://github.com/flutter/flutter/blob/master/docs/ecosystem/contributing/README.md '
           'for more information.');
       return _CurrentVersionState.invalidChange;
     }
@@ -396,6 +392,7 @@ ${indentation}HTTP response: ${pubVersionFinderResponse.httpResponse.body}
     }
     // Remove all leading mark down syntax from the version line.
     String? versionString = firstLineWithText?.split(' ').last;
+    String? leadingMarkdown = firstLineWithText?.split(' ').first;
 
     final String badNextErrorMessage = '${indentation}When bumping the version '
         'for release, the NEXT section should be incorporated into the new '
@@ -417,15 +414,18 @@ ${indentation}HTTP response: ${pubVersionFinderResponse.httpResponse.body}
       // CHANGELOG. That means the next version entry in the CHANGELOG should
       // pass the normal validation.
       versionString = null;
+      leadingMarkdown = null;
       while (iterator.moveNext()) {
         if (iterator.current.trim().startsWith('## ')) {
           versionString = iterator.current.trim().split(' ').last;
+          leadingMarkdown = iterator.current.trim().split(' ').first;
           break;
         }
       }
     }
 
-    if (versionString == null) {
+    final bool validLeadingMarkdown = leadingMarkdown == '##';
+    if (versionString == null || !validLeadingMarkdown) {
       printError('${indentation}Unable to find a version in CHANGELOG.md');
       print('${indentation}The current version should be on a line starting '
           'with "## ", either on the first non-empty line or after a "## NEXT" '

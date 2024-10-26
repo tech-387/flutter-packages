@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -229,9 +230,16 @@ class WebKitWebViewPlatformController extends WebViewPlatformController {
     }
 
     if (params.backgroundColor != null) {
-      unawaited(webView.setOpaque(false));
-      unawaited(webView.setBackgroundColor(Colors.transparent));
-      unawaited(webView.scrollView.setBackgroundColor(params.backgroundColor));
+      final WKWebView webView = this.webView;
+      if (webView is WKWebViewIOS) {
+        unawaited(webView.setOpaque(false));
+        unawaited(webView.setBackgroundColor(Colors.transparent));
+        unawaited(
+            webView.scrollView.setBackgroundColor(params.backgroundColor));
+      } else {
+        // TODO(stuartmorgan): Investigate doing this via JS instead.
+        throw UnimplementedError('Background color is yet supported on macOS');
+      }
     }
 
     if (params.initialUrl != null) {
@@ -252,10 +260,8 @@ class WebKitWebViewPlatformController extends WebViewPlatformController {
     switch (autoMediaPlaybackPolicy) {
       case AutoMediaPlaybackPolicy.require_user_action_for_all_media_types:
         requiresUserAction = true;
-        break;
       case AutoMediaPlaybackPolicy.always_allow:
         requiresUserAction = false;
-        break;
     }
 
     configuration
@@ -379,31 +385,51 @@ class WebKitWebViewPlatformController extends WebViewPlatformController {
   Future<String?> currentUrl() => webView.getUrl();
 
   @override
-  Future<void> scrollTo(int x, int y) {
-    return webView.scrollView.setContentOffset(Point<double>(
-      x.toDouble(),
-      y.toDouble(),
-    ));
+  Future<void> scrollTo(int x, int y) async {
+    final WKWebView webView = this.webView;
+    if (webView is WKWebViewIOS) {
+      return webView.scrollView.setContentOffset(Point<double>(
+        x.toDouble(),
+        y.toDouble(),
+      ));
+    } else {
+      throw UnimplementedError('scrollTo is not supported on macOS');
+    }
   }
 
   @override
   Future<void> scrollBy(int x, int y) async {
-    await webView.scrollView.scrollBy(Point<double>(
-      x.toDouble(),
-      y.toDouble(),
-    ));
+    final WKWebView webView = this.webView;
+    if (webView is WKWebViewIOS) {
+      await webView.scrollView.scrollBy(Point<double>(
+        x.toDouble(),
+        y.toDouble(),
+      ));
+    } else {
+      throw UnimplementedError('scrollBy is not supported on macOS');
+    }
   }
 
   @override
   Future<int> getScrollX() async {
-    final Point<double> offset = await webView.scrollView.getContentOffset();
-    return offset.x.toInt();
+    final WKWebView webView = this.webView;
+    if (webView is WKWebViewIOS) {
+      final Point<double> offset = await webView.scrollView.getContentOffset();
+      return offset.x.toInt();
+    } else {
+      throw UnimplementedError('getScrollX is not supported on macOS');
+    }
   }
 
   @override
   Future<int> getScrollY() async {
-    final Point<double> offset = await webView.scrollView.getContentOffset();
-    return offset.y.toInt();
+    final WKWebView webView = this.webView;
+    if (webView is WKWebViewIOS) {
+      final Point<double> offset = await webView.scrollView.getContentOffset();
+      return offset.y.toInt();
+    } else {
+      throw UnimplementedError('getScrollY is not supported on macOS');
+    }
   }
 
   @override
@@ -578,19 +604,14 @@ class WebKitWebViewPlatformController extends WebViewPlatformController {
     switch (error.code) {
       case WKErrorCode.unknown:
         errorType = WebResourceErrorType.unknown;
-        break;
       case WKErrorCode.webContentProcessTerminated:
         errorType = WebResourceErrorType.webContentProcessTerminated;
-        break;
       case WKErrorCode.webViewInvalidated:
         errorType = WebResourceErrorType.webViewInvalidated;
-        break;
       case WKErrorCode.javaScriptExceptionOccurred:
         errorType = WebResourceErrorType.javaScriptExceptionOccurred;
-        break;
       case WKErrorCode.javaScriptResultTypeIsUnsupported:
         errorType = WebResourceErrorType.javaScriptResultTypeIsUnsupported;
-        break;
     }
 
     return WebResourceError(
@@ -647,7 +668,11 @@ class WebKitWebViewPlatformController extends WebViewPlatformController {
 @visibleForTesting
 class WebViewWidgetProxy {
   /// Constructs a [WebViewWidgetProxy].
-  const WebViewWidgetProxy();
+  const WebViewWidgetProxy({@visibleForTesting this.overriddenIsMacOS});
+
+  /// If set, replaces [Platform] checks when picking implementation classes.
+  @visibleForTesting
+  final bool? overriddenIsMacOS;
 
   /// Constructs a [WKWebView].
   WKWebView createWebView(
@@ -658,7 +683,11 @@ class WebViewWidgetProxy {
       Map<NSKeyValueChangeKey, Object?> change,
     )? observeValue,
   }) {
-    return WKWebView(configuration, observeValue: observeValue);
+    if (overriddenIsMacOS ?? Platform.isMacOS) {
+      return WKWebViewMacOS(configuration, observeValue: observeValue);
+    } else {
+      return WKWebViewIOS(configuration, observeValue: observeValue);
+    }
   }
 
   /// Constructs a [WKScriptMessageHandler].

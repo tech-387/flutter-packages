@@ -50,9 +50,10 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
 
   /// Creates an instance of a video player and returns its textureId.
   Future<int?> create(
-    VideoPlayerBufferOptions videoPlayerBufferOptions,
-    DataSource dataSource,
-  ) {
+    DataSource dataSource, {
+    VideoPlayerBufferOptions videoPlayerBufferOptions =
+        const VideoPlayerBufferOptions(),
+  }) {
     throw UnimplementedError('create() has not been implemented.');
   }
 
@@ -286,6 +287,8 @@ class VideoEvent {
 /// completed or to communicate buffering events or play state changed.
 enum VideoEventType {
   /// The video has been initialized.
+  ///
+  /// A maximum of one event of this type may be emitted per instance.
   initialized,
 
   /// The playback has ended.

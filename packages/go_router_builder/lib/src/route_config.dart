@@ -40,7 +40,9 @@ class ShellRouteConfig extends RouteBaseConfig {
     required this.navigatorKey,
     required this.parentNavigatorKey,
     required super.routeDataClass,
+    required this.observers,
     required super.parent,
+    required this.restorationScopeId,
   }) : super._();
 
   /// The command for calling the navigator key getter from the ShellRouteData.
@@ -48,6 +50,12 @@ class ShellRouteConfig extends RouteBaseConfig {
 
   /// The parent navigator key.
   final String? parentNavigatorKey;
+
+  /// The navigator observers.
+  final String? observers;
+
+  /// The restoration scope id.
+  final String? restorationScopeId;
 
   @override
   Iterable<String> classDeclarations() {
@@ -72,7 +80,9 @@ class ShellRouteConfig extends RouteBaseConfig {
   @override
   String get routeConstructorParameters =>
       '${navigatorKey == null ? '' : 'navigatorKey: $navigatorKey,'}'
-      '${parentNavigatorKey == null ? '' : 'parentNavigatorKey: $parentNavigatorKey,'}';
+      '${parentNavigatorKey == null ? '' : 'parentNavigatorKey: $parentNavigatorKey,'}'
+      '${observers == null ? '' : 'observers: $observers,'}'
+      '${restorationScopeId == null ? '' : 'restorationScopeId: $restorationScopeId,'}';
 
   @override
   String get factorConstructorParameters =>
@@ -136,6 +146,7 @@ class StatefulShellBranchConfig extends RouteBaseConfig {
     required this.navigatorKey,
     required super.routeDataClass,
     required super.parent,
+    required this.observers,
     this.restorationScopeId,
     this.initialLocation,
   }) : super._();
@@ -149,6 +160,9 @@ class StatefulShellBranchConfig extends RouteBaseConfig {
   /// The initial route.
   final String? initialLocation;
 
+  /// The navigator observers.
+  final String? observers;
+
   @override
   Iterable<String> classDeclarations() => <String>[];
 
@@ -158,7 +172,8 @@ class StatefulShellBranchConfig extends RouteBaseConfig {
   String get routeConstructorParameters =>
       '${navigatorKey == null ? '' : 'navigatorKey: $navigatorKey,'}'
       '${restorationScopeId == null ? '' : 'restorationScopeId: $restorationScopeId,'}'
-      '${initialLocation == null ? '' : 'initialLocation: $initialLocation,'}';
+      '${initialLocation == null ? '' : 'initialLocation: $initialLocation,'}'
+      '${observers == null ? '' : 'observers: $observers,'}';
 
   @override
   String get routeDataClassName => 'StatefulShellBranchData';
@@ -442,9 +457,6 @@ abstract class RouteBaseConfig {
   ) {
     assert(!reader.isNull, 'reader should not be null');
     final InterfaceType type = reader.objectValue.type! as InterfaceType;
-    // TODO(stuartmorgan): Remove this ignore once 'analyze' can be set to
-    // 5.2+ (when Flutter 3.4+ is on stable).
-    // ignore: deprecated_member_use
     final String typeName = type.element.name;
     final DartType typeParamType = type.typeArguments.single;
     if (typeParamType is! InterfaceType) {
@@ -456,9 +468,6 @@ abstract class RouteBaseConfig {
     }
 
     // TODO(kevmoo): validate that this MUST be a subtype of `GoRouteData`
-    // TODO(stuartmorgan): Remove this ignore once 'analyze' can be set to
-    // 5.2+ (when Flutter 3.4+ is on stable).
-    // ignore: deprecated_member_use
     final InterfaceElement classElement = typeParamType.element;
 
     final RouteBaseConfig value;
@@ -475,8 +484,15 @@ abstract class RouteBaseConfig {
             classElement,
             parameterName: r'$parentNavigatorKey',
           ),
+          observers: _generateParameterGetterCode(
+            classElement,
+            parameterName: r'$observers',
+          ),
+          restorationScopeId: _generateParameterGetterCode(
+            classElement,
+            parameterName: r'$restorationScopeId',
+          ),
         );
-        break;
       case 'TypedStatefulShellRoute':
         value = StatefulShellRouteConfig._(
           routeDataClass: classElement,
@@ -494,7 +510,6 @@ abstract class RouteBaseConfig {
             parameterName: r'$navigatorContainerBuilder',
           ),
         );
-        break;
       case 'TypedStatefulShellBranch':
         value = StatefulShellBranchConfig._(
           routeDataClass: classElement,
@@ -511,8 +526,11 @@ abstract class RouteBaseConfig {
             classElement,
             parameterName: r'$initialLocation',
           ),
+          observers: _generateParameterGetterCode(
+            classElement,
+            parameterName: r'$observers',
+          ),
         );
-        break;
       case 'TypedGoRoute':
         final ConstantReader pathValue = reader.read('path');
         if (pathValue.isNull) {
@@ -532,7 +550,6 @@ abstract class RouteBaseConfig {
             parameterName: r'$parentNavigatorKey',
           ),
         );
-        break;
       default:
         throw UnsupportedError('Unrecognized type $typeName');
     }
@@ -568,7 +585,9 @@ abstract class RouteBaseConfig {
           if (!element.isStatic || element.name != parameterName) {
             return false;
           }
-          if (parameterName.toLowerCase().contains('navigatorkey')) {
+          if (parameterName
+              .toLowerCase()
+              .contains(RegExp('navigatorKey | observers'))) {
             final DartType type = element.type;
             if (type is! ParameterizedType) {
               return false;
@@ -591,7 +610,6 @@ abstract class RouteBaseConfig {
     if (fieldDisplayName != null) {
       return '${classElement.name}.$fieldDisplayName';
     }
-
     final String? methodDisplayName = classElement.methods
         .where((MethodElement element) {
           return element.isStatic && element.name == parameterName;
@@ -695,16 +713,10 @@ $routeDataClassName.$dataConvertionFunctionName(
 String _enumMapConst(InterfaceType type) {
   assert(type.isEnum);
 
-  // TODO(stuartmorgan): Remove this ignore once 'analyze' can be set to
-  // 5.2+ (when Flutter 3.4+ is on stable).
-  // ignore: deprecated_member_use
   final String enumName = type.element.name;
 
   final StringBuffer buffer = StringBuffer('const ${enumMapName(type)} = {');
 
-  // TODO(stuartmorgan): Remove this ignore once 'analyze' can be set to
-  // 5.2+ (when Flutter 3.4+ is on stable).
-  // ignore: deprecated_member_use
   for (final FieldElement enumField in type.element.fields
       .where((FieldElement element) => element.isEnumConstant)) {
     buffer.writeln(

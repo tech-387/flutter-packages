@@ -4,19 +4,31 @@
 
 import 'dart:ui' show Size;
 
+import 'package:flutter/services.dart' show DeviceOrientation;
+
 import 'analyzer.dart';
+import 'aspect_ratio_strategy.dart';
+import 'camera2_camera_control.dart';
+import 'camera2_camera_info.dart';
+import 'camera_control.dart';
+import 'camera_info.dart';
 import 'camera_selector.dart';
 import 'camera_state.dart';
 import 'camerax_library.g.dart';
+import 'capture_request_options.dart';
+import 'device_orientation_manager.dart';
 import 'fallback_strategy.dart';
+import 'focus_metering_action.dart';
 import 'image_analysis.dart';
 import 'image_capture.dart';
 import 'image_proxy.dart';
+import 'metering_point.dart';
 import 'observer.dart';
 import 'preview.dart';
 import 'process_camera_provider.dart';
 import 'quality_selector.dart';
 import 'recorder.dart';
+import 'resolution_filter.dart';
 import 'resolution_selector.dart';
 import 'resolution_strategy.dart';
 import 'system_services.dart';
@@ -47,6 +59,17 @@ class CameraXProxy {
     this.startListeningForDeviceOrientationChange =
         _startListeningForDeviceOrientationChange,
     this.setPreviewSurfaceProvider = _setPreviewSurfaceProvider,
+    this.getDefaultDisplayRotation = _getDefaultDisplayRotation,
+    this.getCamera2CameraControl = _getCamera2CameraControl,
+    this.createCaptureRequestOptions = _createAttachedCaptureRequestOptions,
+    this.createMeteringPoint = _createAttachedMeteringPoint,
+    this.createFocusMeteringAction = _createAttachedFocusMeteringAction,
+    this.createAspectRatioStrategy = _createAttachedAspectRatioStrategy,
+    this.createResolutionFilterWithOnePreferredSize =
+        _createAttachedResolutionFilterWithOnePreferredSize,
+    this.getCamera2CameraInfo = _getCamera2CameraInfo,
+    this.getUiOrientation = _getUiOrientation,
+    this.getSensorOrientation = _getSensorOrientation,
   });
 
   /// Returns a [ProcessCameraProvider] instance.
@@ -58,12 +81,14 @@ class CameraXProxy {
   /// Returns a [Preview] configured with the specified target rotation and
   /// specified [ResolutionSelector].
   Preview Function(
-      {required int targetRotation,
-      ResolutionSelector? resolutionSelector}) createPreview;
+    ResolutionSelector? resolutionSelector,
+    int? targetRotation,
+  ) createPreview;
 
   /// Returns an [ImageCapture] configured with specified flash mode and
   /// the specified [ResolutionSelector].
-  ImageCapture Function(ResolutionSelector? resolutionSelector)
+  ImageCapture Function(
+          ResolutionSelector? resolutionSelector, int? targetRotation)
       createImageCapture;
 
   /// Returns a [Recorder] for use in video capture configured with the
@@ -75,7 +100,8 @@ class CameraXProxy {
 
   /// Returns an [ImageAnalysis] configured with the specified
   /// [ResolutionSelector].
-  ImageAnalysis Function(ResolutionSelector? resolutionSelector)
+  ImageAnalysis Function(
+          ResolutionSelector? resolutionSelector, int? targetRotation)
       createImageAnalysis;
 
   /// Returns an [Analyzer] configured with the specified callback for
@@ -100,9 +126,11 @@ class CameraXProxy {
       int? fallbackRule}) createResolutionStrategy;
 
   /// Returns a [ResolutionSelector] configured with the specified
-  /// [ResolutionStrategy].
-  ResolutionSelector Function(ResolutionStrategy resolutionStrategy)
-      createResolutionSelector;
+  /// [ResolutionStrategy], [ResolutionFilter], and [AspectRatioStrategy].
+  ResolutionSelector Function(
+      ResolutionStrategy resolutionStrategy,
+      ResolutionFilter? resolutionFilter,
+      AspectRatioStrategy? aspectRatioStrategy) createResolutionSelector;
 
   /// Returns a [FallbackStrategy] configured with the specified [VideoQuality]
   /// and [VideoResolutionFallbackRule].
@@ -128,6 +156,50 @@ class CameraXProxy {
   /// the ID corresponding to the surface it will provide.
   Future<int> Function(Preview preview) setPreviewSurfaceProvider;
 
+  /// Returns default rotation for [UseCase]s in terms of one of the [Surface]
+  /// rotation constants.
+  Future<int> Function() getDefaultDisplayRotation;
+
+  /// Gets [Camera2CameraControl] instance from [cameraControl].
+  Camera2CameraControl Function(CameraControl cameraControl)
+      getCamera2CameraControl;
+
+  /// Creates a [CaptureRequestOptions] with specified options.
+  CaptureRequestOptions Function(
+          List<(CaptureRequestKeySupportedType, Object?)> options)
+      createCaptureRequestOptions;
+
+  /// Returns a [MeteringPoint] with the specified coordinates based on
+  /// [cameraInfo].
+  MeteringPoint Function(
+          double x, double y, double? size, CameraInfo cameraInfo)
+      createMeteringPoint;
+
+  /// Returns a [FocusMeteringAction] based on the specified metering points
+  /// and their modes.
+  FocusMeteringAction Function(List<(MeteringPoint, int?)> meteringPointInfos,
+      bool? disableAutoCancel) createFocusMeteringAction;
+
+  /// Creates an [AspectRatioStrategy] with specified aspect ratio and fallback
+  /// rule.
+  AspectRatioStrategy Function(int aspectRatio, int fallbackRule)
+      createAspectRatioStrategy;
+
+  /// Creates a [ResolutionFilter] that prioritizes specified resolution.
+  ResolutionFilter Function(Size preferredResolution)
+      createResolutionFilterWithOnePreferredSize;
+
+  /// Gets [Camera2CameraInfo] instance from [cameraInfo].
+  Future<Camera2CameraInfo> Function(CameraInfo cameraInfo)
+      getCamera2CameraInfo;
+
+  /// Gets current UI orientation based on device orientation and rotation.
+  Future<DeviceOrientation> Function() getUiOrientation;
+
+  /// Gets camera sensor orientation from [camera2CameraInfo].
+  Future<int> Function(Camera2CameraInfo camera2CameraInfo)
+      getSensorOrientation;
+
   static Future<ProcessCameraProvider> _getProcessCameraProvider() {
     return ProcessCameraProvider.getInstance();
   }
@@ -145,14 +217,17 @@ class CameraXProxy {
   }
 
   static Preview _createAttachedPreview(
-      {required int targetRotation, ResolutionSelector? resolutionSelector}) {
+      ResolutionSelector? resolutionSelector, int? targetRotation) {
     return Preview(
-        targetRotation: targetRotation, resolutionSelector: resolutionSelector);
+        initialTargetRotation: targetRotation,
+        resolutionSelector: resolutionSelector);
   }
 
   static ImageCapture _createAttachedImageCapture(
-      ResolutionSelector? resolutionSelector) {
-    return ImageCapture(resolutionSelector: resolutionSelector);
+      ResolutionSelector? resolutionSelector, int? targetRotation) {
+    return ImageCapture(
+        resolutionSelector: resolutionSelector,
+        initialTargetRotation: targetRotation);
   }
 
   static Recorder _createAttachedRecorder(QualitySelector? qualitySelector) {
@@ -165,8 +240,10 @@ class CameraXProxy {
   }
 
   static ImageAnalysis _createAttachedImageAnalysis(
-      ResolutionSelector? resolutionSelector) {
-    return ImageAnalysis(resolutionSelector: resolutionSelector);
+      ResolutionSelector? resolutionSelector, int? targetRotation) {
+    return ImageAnalysis(
+        resolutionSelector: resolutionSelector,
+        initialTargetRotation: targetRotation);
   }
 
   static Analyzer _createAttachedAnalyzer(
@@ -190,8 +267,13 @@ class CameraXProxy {
   }
 
   static ResolutionSelector _createAttachedResolutionSelector(
-      ResolutionStrategy resolutionStrategy) {
-    return ResolutionSelector(resolutionStrategy: resolutionStrategy);
+      ResolutionStrategy resolutionStrategy,
+      ResolutionFilter? resolutionFilter,
+      AspectRatioStrategy? aspectRatioStrategy) {
+    return ResolutionSelector(
+        resolutionStrategy: resolutionStrategy,
+        resolutionFilter: resolutionFilter,
+        aspectRatioStrategy: aspectRatioStrategy);
   }
 
   static FallbackStrategy _createAttachedFallbackStrategy(
@@ -214,11 +296,63 @@ class CameraXProxy {
 
   static void _startListeningForDeviceOrientationChange(
       bool cameraIsFrontFacing, int sensorOrientation) {
-    SystemServices.startListeningForDeviceOrientationChange(
+    DeviceOrientationManager.startListeningForDeviceOrientationChange(
         cameraIsFrontFacing, sensorOrientation);
   }
 
   static Future<int> _setPreviewSurfaceProvider(Preview preview) async {
     return preview.setSurfaceProvider();
+  }
+
+  static Future<int> _getDefaultDisplayRotation() async {
+    return DeviceOrientationManager.getDefaultDisplayRotation();
+  }
+
+  static Camera2CameraControl _getCamera2CameraControl(
+      CameraControl cameraControl) {
+    return Camera2CameraControl(cameraControl: cameraControl);
+  }
+
+  static CaptureRequestOptions _createAttachedCaptureRequestOptions(
+      List<(CaptureRequestKeySupportedType, Object?)> options) {
+    return CaptureRequestOptions(requestedOptions: options);
+  }
+
+  static MeteringPoint _createAttachedMeteringPoint(
+      double x, double y, double? size, CameraInfo cameraInfo) {
+    return MeteringPoint(x: x, y: y, size: size, cameraInfo: cameraInfo);
+  }
+
+  static FocusMeteringAction _createAttachedFocusMeteringAction(
+      List<(MeteringPoint, int?)> meteringPointInfos, bool? disableAutoCancel) {
+    return FocusMeteringAction(
+        meteringPointInfos: meteringPointInfos,
+        disableAutoCancel: disableAutoCancel);
+  }
+
+  static AspectRatioStrategy _createAttachedAspectRatioStrategy(
+      int preferredAspectRatio, int fallbackRule) {
+    return AspectRatioStrategy(
+        preferredAspectRatio: preferredAspectRatio, fallbackRule: fallbackRule);
+  }
+
+  static ResolutionFilter _createAttachedResolutionFilterWithOnePreferredSize(
+      Size preferredSize) {
+    return ResolutionFilter.onePreferredSize(
+        preferredResolution: preferredSize);
+  }
+
+  static Future<Camera2CameraInfo> _getCamera2CameraInfo(
+      CameraInfo cameraInfo) async {
+    return Camera2CameraInfo.from(cameraInfo);
+  }
+
+  static Future<DeviceOrientation> _getUiOrientation() async {
+    return DeviceOrientationManager.getUiOrientation();
+  }
+
+  static Future<int> _getSensorOrientation(
+      Camera2CameraInfo camera2CameraInfo) async {
+    return camera2CameraInfo.getSensorOrientation();
   }
 }

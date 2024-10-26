@@ -30,7 +30,7 @@ const String misconfiguredJavaIntegrationTestErrorExplanation =
     'The following files use @RunWith(FlutterTestRunner.class) '
     'but not @DartIntegrationTest, which will cause hangs when run with '
     'this command. See '
-    'https://github.com/flutter/flutter/wiki/Plugin-Tests#enabling-android-ui-tests '
+    'https://github.com/flutter/flutter/blob/master/docs/ecosystem/testing/Plugin-Tests.md#enabling-android-ui-tests '
     'for instructions.';
 
 /// The command to run native tests for plugins:
@@ -367,10 +367,21 @@ this command.
               'notAnnotation=io.flutter.plugins.DartIntegrationTest';
 
           print('Running integration tests...');
+          // Explicitly request all ABIs, as Flutter would if being called
+          // without a specific target (see
+          // https://github.com/flutter/flutter/pull/154476) to ensure it can
+          // run on any architecture emulator.
+          const List<String> abis = <String>[
+            'android-arm',
+            'android-arm64',
+            'android-x64',
+            'android-x86'
+          ];
           final int exitCode = await project.runCommand(
             'app:connectedAndroidTest',
             arguments: <String>[
               '-Pandroid.testInstrumentationRunnerArguments.$filter',
+              '-Ptarget-platform=${abis.join(',')}',
             ],
           );
           if (exitCode != 0) {
@@ -465,7 +476,10 @@ this command.
       _printRunningExampleTestsMessage(example, platform);
       final int exitCode = await _xcode.runXcodeBuild(
         example.directory,
-        actions: <String>['test'],
+        platform,
+        // Clean before testing to remove cached swiftmodules from previous
+        // runs, which can cause conflicts.
+        actions: <String>['clean', 'test'],
         workspace: '${platform.toLowerCase()}/Runner.xcworkspace',
         scheme: 'Runner',
         configuration: 'Debug',
@@ -481,7 +495,6 @@ this command.
       switch (exitCode) {
         case xcodebuildNoTestExitCode:
           _printNoExampleTestsMessage(example, platform);
-          break;
         case 0:
           printSuccess('Successfully ran $platform xctest for $exampleName');
           // If this is the first test, assume success until something fails.
@@ -491,7 +504,6 @@ this command.
           if (exampleHasUnitTests) {
             ranUnitTests = true;
           }
-          break;
         default:
           // Any failure means a failure overall.
           overallResult = RunState.failed;
@@ -499,7 +511,6 @@ this command.
           if (exampleHasUnitTests) {
             ranUnitTests = true;
           }
-          break;
       }
     }
 

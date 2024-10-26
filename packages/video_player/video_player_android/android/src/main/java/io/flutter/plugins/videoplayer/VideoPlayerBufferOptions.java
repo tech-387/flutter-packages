@@ -13,4 +13,6 @@ public class VideoPlayerBufferOptions {
         this.bufferForPlaybackMs = bufferForPlaybackMs;
         this.bufferForPlaybackAfterRebufferMs = bufferForPlaybackAfterRebufferMs;
     }
+
+    VideoPlayerBufferOptions() {}
 }

@@ -17,15 +17,21 @@ Currently pigeon supports generating:
 * Kotlin and Java code for Android
 * Swift and Objective-C code for iOS and macOS
 * C++ code for Windows
+* GObject code for Linux
 
 ### Supported Datatypes
 
 Pigeon uses the `StandardMessageCodec` so it supports 
-[any datatype platform channels support](https://flutter.dev/docs/development/platform-integration/platform-channels#codec).
+[any datatype platform channels support](https://flutter.dev/to/platform-channels-codec).
 
 Custom classes, nested datatypes, and enums are also supported. 
 
 Nullable enums in Objective-C generated code will be wrapped in a class to allow for nullability.
+
+By default, custom classes in Swift are defined as structs. 
+Structs don't support some features - recursive data, or Objective-C interop.
+Use the @SwiftClass annotation when defining the class to generate the data
+as a Swift class instead.
 
 ### Synchronous and Asynchronous methods
 
@@ -48,8 +54,7 @@ should be returned via the provided callback.
 To pass custom details into `PlatformException` for error handling, 
 use `FlutterError` in your Host API. [Example](./example/README.md#HostApi_Example).
 
-To use `FlutterError` in Swift you must first extend a standard error.
-[Example](./example/README.md#AppDelegate.swift).
+For swift, use `PigeonError` instead of `FlutterError` when throwing an error. See [Example#Swift](./example/README.md#Swift) for more details.
 
 #### Objective-C and C++
 
@@ -70,13 +75,18 @@ When targeting a Flutter version that supports the
 the threading model for handling HostApi methods can be selected with the
 `TaskQueue` annotation.
 
+### Multi-Instance Support
+
+Host and Flutter APIs now support the ability to provide a unique message channel suffix string 
+to the api to allow for multiple instances to be created and operate in parallel. 
+
 ## Usage
 
 1) Add pigeon as a `dev_dependency`.
 1) Make a ".dart" file outside of your "lib" directory for defining the
    communication interface.
 1) Run pigeon on your ".dart" file to generate the required Dart and
-   host-language code: `flutter pub get` then `flutter pub run pigeon`
+   host-language code: `flutter pub get` then `dart run pigeon`
    with suitable arguments. [Example](./example/README.md#Invocation).
 1) Add the generated Dart code to `./lib` for compilation.
 1) Implement the host-language code and add it to your build (see below).
@@ -126,6 +136,13 @@ the threading model for handling HostApi methods can be selected with the
    (e.g. `macos/Runner.xcworkspace` or `.podspec`).
 1) Implement the generated protocol for handling the calls on macOS, set it up
    as the handler for the messages.
+
+### Flutter calling into Linux steps
+
+1) Add the generated GObject code to your `./linux` directory for compilation, and
+   to your `linux/CMakeLists.txt` file.
+1) Implement the generated protocol for handling the calls on Linux, set it up
+   as the vtable for the API object.
 
 ### Calling into Flutter from the host platform
 
