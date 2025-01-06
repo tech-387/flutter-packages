@@ -14,7 +14,7 @@
 #import "FVPDisplayLink.h"
 #import "messages.g.h"
 
-#import <KTVHTTPCache/KTVHTTPCache.h>
+#import <SJMediaCacheServer/SJMediaCacheServer.h>
 
 #import "FVPVideoPlayerOptions.h"
 #import "FVPVideoPlayerBufferOptions.h"
@@ -713,7 +713,9 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
                         registrar:(NSObject<FlutterPluginRegistrar> *)registrar {
   self = [super init];
   NSAssert(self, @"super init cannot be nil");
-   [KTVHTTPCache proxyStart:nil];
+
+  [SJMediaCacheServer.shared setEnabledConsoleLog:true];
+    
   _registry = [registrar textures];
   _messenger = [registrar messenger];
   _registrar = registrar;
@@ -797,10 +799,19 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
   } else if (input.uri) {
       
       if (_videoPlayerOptions.enableCache) {
-          [KTVHTTPCache cacheSetMaxCacheLength: _videoPlayerOptions.maxCacheBytes];
+          
+          NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
+          
+          // Sets additional headers, if provided in input.
+          config.HTTPAdditionalHeaders = input.httpHeaders;
+          
+          [SJMediaCacheServer.shared setActive:YES];
+          
+          [SJMediaCacheServer.shared setCacheMaxDiskSize:_videoPlayerOptions.maxCacheBytes];
+
           NSURL *originalURL = [NSURL URLWithString:input.uri];
-          NSURL *proxyURL = [KTVHTTPCache proxyURLWithOriginalURL:originalURL];
-          [KTVHTTPCache downloadSetAdditionalHeaders:input.httpHeaders];
+          NSURL *proxyURL = [SJMediaCacheServer.shared proxyURLFromURL:originalURL];
+          
           player = [[FVPVideoPlayer alloc] initWithURL:proxyURL
                                           frameUpdater:frameUpdater
                                            displayLink:displayLink
@@ -867,6 +878,7 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
 }
 
 - (void)play:(FVPTextureMessage *)input error:(FlutterError **)error {
+  [SJMediaCacheServer.shared setActive:YES];
   FVPVideoPlayer *player = self.playersByTextureId[@(input.textureId)];
   [player play];
 }
@@ -880,6 +892,7 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
 
 - (void)seekTo:(FVPPositionMessage *)input
     completion:(void (^)(FlutterError *_Nullable))completion {
+  [SJMediaCacheServer.shared setActive:YES];
   FVPVideoPlayer *player = self.playersByTextureId[@(input.textureId)];
   [player seekTo:input.position
       completionHandler:^(BOOL finished) {
