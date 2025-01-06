@@ -1313,7 +1313,8 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   final Map<int, Duration> _positions = <int, Duration>{};
 
   @override
-  Future<int?> create(DataSource dataSource) async {
+  Future<int?> create(VideoPlayerBufferOptions videoPlayerBufferOptions,
+      DataSource dataSource) async {
     calls.add('create');
     final StreamController<VideoEvent> stream = StreamController<VideoEvent>();
     streams[nextTextureId] = stream;

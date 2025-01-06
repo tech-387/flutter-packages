@@ -25,4 +25,7 @@ Downloaded by pub (not CocoaPods).
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   # KTVHTTPCache
   s.dependency 'KTVHTTPCache', '~> 3.0.0'
+  # SJMediaCacheServer
+  s.dependency 'SJMediaCacheServer', '~> 2.0.6'
+
 end
