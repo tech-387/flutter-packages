@@ -7,7 +7,8 @@ import 'package:pigeon/pigeon.dart';
 @ConfigurePigeon(PigeonOptions(
   dartOut: 'lib/src/sk2_pigeon.g.dart',
   dartTestOut: 'test/sk2_test_api.g.dart',
-  swiftOut: 'darwin/Classes/StoreKit2/sk2_pigeon.g.swift',
+  swiftOut:
+      'darwin/in_app_purchase_storekit/Sources/in_app_purchase_storekit/StoreKit2/sk2_pigeon.g.swift',
   copyrightHeader: 'pigeons/copyright.txt',
 ))
 enum SK2ProductTypeMessage {
@@ -141,18 +142,24 @@ class SK2TransactionMessage {
       required this.originalId,
       required this.productId,
       required this.purchaseDate,
+      this.expirationDate,
       this.purchasedQuantity = 1,
       this.appAccountToken,
       this.error,
+      this.receiptData,
+      this.jsonRepresentation,
       this.restoring = false});
   final int id;
   final int originalId;
   final String productId;
   final String purchaseDate;
+  final String? expirationDate;
   final int purchasedQuantity;
   final String? appAccountToken;
   final bool restoring;
+  final String? receiptData;
   final SK2ErrorMessage? error;
+  final String? jsonRepresentation;
 }
 
 class SK2ErrorMessage {
@@ -189,9 +196,12 @@ abstract class InAppPurchase2API {
   void startListeningToTransactions();
 
   void stopListeningToTransactions();
+
+  @async
+  void restorePurchases();
 }
 
 @FlutterApi()
 abstract class InAppPurchase2CallbackAPI {
-  void onTransactionsUpdated(SK2TransactionMessage newTransaction);
+  void onTransactionsUpdated(List<SK2TransactionMessage> newTransactions);
 }

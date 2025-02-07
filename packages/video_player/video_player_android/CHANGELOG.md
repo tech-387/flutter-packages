@@ -1,3 +1,17 @@
+## NEXT
+
+* Suppresses deprecation and removal warnings for
+  `TextureRegistry.SurfaceProducer.onSurfaceDestroyed`.
+
+## 2.7.17
+
+* Replaces deprecated Android embedder APIs (`onSurfaceCreated` -> `onSurfaceAvailable`).
+* Updates minimum supported SDK version to Flutter 3.22/Dart 3.4.
+
+## 2.7.16
+
+* Updates internal Pigeon API to use newer features.
+
 ## 2.7.15
 
 * Changes the rotation correction calculation for Android API 29+ to use

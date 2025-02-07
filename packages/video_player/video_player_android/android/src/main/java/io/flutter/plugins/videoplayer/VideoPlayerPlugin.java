@@ -17,12 +17,6 @@ import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.EventChannel;
 import io.flutter.plugins.videoplayer.Messages.AndroidVideoPlayerApi;
 import io.flutter.plugins.videoplayer.Messages.CreateMessage;
-import io.flutter.plugins.videoplayer.Messages.LoopingMessage;
-import io.flutter.plugins.videoplayer.Messages.MixWithOthersMessage;
-import io.flutter.plugins.videoplayer.Messages.PlaybackSpeedMessage;
-import io.flutter.plugins.videoplayer.Messages.PositionMessage;
-import io.flutter.plugins.videoplayer.Messages.TextureMessage;
-import io.flutter.plugins.videoplayer.Messages.VolumeMessage;
 import io.flutter.view.TextureRegistry;
 
 /**
@@ -33,15 +27,6 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     private final LongSparseArray<VideoPlayer> videoPlayers = new LongSparseArray<>();
     private final VideoPlayerOptions options = new VideoPlayerOptions();
     private FlutterState flutterState;
-
-    // Note: This should be a singleton in your app.
-    // DatabaseProvider databaseProvider = new StandaloneDatabaseProvider(flutterState.applicationContext);
-
-    // An on-the-fly cache should evict media when reaching a maximum disk space limit.
-    // Cache cache = getDownloadCache(flutterState.applicationContext, databaseProvider);
-
-    // private final String DOWNLOAD_CONTENT_DIRECTORY = "streaming";
-    // private Cache downloadCache = null;
 
     /**
      * Register this with the v2 embedding for the plugin to respond to lifecycle callbacks.

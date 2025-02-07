@@ -1,3 +1,57 @@
+## 24.1.0
+
+* [kotlin, swift] Adds annotation options to omit shared classes used in Event Channels.
+
+## 24.0.0
+
+* **Breaking Change** Relocates some files in `lib` that were not intended for direct client use to `lib/src`.
+
+## 23.0.0
+
+* **Breaking Change** [swift] Fixes a compile error about PigeonError's sendability conformance in Swift 6.
+  * PigeonError's init now requires the "details" argument to be Sendable.
+
+## 22.7.4
+
+* [dart] Fixes bug with multi-instance event channel support.
+
+## 22.7.3
+
+* Adds compatibility with `analyzer` 7.x.*.
+
+## 22.7.2
+
+* Updates README to discuss best practices for using Pigeon-generated code.
+
+## 22.7.1
+
+* [swift] Adds support for platform checks of imports of ProxyApis.
+* Updates minimum supported SDK version to Flutter 3.22/Dart 3.4.
+
+## 22.7.0
+
+* [swift, kotlin] Adds event channel support.
+* [swift, kotlin] Adds `sealed` class inheritance support.
+* [swift] Updates codec class names to be upper camel case.
+
+## 22.6.4
+
+* [swift] Fixes the channel names of the named constructors of ProxyApis.
+
+## 22.6.3
+
+* Replaces deprecated collection method usage.
+
+## 22.6.2
+
+* Removes the `@protected` annotation from the InstanceManager field of the
+  `PigeonInternalProxyApiBaseClass`.
+
+## 22.6.1
+
+* [gobject] Moves class declarations to the header to work around a bug in some
+  versions of glib.
+
 ## 22.6.0
 
 * [swift] Adds `includeErrorClass` to `SwiftOptions`.
