@@ -46,7 +46,11 @@ class VideoPlayerPlugin extends VideoPlayerPlatform {
   }
 
   @override
-  Future<int> create(DataSource dataSource) {
+  Future<int> create(
+    DataSource dataSource, {
+    VideoPlayerBufferOptions videoPlayerBufferOptions =
+        const VideoPlayerBufferOptions(),
+  }) {
     return createWithOptions(
       VideoCreationOptions(
         dataSource: dataSource,

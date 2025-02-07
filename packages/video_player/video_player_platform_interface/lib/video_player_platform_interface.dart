@@ -50,7 +50,11 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
 
   /// Creates an instance of a video player and returns its playerId.
   @Deprecated('Use createWithOptions() instead.')
-  Future<int?> create(DataSource dataSource) {
+  Future<int?> create(
+    DataSource dataSource, {
+    VideoPlayerBufferOptions videoPlayerBufferOptions =
+        const VideoPlayerBufferOptions(),
+  }) {
     throw UnimplementedError('create() has not been implemented.');
   }
 
