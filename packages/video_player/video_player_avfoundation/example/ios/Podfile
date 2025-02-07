@@ -32,6 +32,10 @@ target 'Runner' do
   target 'RunnerTests' do
     inherit! :search_paths
   end
+
+      # Add your GitHub-hosted pod here
+  pod 'SJMediaCacheServer', :git => 'https://github.com/tech-387/SJMediaCacheServer.git', :branch => 'fix/server-restart-port'
+  
 end
 
 post_install do |installer|

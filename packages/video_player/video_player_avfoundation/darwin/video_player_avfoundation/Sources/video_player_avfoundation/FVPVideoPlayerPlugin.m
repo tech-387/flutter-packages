@@ -16,7 +16,7 @@
 #import "./include/video_player_avfoundation/FVPVideoPlayer.h"
 #import "./include/video_player_avfoundation/messages.g.h"
 
-#import <KTVHTTPCache/KTVHTTPCache.h>
+#import <SJMediaCacheServer/SJMediaCacheServer.h>
 
 #import "FVPVideoPlayerOptions.h"
 #import "FVPVideoPlayerBufferOptions.h"
@@ -66,7 +66,7 @@
                         registrar:(NSObject<FlutterPluginRegistrar> *)registrar {
   self = [super init];
   NSAssert(self, @"super init cannot be nil");
-   [KTVHTTPCache proxyStart:nil];
+  [SJMediaCacheServer.shared setEnabledConsoleLog:true];
   _registry = [registrar textures];
   _messenger = [registrar messenger];
   _registrar = registrar;
@@ -185,10 +185,17 @@ static void upgradeAudioSessionCategory(AVAudioSessionCategory requestedCategory
   } else if (options.uri) {
       
       if (_videoPlayerOptions.enableCache) {
-          [KTVHTTPCache cacheSetMaxCacheLength: _videoPlayerOptions.maxCacheBytes];
+          NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
+                    
+          // Sets additional headers, if provided in input.
+          config.HTTPAdditionalHeaders = options.httpHeaders;
+            
+          [SJMediaCacheServer.shared setActive:YES];
+            
+          [SJMediaCacheServer.shared setCacheMaxDiskSize:_videoPlayerOptions.maxCacheBytes];
+          
           NSURL *originalURL = [NSURL URLWithString:options.uri];
-          NSURL *proxyURL = [KTVHTTPCache proxyURLWithOriginalURL:originalURL];
-          [KTVHTTPCache downloadSetAdditionalHeaders:options.httpHeaders];
+          NSURL *proxyURL = [SJMediaCacheServer.shared proxyURLFromURL:originalURL];
           player = [[FVPVideoPlayer alloc] initWithURL:proxyURL
                                           frameUpdater:frameUpdater
                                            displayLink:displayLink
@@ -242,6 +249,7 @@ static void upgradeAudioSessionCategory(AVAudioSessionCategory requestedCategory
 }
 
 - (void)playPlayer:(NSInteger)textureId error:(FlutterError **)error {
+  [SJMediaCacheServer.shared setActive:YES];
   FVPVideoPlayer *player = self.playersByTextureId[@(textureId)];
   [player play];
 }
@@ -254,6 +262,7 @@ static void upgradeAudioSessionCategory(AVAudioSessionCategory requestedCategory
 - (void)seekTo:(NSInteger)position
      forPlayer:(NSInteger)textureId
     completion:(nonnull void (^)(FlutterError *_Nullable))completion {
+  [SJMediaCacheServer.shared setActive:YES];
   FVPVideoPlayer *player = self.playersByTextureId[@(textureId)];
   [player seekTo:position
       completionHandler:^(BOOL finished) {
