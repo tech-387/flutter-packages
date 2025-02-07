@@ -18,7 +18,7 @@ class _ApiLogger implements TestHostVideoPlayerApi {
   bool? looping;
   double? volume;
   double? playbackSpeed;
-  MixWithOthersMessage? mixWithOthers;
+  bool? mixWithOthers;
   CacheOptionsMessage? cacheOptions;
 
   @override
@@ -52,9 +52,9 @@ class _ApiLogger implements TestHostVideoPlayerApi {
   }
 
   @override
-  void setMixWithOthers(MixWithOthersMessage mixWithOthers) {
+  void setMixWithOthers(bool enabled) {
     log.add('setMixWithOthers');
-    this.mixWithOthers = mixWithOthers;
+    mixWithOthers = enabled;
   }
 
   @override
