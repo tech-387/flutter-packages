@@ -21,6 +21,8 @@ const String _integrationTestFlag = 'integration';
 
 const String _iOSDestinationFlag = 'ios-destination';
 
+const String _xcodeWarningsExceptionsFlag = 'xcode-warnings-exceptions';
+
 const int _exitNoIOSSimulators = 3;
 
 /// The error message logged when a FlutterTestRunner test is not annotated with
@@ -65,6 +67,14 @@ class NativeTestCommand extends PackageLoopingCommand {
         help: 'Runs native unit tests', defaultsTo: true);
     argParser.addFlag(_integrationTestFlag,
         help: 'Runs native integration (UI) tests', defaultsTo: true);
+
+    argParser.addMultiOption(
+      _xcodeWarningsExceptionsFlag,
+      help: 'A list of packages that are allowed to have Xcode warnings.\n\n'
+          'Alternately, a list of one or more YAML files that contain a list '
+          'of packages to allow Xcode warnings.',
+      defaultsTo: <String>[],
+    );
   }
 
   // The ABI of the host.
@@ -99,6 +109,8 @@ this command.
   Map<String, _PlatformDetails> _platforms = <String, _PlatformDetails>{};
 
   List<String> _requestedPlatforms = <String>[];
+
+  Set<String> _xcodeWarningsExceptions = <String>{};
 
   @override
   Future<void> initializeRun() async {
@@ -151,6 +163,8 @@ this command.
         destination,
       ];
     }
+
+    _xcodeWarningsExceptions = getYamlListArg(_xcodeWarningsExceptionsFlag);
   }
 
   @override
@@ -431,7 +445,7 @@ this command.
   /// usually at "example/{ios,macos}/Runner.xcworkspace".
   Future<_PlatformResult> _runXcodeTests(
     RepositoryPackage plugin,
-    String platform,
+    String targetPlatform,
     _TestMode mode, {
     List<String> extraFlags = const <String>[],
   }) async {
@@ -456,7 +470,7 @@ this command.
       final String? targetToCheck =
           testTarget ?? (mode.unit ? unitTestTarget : null);
       final Directory xcodeProject = example.directory
-          .childDirectory(platform.toLowerCase())
+          .childDirectory(targetPlatform.toLowerCase())
           .childDirectory('Runner.xcodeproj');
       if (targetToCheck != null) {
         final bool? hasTarget =
@@ -473,20 +487,22 @@ this command.
         }
       }
 
-      _printRunningExampleTestsMessage(example, platform);
+      _printRunningExampleTestsMessage(example, targetPlatform);
       final int exitCode = await _xcode.runXcodeBuild(
         example.directory,
-        platform,
+        targetPlatform,
         // Clean before testing to remove cached swiftmodules from previous
         // runs, which can cause conflicts.
         actions: <String>['clean', 'test'],
-        workspace: '${platform.toLowerCase()}/Runner.xcworkspace',
+        workspace: '${targetPlatform.toLowerCase()}/Runner.xcworkspace',
         scheme: 'Runner',
         configuration: 'Debug',
+        hostPlatform: platform,
         extraFlags: <String>[
           if (testTarget != null) '-only-testing:$testTarget',
           ...extraFlags,
-          'GCC_TREAT_WARNINGS_AS_ERRORS=YES',
+          if (!_xcodeWarningsExceptions.contains(plugin.directory.basename))
+            'GCC_TREAT_WARNINGS_AS_ERRORS=YES',
         ],
       );
 
@@ -494,9 +510,10 @@ this command.
       const int xcodebuildNoTestExitCode = 66;
       switch (exitCode) {
         case xcodebuildNoTestExitCode:
-          _printNoExampleTestsMessage(example, platform);
+          _printNoExampleTestsMessage(example, targetPlatform);
         case 0:
-          printSuccess('Successfully ran $platform xctest for $exampleName');
+          printSuccess(
+              'Successfully ran $targetPlatform xctest for $exampleName');
           // If this is the first test, assume success until something fails.
           if (overallResult == RunState.skipped) {
             overallResult = RunState.succeeded;

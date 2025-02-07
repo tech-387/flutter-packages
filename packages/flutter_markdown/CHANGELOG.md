@@ -1,3 +1,25 @@
+## 0.7.6+1
+
+* Adds horizontal scrolling for table when using `tableColumnWidth: IntrinsicColumnWidth()`.
+
+## 0.7.6
+
+* Adds styleSheet option `tableScrollbarThumbVisibility` for setting the `thumbVisibility` on tables' `ScrollBar`.
+
+## 0.7.5
+
+* Makes table column custom alignment work even when text wraps.
+* Updates minimum supported SDK version to Flutter 3.22/Dart 3.4.
+* Fixes some memory leaks.
+
+## 0.7.4+3
+
+* Passes a default error builder to image widgets.
+
+## 0.7.4+2
+
+* Fixes pub.dev detection of WebAssembly support.
+
 ## 0.7.4+1
 
 * Makes it so that custom blocks are not limited to being a Column or
