@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
@@ -18,6 +19,12 @@ import 'messages.g.dart';
 class AVFoundationVideoPlayer extends VideoPlayerPlatform {
   final AVFoundationVideoPlayerApi _api = AVFoundationVideoPlayerApi();
 
+  /// A map that associates player ID with a view state.
+  /// This is used to determine which view type to use when building a view.
+  @visibleForTesting
+  final Map<int, VideoPlayerViewState> playerViewStates =
+      <int, VideoPlayerViewState>{};
+
   /// Registers this class as the default instance of [VideoPlayerPlatform].
   static void registerWith() {
     VideoPlayerPlatform.instance = AVFoundationVideoPlayer();
@@ -29,8 +36,9 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
-  Future<void> dispose(int textureId) {
-    return _api.dispose(textureId);
+  Future<void> dispose(int playerId) async {
+    await _api.dispose(playerId);
+    playerViewStates.remove(playerId);
   }
 
   @override
@@ -39,6 +47,24 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
     VideoPlayerBufferOptions videoPlayerBufferOptions =
         const VideoPlayerBufferOptions(),
   }) async {
+    return createWithOptions(
+      VideoCreationOptions(
+        dataSource: dataSource,
+        // Texture view was the only supported view type before
+        // createWithOptions was introduced.
+        viewType: VideoViewType.textureView,
+      ),
+    );
+  }
+
+  @override
+  Future<int?> createWithOptions(VideoCreationOptions options) async {
+    final DataSource dataSource = options.dataSource;
+    // Platform views are not supported on macOS yet. Use texture view instead.
+    final VideoViewType viewType = defaultTargetPlatform == TargetPlatform.macOS
+        ? VideoViewType.textureView
+        : options.viewType;
+
     String? asset;
     String? packageName;
     String? uri;
@@ -57,24 +83,24 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
       case DataSourceType.contentUri:
         uri = dataSource.uri;
     }
-    final CreationOptions options = CreationOptions(
+    final CreationOptions pigeonCreationOptions = CreationOptions(
       asset: asset,
       packageName: packageName,
       uri: uri,
       httpHeaders: httpHeaders,
       formatHint: formatHint,
-      bufferOptions: BufferOptionsMessage(
-        preferredForwardBufferDuration:
-            videoPlayerBufferOptions.preferredForwardBufferDuration,
-        canUseNetworkResourcesForLiveStreamingWhilePaused:
-            videoPlayerBufferOptions
-                .canUseNetworkResourcesForLiveStreamingWhilePaused,
-        automaticallyWaitsToMinimizeStalling:
-            videoPlayerBufferOptions.automaticallyWaitsToMinimizeStalling,
-      ),
+      viewType: _platformVideoViewTypeFromVideoViewType(viewType),
     );
 
-    return _api.create(options);
+    final int playerId = await _api.create(pigeonCreationOptions);
+    playerViewStates[playerId] = switch (viewType) {
+      // playerId is also the textureId when using texture view.
+      VideoViewType.textureView =>
+        VideoPlayerTextureViewState(textureId: playerId),
+      VideoViewType.platformView => const VideoPlayerPlatformViewState(),
+    };
+
+    return playerId;
   }
 
   @override
@@ -156,15 +182,8 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
-  Widget buildView(int textureId) {
-    return Texture(textureId: textureId);
-  }
-
-  @override
   Future<void> setMixWithOthers(bool mixWithOthers) {
-    return _api.setMixWithOthers(
-      MixWithOthersMessage(mixWithOthers: mixWithOthers),
-    );
+    return _api.setMixWithOthers(mixWithOthers);
   }
 
   @override
@@ -175,6 +194,42 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
         cacheDirectory: options.cacheDirectory,
         maxCacheBytes: options.maxCacheBytes,
         maxFileBytes: options.maxFileBytes,
+      ),
+    );
+  }
+
+  @override
+  Widget buildView(int playerId) {
+    return buildViewWithOptions(
+      VideoViewOptions(playerId: playerId),
+    );
+  }
+
+  @override
+  Widget buildViewWithOptions(VideoViewOptions options) {
+    final int playerId = options.playerId;
+    final VideoPlayerViewState? viewState = playerViewStates[playerId];
+
+    return switch (viewState) {
+      VideoPlayerTextureViewState(:final int textureId) =>
+        Texture(textureId: textureId),
+      VideoPlayerPlatformViewState() => _buildPlatformView(playerId),
+      null => throw Exception(
+          'Could not find corresponding view type for playerId: $playerId',
+        ),
+    };
+  }
+
+  Widget _buildPlatformView(int playerId) {
+    final PlatformVideoViewCreationParams creationParams =
+        PlatformVideoViewCreationParams(playerId: playerId);
+
+    return IgnorePointer(
+      // IgnorePointer so that GestureDetector can be used above the platform view.
+      child: UiKitView(
+        viewType: 'plugins.flutter.dev/video_player_ios',
+        creationParams: creationParams,
+        creationParamsCodec: AVFoundationVideoPlayerApi.pigeonChannelCodec,
       ),
     );
   }
@@ -198,4 +253,47 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
       Duration(milliseconds: pair[1] as int),
     );
   }
+}
+
+PlatformVideoViewType _platformVideoViewTypeFromVideoViewType(
+  VideoViewType viewType,
+) {
+  return switch (viewType) {
+    VideoViewType.textureView => PlatformVideoViewType.textureView,
+    VideoViewType.platformView => PlatformVideoViewType.platformView,
+  };
+}
+
+/// Base class representing the state of a video player view.
+@visibleForTesting
+@immutable
+sealed class VideoPlayerViewState {
+  const VideoPlayerViewState();
+}
+
+/// Represents the state of a video player view that uses a texture.
+@visibleForTesting
+final class VideoPlayerTextureViewState extends VideoPlayerViewState {
+  /// Creates a new instance of [VideoPlayerTextureViewState].
+  const VideoPlayerTextureViewState({
+    required this.textureId,
+  });
+
+  /// The ID of the texture used by the video player.
+  final int textureId;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VideoPlayerTextureViewState && other.textureId == textureId;
+
+  @override
+  int get hashCode => textureId.hashCode;
+}
+
+/// Represents the state of a video player view that uses a platform view.
+@visibleForTesting
+final class VideoPlayerPlatformViewState extends VideoPlayerViewState {
+  /// Creates a new instance of [VideoPlayerPlatformViewState].
+  const VideoPlayerPlatformViewState();
 }

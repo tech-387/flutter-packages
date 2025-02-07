@@ -17,19 +17,34 @@ import 'package:pigeon/pigeon.dart';
   ),
   copyrightHeader: 'pigeons/copyright.txt',
 ))
+
+/// Pigeon equivalent of VideoViewType.
+enum PlatformVideoViewType {
+  textureView,
+  platformView,
+}
+
+/// Information passed to the platform view creation.
+class PlatformVideoViewCreationParams {
+  const PlatformVideoViewCreationParams({
+    required this.playerId,
+  });
+
+  final int playerId;
+}
+
 class CreationOptions {
-  CreationOptions({required this.httpHeaders});
+  CreationOptions({
+    required this.httpHeaders,
+    required this.viewType,
+  });
   String? asset;
   String? uri;
   String? packageName;
   String? formatHint;
   Map<String?, String?> httpHeaders;
   BufferOptionsMessage? bufferOptions;
-}
-
-class MixWithOthersMessage {
-  MixWithOthersMessage(this.mixWithOthers);
-  bool mixWithOthers;
+  PlatformVideoViewType viewType;
 }
 
 class CacheOptionsMessage {
@@ -81,7 +96,7 @@ abstract class AVFoundationVideoPlayerApi {
   @ObjCSelector('pausePlayer:')
   void pause(int textureId);
   @ObjCSelector('setMixWithOthers:')
-  void setMixWithOthers(MixWithOthersMessage msg);
+  void setMixWithOthers(bool mixWithOthers);
   @ObjCSelector('setCacheOptions:')
   void setCacheOptions(CacheOptionsMessage msg);
 }

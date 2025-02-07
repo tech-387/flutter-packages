@@ -14,6 +14,9 @@
 #import "FVPDisplayLink.h"
 #import "FVPFrameUpdater.h"
 
+#import "FVPVideoPlayerOptions.h"
+#import "FVPVideoPlayerBufferOptions.h"
+
 NS_ASSUME_NONNULL_BEGIN
 
 /// FVPVideoPlayer is responsible for managing video playback using AVPlayer.
@@ -35,6 +38,8 @@ NS_ASSUME_NONNULL_BEGIN
                  frameUpdater:(FVPFrameUpdater *)frameUpdater
                   displayLink:(FVPDisplayLink *)displayLink
                     avFactory:(id<FVPAVFactory>)avFactory
+           videoPlayerOptions: (FVPVideoPlayerOptions *)videoPlayerOptions
+                            videoPlayerBufferOptions: (FVPVideoPlayerBufferOptions *)videoPlayerBufferOptions
                     registrar:(NSObject<FlutterPluginRegistrar> *)registrar;
 
 /// Initializes a new instance of FVPVideoPlayer with the given URL, frame updater, display link,
@@ -44,6 +49,8 @@ NS_ASSUME_NONNULL_BEGIN
                 displayLink:(FVPDisplayLink *)displayLink
                 httpHeaders:(nonnull NSDictionary<NSString *, NSString *> *)headers
                   avFactory:(id<FVPAVFactory>)avFactory
+         videoPlayerOptions: (FVPVideoPlayerOptions *)videoPlayerOptions
+                          videoPlayerBufferOptions: (FVPVideoPlayerBufferOptions *)videoPlayerBufferOptions
                   registrar:(NSObject<FlutterPluginRegistrar> *)registrar;
 
 /// Initializes a new instance of FVPVideoPlayer with the given AVPlayerItem, frame updater, display
