@@ -23,4 +23,7 @@ Downloaded by pub (not CocoaPods).
   s.ios.deployment_target = '12.0'
   s.osx.deployment_target = '10.14'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
+  # SJMediaCacheServer
+  s.dependency 'SJMediaCacheServer', '~> 2.0.99'
+  s.dependency 'SJUIKit/SQLite3'
 end

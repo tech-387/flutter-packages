@@ -65,6 +65,8 @@
                  videoPlayerBufferOptions: (FVPVideoPlayerBufferOptions *)videoPlayerBufferOptions
                   registrar:(NSObject<FlutterPluginRegistrar> *)registrar
                  onDisposed:(void (^)(int64_t))onDisposed {
+    
+    
   NSDictionary<NSString *, id> *options = nil;
   if ([headers count] != 0) {
     options = @{@"AVURLAssetHTTPHeaderFieldsKey" : headers};

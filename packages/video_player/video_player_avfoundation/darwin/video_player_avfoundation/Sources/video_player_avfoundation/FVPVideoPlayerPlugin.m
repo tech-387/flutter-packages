@@ -19,6 +19,8 @@
 // https://github.com/flutter/packages/pull/6675/#discussion_r1591210702
 #import "./include/video_player_avfoundation/messages.g.h"
 
+#import <SJMediaCacheServer/SJMediaCacheServer.h>
+
 #import "FVPVideoPlayerOptions.h"
 #import "FVPVideoPlayerBufferOptions.h"
 #if TARGET_OS_IOS
@@ -82,6 +84,7 @@
                         registrar:(NSObject<FlutterPluginRegistrar> *)registrar {
   self = [super init];
   NSAssert(self, @"super init cannot be nil");
+  [SJMediaCacheServer.shared setEnabledConsoleLog:true];
   _registry = [registrar textures];
   _messenger = [registrar messenger];
   _registrar = registrar;
@@ -226,15 +229,41 @@ FVPVideoPlayerBufferOptions *videoPlayerBufferOptions = [[FVPVideoPlayerBufferOp
                                                    registrar:self.registrar
                                                   onDisposed:onDisposed];
   } else if (options.uri) {
-    return [[FVPTextureBasedVideoPlayer alloc] initWithURL:[NSURL URLWithString:options.uri]
-                                              frameUpdater:frameUpdater
-                                               displayLink:displayLink
-                                               httpHeaders:options.httpHeaders
-                                                 avFactory:_avFactory
-                                                 videoPlayerOptions: _videoPlayerOptions
-                                                videoPlayerBufferOptions:videoPlayerBufferOptions
-                                                 registrar:self.registrar
-                                                onDisposed:onDisposed];
+      
+      if (_videoPlayerOptions.enableCache) {
+          NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
+                    
+          // Sets additional headers, if provided in input.
+          config.HTTPAdditionalHeaders = options.httpHeaders;
+            
+          [SJMediaCacheServer.shared setActive:YES];
+            
+          [SJMediaCacheServer.shared setCacheMaxDiskSize:_videoPlayerOptions.maxCacheBytes];
+          
+          NSURL *originalURL = [NSURL URLWithString:options.uri];
+          NSURL *proxyURL = [SJMediaCacheServer.shared proxyURLFromURL:originalURL];
+
+            
+          return [[FVPTextureBasedVideoPlayer alloc] initWithURL:proxyURL
+                                                    frameUpdater:frameUpdater
+                                                     displayLink:displayLink
+                                                     httpHeaders:options.httpHeaders
+                                                       avFactory:_avFactory
+                                                       videoPlayerOptions: _videoPlayerOptions
+                                                      videoPlayerBufferOptions:videoPlayerBufferOptions
+                                                       registrar:self.registrar
+                                                      onDisposed:onDisposed];
+      } else {
+          return [[FVPTextureBasedVideoPlayer alloc] initWithURL:[NSURL URLWithString:options.uri]
+                                                    frameUpdater:frameUpdater
+                                                     displayLink:displayLink
+                                                     httpHeaders:options.httpHeaders
+                                                       avFactory:_avFactory
+                                                       videoPlayerOptions: _videoPlayerOptions
+                                                      videoPlayerBufferOptions:videoPlayerBufferOptions
+                                                       registrar:self.registrar
+                                                      onDisposed:onDisposed];
+      }
   }
 
   return nil;
@@ -255,12 +284,33 @@ FVPVideoPlayerBufferOptions *videoPlayerBufferOptions = [[FVPVideoPlayerBufferOp
                                        registrar:self.registrar
     ];
   } else if (options.uri) {
-    return [[FVPVideoPlayer alloc] initWithURL:[NSURL URLWithString:options.uri]
-                                   httpHeaders:options.httpHeaders
-                                     avFactory:_avFactory
-                                     videoPlayerOptions: _videoPlayerOptions
-                                     videoPlayerBufferOptions: videoPlayerBufferOptions
-                                     registrar:self.registrar];
+      
+      if (_videoPlayerOptions.enableCache) {
+          NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
+                    
+          // Sets additional headers, if provided in input.
+          config.HTTPAdditionalHeaders = options.httpHeaders;
+            
+          [SJMediaCacheServer.shared setActive:YES];
+            
+          [SJMediaCacheServer.shared setCacheMaxDiskSize:_videoPlayerOptions.maxCacheBytes];
+          
+          NSURL *originalURL = [NSURL URLWithString:options.uri];
+          NSURL *proxyURL = [SJMediaCacheServer.shared proxyURLFromURL:originalURL];
+          return [[FVPVideoPlayer alloc] initWithURL:proxyURL
+                                         httpHeaders:options.httpHeaders
+                                           avFactory:_avFactory
+                                           videoPlayerOptions: _videoPlayerOptions
+                                           videoPlayerBufferOptions: videoPlayerBufferOptions
+                                           registrar:self.registrar];
+      } else {
+          return [[FVPVideoPlayer alloc] initWithURL:[NSURL URLWithString:options.uri]
+                                         httpHeaders:options.httpHeaders
+                                           avFactory:_avFactory
+                                           videoPlayerOptions: _videoPlayerOptions
+                                           videoPlayerBufferOptions: videoPlayerBufferOptions
+                                           registrar:self.registrar];
+      }
   }
 
   return nil;
@@ -305,6 +355,7 @@ FVPVideoPlayerBufferOptions *videoPlayerBufferOptions = [[FVPVideoPlayerBufferOp
 }
 
 - (void)playPlayer:(NSInteger)playerIdentifier error:(FlutterError **)error {
+  [SJMediaCacheServer.shared setActive:YES];
   FVPVideoPlayer *player = self.playersByIdentifier[@(playerIdentifier)];
   [player play];
 }
@@ -317,6 +368,7 @@ FVPVideoPlayerBufferOptions *videoPlayerBufferOptions = [[FVPVideoPlayerBufferOp
 - (void)seekTo:(NSInteger)position
      forPlayer:(NSInteger)playerIdentifier
     completion:(nonnull void (^)(FlutterError *_Nullable))completion {
+  [SJMediaCacheServer.shared setActive:YES];
   FVPVideoPlayer *player = self.playersByIdentifier[@(playerIdentifier)];
   [player seekTo:position
       completionHandler:^(BOOL finished) {
