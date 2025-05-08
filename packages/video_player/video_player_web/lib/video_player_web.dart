@@ -57,11 +57,16 @@ class VideoPlayerPlugin extends VideoPlayerPlatform {
         // Web only supports platform views.
         viewType: VideoViewType.platformView,
       ),
+      videoPlayerBufferOptions: videoPlayerBufferOptions,
     );
   }
 
   @override
-  Future<int> createWithOptions(VideoCreationOptions options) async {
+  Future<int> createWithOptions(
+    VideoCreationOptions options, {
+    VideoPlayerBufferOptions videoPlayerBufferOptions =
+        const VideoPlayerBufferOptions(),
+  }) async {
     // Parameter options.viewType is ignored because web only supports platform views.
 
     final DataSource dataSource = options.dataSource;

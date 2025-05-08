@@ -28,6 +28,34 @@ List<Object?> wrapResponse({Object? result, PlatformException? error, bool empty
   return <Object?>[error.code, error.message, error.details];
 }
 
+/// Pigeon equivalent of VideoViewType.
+enum PlatformVideoViewType {
+  textureView,
+  platformView,
+}
+
+/// Information passed to the platform view creation.
+class PlatformVideoViewCreationParams {
+  PlatformVideoViewCreationParams({
+    required this.playerId,
+  });
+
+  int playerId;
+
+  Object encode() {
+    return <Object?>[
+      playerId,
+    ];
+  }
+
+  static PlatformVideoViewCreationParams decode(Object result) {
+    result as List<Object?>;
+    return PlatformVideoViewCreationParams(
+      playerId: result[0]! as int,
+    );
+  }
+}
+
 class CreateMessage {
   CreateMessage({
     this.asset,
@@ -36,6 +64,7 @@ class CreateMessage {
     this.formatHint,
     required this.httpHeaders,
     this.bufferOptions,
+    this.viewType,
   });
 
   String? asset;
@@ -50,6 +79,8 @@ class CreateMessage {
 
   BufferOptionsMessage? bufferOptions;
 
+  PlatformVideoViewType? viewType;
+
   Object encode() {
     return <Object?>[
       asset,
@@ -58,6 +89,7 @@ class CreateMessage {
       formatHint,
       httpHeaders,
       bufferOptions,
+      viewType,
     ];
   }
 
@@ -70,6 +102,7 @@ class CreateMessage {
       formatHint: result[3] as String?,
       httpHeaders: (result[4] as Map<Object?, Object?>?)!.cast<String?, String?>(),
       bufferOptions: result[5] as BufferOptionsMessage?,
+      viewType: result[6] as PlatformVideoViewType?,
     );
   }
 }
@@ -154,14 +187,20 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
-    }    else if (value is CreateMessage) {
+    }    else if (value is PlatformVideoViewType) {
       buffer.putUint8(129);
-      writeValue(buffer, value.encode());
-    }    else if (value is CacheOptionsMessage) {
+      writeValue(buffer, value.index);
+    }    else if (value is PlatformVideoViewCreationParams) {
       buffer.putUint8(130);
       writeValue(buffer, value.encode());
-    }    else if (value is BufferOptionsMessage) {
+    }    else if (value is CreateMessage) {
       buffer.putUint8(131);
+      writeValue(buffer, value.encode());
+    }    else if (value is CacheOptionsMessage) {
+      buffer.putUint8(132);
+      writeValue(buffer, value.encode());
+    }    else if (value is BufferOptionsMessage) {
+      buffer.putUint8(133);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -172,10 +211,15 @@ class _PigeonCodec extends StandardMessageCodec {
   Object? readValueOfType(int type, ReadBuffer buffer) {
     switch (type) {
       case 129: 
-        return CreateMessage.decode(readValue(buffer)!);
+        final int? value = readValue(buffer) as int?;
+        return value == null ? null : PlatformVideoViewType.values[value];
       case 130: 
-        return CacheOptionsMessage.decode(readValue(buffer)!);
+        return PlatformVideoViewCreationParams.decode(readValue(buffer)!);
       case 131: 
+        return CreateMessage.decode(readValue(buffer)!);
+      case 132: 
+        return CacheOptionsMessage.decode(readValue(buffer)!);
+      case 133: 
         return BufferOptionsMessage.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -245,7 +289,7 @@ class AndroidVideoPlayerApi {
     }
   }
 
-  Future<void> dispose(int textureId) async {
+  Future<void> dispose(int playerId) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.dispose$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -253,7 +297,7 @@ class AndroidVideoPlayerApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[textureId]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[playerId]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -267,7 +311,7 @@ class AndroidVideoPlayerApi {
     }
   }
 
-  Future<void> setLooping(int textureId, bool looping) async {
+  Future<void> setLooping(int playerId, bool looping) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.setLooping$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -275,7 +319,7 @@ class AndroidVideoPlayerApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[textureId, looping]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[playerId, looping]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -289,7 +333,7 @@ class AndroidVideoPlayerApi {
     }
   }
 
-  Future<void> setVolume(int textureId, double volume) async {
+  Future<void> setVolume(int playerId, double volume) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.setVolume$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -297,7 +341,7 @@ class AndroidVideoPlayerApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[textureId, volume]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[playerId, volume]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -311,7 +355,7 @@ class AndroidVideoPlayerApi {
     }
   }
 
-  Future<void> setPlaybackSpeed(int textureId, double speed) async {
+  Future<void> setPlaybackSpeed(int playerId, double speed) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.setPlaybackSpeed$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -319,7 +363,7 @@ class AndroidVideoPlayerApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[textureId, speed]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[playerId, speed]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -333,7 +377,7 @@ class AndroidVideoPlayerApi {
     }
   }
 
-  Future<void> play(int textureId) async {
+  Future<void> play(int playerId) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.play$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -341,7 +385,7 @@ class AndroidVideoPlayerApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[textureId]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[playerId]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -355,7 +399,7 @@ class AndroidVideoPlayerApi {
     }
   }
 
-  Future<int> position(int textureId) async {
+  Future<int> position(int playerId) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.position$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -363,7 +407,7 @@ class AndroidVideoPlayerApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[textureId]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[playerId]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -382,7 +426,7 @@ class AndroidVideoPlayerApi {
     }
   }
 
-  Future<void> seekTo(int textureId, int position) async {
+  Future<void> seekTo(int playerId, int position) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.seekTo$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -390,7 +434,7 @@ class AndroidVideoPlayerApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[textureId, position]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[playerId, position]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -404,7 +448,7 @@ class AndroidVideoPlayerApi {
     }
   }
 
-  Future<void> pause(int textureId) async {
+  Future<void> pause(int playerId) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.pause$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -412,7 +456,7 @@ class AndroidVideoPlayerApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[textureId]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[playerId]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {

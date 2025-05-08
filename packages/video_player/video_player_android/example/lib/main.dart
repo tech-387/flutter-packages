@@ -7,7 +7,6 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 import 'mini_controller.dart';
 import 'package:collection/collection.dart';
@@ -24,7 +23,7 @@ class _App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Scaffold(
         key: const ValueKey<String>('home_page'),
         appBar: AppBar(
@@ -32,8 +31,10 @@ class _App extends StatelessWidget {
           bottom: const TabBar(
             isScrollable: true,
             tabs: <Widget>[
-              Tab(icon: Icon(Icons.cloud), text: 'Remote'),
-              Tab(icon: Icon(Icons.videocam), text: 'RTSP'),
+              Tab(
+                icon: Icon(Icons.cloud),
+                text: 'Remote',
+              ),
               Tab(icon: Icon(Icons.insert_drive_file), text: 'Asset'),
             ],
           ),
@@ -41,7 +42,6 @@ class _App extends StatelessWidget {
         body: TabBarView(
           children: <Widget>[
             _BumbleBeeRemoteVideo(),
-            _RtspRemoteVideo(),
             _ButterFlyAssetVideo(),
           ],
         ),
@@ -66,7 +66,8 @@ class _ButterFlyAssetVideoState extends State<_ButterFlyAssetVideo> {
     _controller.addListener(() {
       setState(() {});
     });
-    _controller.initialize().then((_) => _controller.play());
+    _controller.initialize().then((_) => setState(() {}));
+    _controller.play();
   }
 
   @override
@@ -110,145 +111,66 @@ class _BumbleBeeRemoteVideo extends StatefulWidget {
 }
 
 class _BumbleBeeRemoteVideoState extends State<_BumbleBeeRemoteVideo> {
-
-  final List<MiniController> controllers = [
+  final List<MiniController> controllers = <MiniController>[
     MiniController.network(
-    'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/75654d70-9d85-4f02-8a64-72043cc36010/75654d70-9d85-4f02-8a64-72043cc36010.m3u8',
+      'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/75654d70-9d85-4f02-8a64-72043cc36010/75654d70-9d85-4f02-8a64-72043cc36010.m3u8',
     ),
     MiniController.network(
-    'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/156a998f-e4c6-4625-ac68-8fe53ad8744f/156a998f-e4c6-4625-ac68-8fe53ad8744f.m3u8',
+      'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/156a998f-e4c6-4625-ac68-8fe53ad8744f/156a998f-e4c6-4625-ac68-8fe53ad8744f.m3u8',
     ),
     MiniController.network(
-    'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/bfb536ce-27bd-48e1-9fa1-9b9723bb01b0/bfb536ce-27bd-48e1-9fa1-9b9723bb01b0.m3u8',
+      'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/bfb536ce-27bd-48e1-9fa1-9b9723bb01b0/bfb536ce-27bd-48e1-9fa1-9b9723bb01b0.m3u8',
     ),
     MiniController.network(
-    'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/42b041c4-c116-4f97-955f-3e47f329872f/42b041c4-c116-4f97-955f-3e47f329872f.m3u8',
+      'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/42b041c4-c116-4f97-955f-3e47f329872f/42b041c4-c116-4f97-955f-3e47f329872f.m3u8',
     ),
     MiniController.network(
-    'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/cb420205-6ec8-4119-9346-465d84bed9ee/cb420205-6ec8-4119-9346-465d84bed9ee.m3u8',
+      'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/cb420205-6ec8-4119-9346-465d84bed9ee/cb420205-6ec8-4119-9346-465d84bed9ee.m3u8',
     ),
   ];
 
   @override
   void initState() {
     super.initState();
-    
-    controllers.take(3).forEachIndexed((index, controller) {
-      controller.addListener(() {     setState(() {}); });
+
+    controllers.take(3).forEachIndexed((int index, MiniController controller) {
+      controller.addListener(() {
+        setState(() {});
+      });
       controller.initialize().then((value) {
-        log("Controller $index initialized ✅");
+        log('Controller $index initialized ✅');
       });
     });
-
   }
 
   @override
   void dispose() {
-    controllers.forEach((controller) { controller.dispose();});
+    for (final MiniController controller in controllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return PageView.builder(itemBuilder: (context, index) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        child: AspectRatio(
-          aspectRatio: controllers[index].value.aspectRatio,
-          child: Stack(
-            alignment: Alignment.bottomCenter,
-            children: <Widget>[
-              VideoPlayer(controllers[index]),
-              _ControlsOverlay(controller: controllers[index]),
-              VideoProgressIndicator(controllers[index]),
-            ],
-          ),
-        ),
-      );
-    }, itemCount: controllers.length,);
-  }
-}
-
-class _RtspRemoteVideo extends StatefulWidget {
-  @override
-  _RtspRemoteVideoState createState() => _RtspRemoteVideoState();
-}
-
-class _RtspRemoteVideoState extends State<_RtspRemoteVideo> {
-  MiniController? _controller;
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
-
-  Future<void> changeUrl(String url) async {
-    if (_controller != null) {
-      await _controller!.dispose();
-    }
-
-    setState(() {
-      _controller = MiniController.network(url);
-    });
-
-    _controller!.addListener(() {
-      setState(() {});
-    });
-
-    return _controller!.initialize();
-  }
-
-  String? _validateRtspUrl(String? value) {
-    if (value == null || !value.startsWith('rtsp://')) {
-      return 'Enter a valid RTSP URL';
-    }
-    return null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        children: <Widget>[
-          Container(padding: const EdgeInsets.only(top: 20.0)),
-          const Text('With RTSP streaming'),
-          Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: TextFormField(
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              decoration: const InputDecoration(label: Text('RTSP URL')),
-              validator: _validateRtspUrl,
-              textInputAction: TextInputAction.done,
-              onFieldSubmitted: (String value) {
-                if (_validateRtspUrl(value) == null) {
-                  changeUrl(value);
-                } else {
-                  setState(() {
-                    _controller?.dispose();
-                    _controller = null;
-                  });
-                }
-              },
+    return PageView.builder(
+      itemBuilder: (BuildContext context, int index) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: AspectRatio(
+            aspectRatio: controllers[index].value.aspectRatio,
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              children: <Widget>[
+                VideoPlayer(controllers[index]),
+                _ControlsOverlay(controller: controllers[index]),
+                VideoProgressIndicator(controllers[index]),
+              ],
             ),
           ),
-          if (_controller != null)
-            Container(
-              padding: const EdgeInsets.all(20),
-              child: AspectRatio(
-                aspectRatio: _controller!.value.aspectRatio,
-                child: Stack(
-                  alignment: Alignment.bottomCenter,
-                  children: <Widget>[
-                    VideoPlayer(_controller!),
-                    _ControlsOverlay(controller: _controller!),
-                    VideoProgressIndicator(_controller!),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
+        );
+      },
+      itemCount: controllers.length,
     );
   }
 }

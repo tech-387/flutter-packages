@@ -38,7 +38,7 @@ final class HttpVideoAsset extends VideoAsset {
 
   @NonNull
   @Override
-  MediaItem getMediaItem() {
+  public MediaItem getMediaItem() {
     MediaItem.Builder builder = new MediaItem.Builder().setUri(assetUrl);
     String mimeType = null;
     switch (streamingFormat) {
@@ -58,8 +58,9 @@ final class HttpVideoAsset extends VideoAsset {
     return builder.build();
   }
 
+  @NonNull
   @Override
-  MediaSource.Factory getMediaSourceFactory(Context context) {
+  public MediaSource.Factory getMediaSourceFactory(@NonNull Context context) {
     return getMediaSourceFactory(context, new DefaultHttpDataSource.Factory());
   }
 

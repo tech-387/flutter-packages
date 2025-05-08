@@ -21,14 +21,20 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
-    }    else if (value is CreateMessage) {
+    }    else if (value is PlatformVideoViewType) {
       buffer.putUint8(129);
-      writeValue(buffer, value.encode());
-    }    else if (value is CacheOptionsMessage) {
+      writeValue(buffer, value.index);
+    }    else if (value is PlatformVideoViewCreationParams) {
       buffer.putUint8(130);
       writeValue(buffer, value.encode());
-    }    else if (value is BufferOptionsMessage) {
+    }    else if (value is CreateMessage) {
       buffer.putUint8(131);
+      writeValue(buffer, value.encode());
+    }    else if (value is CacheOptionsMessage) {
+      buffer.putUint8(132);
+      writeValue(buffer, value.encode());
+    }    else if (value is BufferOptionsMessage) {
+      buffer.putUint8(133);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -39,10 +45,15 @@ class _PigeonCodec extends StandardMessageCodec {
   Object? readValueOfType(int type, ReadBuffer buffer) {
     switch (type) {
       case 129: 
-        return CreateMessage.decode(readValue(buffer)!);
+        final int? value = readValue(buffer) as int?;
+        return value == null ? null : PlatformVideoViewType.values[value];
       case 130: 
-        return CacheOptionsMessage.decode(readValue(buffer)!);
+        return PlatformVideoViewCreationParams.decode(readValue(buffer)!);
       case 131: 
+        return CreateMessage.decode(readValue(buffer)!);
+      case 132: 
+        return CacheOptionsMessage.decode(readValue(buffer)!);
+      case 133: 
         return BufferOptionsMessage.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -58,21 +69,21 @@ abstract class TestHostVideoPlayerApi {
 
   int create(CreateMessage msg);
 
-  void dispose(int textureId);
+  void dispose(int playerId);
 
-  void setLooping(int textureId, bool looping);
+  void setLooping(int playerId, bool looping);
 
-  void setVolume(int textureId, double volume);
+  void setVolume(int playerId, double volume);
 
-  void setPlaybackSpeed(int textureId, double speed);
+  void setPlaybackSpeed(int playerId, double speed);
 
-  void play(int textureId);
+  void play(int playerId);
 
-  int position(int textureId);
+  int position(int playerId);
 
-  void seekTo(int textureId, int position);
+  void seekTo(int playerId, int position);
 
-  void pause(int textureId);
+  void pause(int playerId);
 
   void setMixWithOthers(bool mixWithOthers);
 
@@ -135,11 +146,11 @@ abstract class TestHostVideoPlayerApi {
           assert(message != null,
           'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.dispose was null.');
           final List<Object?> args = (message as List<Object?>?)!;
-          final int? arg_textureId = (args[0] as int?);
-          assert(arg_textureId != null,
+          final int? arg_playerId = (args[0] as int?);
+          assert(arg_playerId != null,
               'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.dispose was null, expected non-null int.');
           try {
-            api.dispose(arg_textureId!);
+            api.dispose(arg_playerId!);
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
@@ -160,14 +171,14 @@ abstract class TestHostVideoPlayerApi {
           assert(message != null,
           'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.setLooping was null.');
           final List<Object?> args = (message as List<Object?>?)!;
-          final int? arg_textureId = (args[0] as int?);
-          assert(arg_textureId != null,
+          final int? arg_playerId = (args[0] as int?);
+          assert(arg_playerId != null,
               'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.setLooping was null, expected non-null int.');
           final bool? arg_looping = (args[1] as bool?);
           assert(arg_looping != null,
               'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.setLooping was null, expected non-null bool.');
           try {
-            api.setLooping(arg_textureId!, arg_looping!);
+            api.setLooping(arg_playerId!, arg_looping!);
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
@@ -188,14 +199,14 @@ abstract class TestHostVideoPlayerApi {
           assert(message != null,
           'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.setVolume was null.');
           final List<Object?> args = (message as List<Object?>?)!;
-          final int? arg_textureId = (args[0] as int?);
-          assert(arg_textureId != null,
+          final int? arg_playerId = (args[0] as int?);
+          assert(arg_playerId != null,
               'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.setVolume was null, expected non-null int.');
           final double? arg_volume = (args[1] as double?);
           assert(arg_volume != null,
               'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.setVolume was null, expected non-null double.');
           try {
-            api.setVolume(arg_textureId!, arg_volume!);
+            api.setVolume(arg_playerId!, arg_volume!);
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
@@ -216,14 +227,14 @@ abstract class TestHostVideoPlayerApi {
           assert(message != null,
           'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.setPlaybackSpeed was null.');
           final List<Object?> args = (message as List<Object?>?)!;
-          final int? arg_textureId = (args[0] as int?);
-          assert(arg_textureId != null,
+          final int? arg_playerId = (args[0] as int?);
+          assert(arg_playerId != null,
               'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.setPlaybackSpeed was null, expected non-null int.');
           final double? arg_speed = (args[1] as double?);
           assert(arg_speed != null,
               'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.setPlaybackSpeed was null, expected non-null double.');
           try {
-            api.setPlaybackSpeed(arg_textureId!, arg_speed!);
+            api.setPlaybackSpeed(arg_playerId!, arg_speed!);
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
@@ -244,11 +255,11 @@ abstract class TestHostVideoPlayerApi {
           assert(message != null,
           'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.play was null.');
           final List<Object?> args = (message as List<Object?>?)!;
-          final int? arg_textureId = (args[0] as int?);
-          assert(arg_textureId != null,
+          final int? arg_playerId = (args[0] as int?);
+          assert(arg_playerId != null,
               'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.play was null, expected non-null int.');
           try {
-            api.play(arg_textureId!);
+            api.play(arg_playerId!);
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
@@ -269,11 +280,11 @@ abstract class TestHostVideoPlayerApi {
           assert(message != null,
           'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.position was null.');
           final List<Object?> args = (message as List<Object?>?)!;
-          final int? arg_textureId = (args[0] as int?);
-          assert(arg_textureId != null,
+          final int? arg_playerId = (args[0] as int?);
+          assert(arg_playerId != null,
               'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.position was null, expected non-null int.');
           try {
-            final int output = api.position(arg_textureId!);
+            final int output = api.position(arg_playerId!);
             return <Object?>[output];
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
@@ -294,14 +305,14 @@ abstract class TestHostVideoPlayerApi {
           assert(message != null,
           'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.seekTo was null.');
           final List<Object?> args = (message as List<Object?>?)!;
-          final int? arg_textureId = (args[0] as int?);
-          assert(arg_textureId != null,
+          final int? arg_playerId = (args[0] as int?);
+          assert(arg_playerId != null,
               'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.seekTo was null, expected non-null int.');
           final int? arg_position = (args[1] as int?);
           assert(arg_position != null,
               'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.seekTo was null, expected non-null int.');
           try {
-            api.seekTo(arg_textureId!, arg_position!);
+            api.seekTo(arg_playerId!, arg_position!);
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
@@ -322,11 +333,11 @@ abstract class TestHostVideoPlayerApi {
           assert(message != null,
           'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.pause was null.');
           final List<Object?> args = (message as List<Object?>?)!;
-          final int? arg_textureId = (args[0] as int?);
-          assert(arg_textureId != null,
+          final int? arg_playerId = (args[0] as int?);
+          assert(arg_playerId != null,
               'Argument for dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.pause was null, expected non-null int.');
           try {
-            api.pause(arg_textureId!);
+            api.pause(arg_playerId!);
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
