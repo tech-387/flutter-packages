@@ -16,11 +16,13 @@ import Foundation
 
 /// Implementation of `WebKitLibraryPigeonProxyApiRegistrar` that provides any additional resources needed by API implementations.
 open class ProxyAPIRegistrar: WebKitLibraryPigeonProxyApiRegistrar {
-  let assetManager = FlutterAssetManager()
-  let bundle: Bundle
+  let assetManager: FlutterAssetManager
 
-  init(binaryMessenger: FlutterBinaryMessenger, bundle: Bundle = Bundle.main) {
-    self.bundle = bundle
+  init(
+    binaryMessenger: FlutterBinaryMessenger,
+    assetManager: FlutterAssetManager = FlutterAssetManager()
+  ) {
+    self.assetManager = assetManager
     super.init(binaryMessenger: binaryMessenger, apiDelegate: ProxyAPIDelegate())
   }
 
@@ -272,5 +274,30 @@ class ProxyAPIDelegate: WebKitLibraryPigeonProxyApiDelegate {
 
   func pigeonApiURL(_ registrar: WebKitLibraryPigeonProxyApiRegistrar) -> PigeonApiURL {
     return PigeonApiURL(pigeonRegistrar: registrar, delegate: URLProxyAPIDelegate())
+  }
+
+  func pigeonApiWKWebpagePreferences(_ registrar: WebKitLibraryPigeonProxyApiRegistrar)
+    -> PigeonApiWKWebpagePreferences
+  {
+    return PigeonApiWKWebpagePreferences(
+      pigeonRegistrar: registrar, delegate: WebpagePreferencesProxyAPIDelegate())
+  }
+
+  func pigeonApiGetTrustResultResponse(_ registrar: WebKitLibraryPigeonProxyApiRegistrar)
+    -> PigeonApiGetTrustResultResponse
+  {
+    return PigeonApiGetTrustResultResponse(
+      pigeonRegistrar: registrar, delegate: GetTrustResultResponseProxyAPIDelegate())
+  }
+
+  func pigeonApiSecTrust(_ registrar: WebKitLibraryPigeonProxyApiRegistrar) -> PigeonApiSecTrust {
+    return PigeonApiSecTrust(pigeonRegistrar: registrar, delegate: SecTrustProxyAPIDelegate())
+  }
+
+  func pigeonApiSecCertificate(_ registrar: WebKitLibraryPigeonProxyApiRegistrar)
+    -> PigeonApiSecCertificate
+  {
+    return PigeonApiSecCertificate(
+      pigeonRegistrar: registrar, delegate: SecCertificateProxyAPIDelegate())
   }
 }

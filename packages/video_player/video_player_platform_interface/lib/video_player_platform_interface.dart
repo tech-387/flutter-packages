@@ -60,8 +60,15 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
 
   /// Creates an instance of a video player based on creation options
   /// and returns its playerId.
-  Future<int?> createWithOptions(VideoCreationOptions options) {
-    return create(options.dataSource);
+  Future<int?> createWithOptions(
+    VideoCreationOptions options, {
+    VideoPlayerBufferOptions videoPlayerBufferOptions =
+        const VideoPlayerBufferOptions(),
+  }) {
+    return create(
+      options.dataSource,
+      videoPlayerBufferOptions: videoPlayerBufferOptions,
+    );
   }
 
   /// Returns a Stream of [VideoEventType]s.

@@ -70,6 +70,85 @@ public class Messages {
   @Retention(CLASS)
   @interface CanIgnoreReturnValue {}
 
+  /** Pigeon equivalent of VideoViewType. */
+  public enum PlatformVideoViewType {
+    TEXTURE_VIEW(0),
+    PLATFORM_VIEW(1);
+
+    final int index;
+
+    PlatformVideoViewType(final int index) {
+      this.index = index;
+    }
+  }
+
+  /**
+   * Information passed to the platform view creation.
+   *
+   * Generated class from Pigeon that represents data sent in messages.
+   */
+  public static final class PlatformVideoViewCreationParams {
+    private @NonNull Long playerId;
+
+    public @NonNull Long getPlayerId() {
+      return playerId;
+    }
+
+    public void setPlayerId(@NonNull Long setterArg) {
+      if (setterArg == null) {
+        throw new IllegalStateException("Nonnull field \"playerId\" is null.");
+      }
+      this.playerId = setterArg;
+    }
+
+    /** Constructor is non-public to enforce null safety; use Builder. */
+    PlatformVideoViewCreationParams() {}
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) { return true; }
+      if (o == null || getClass() != o.getClass()) { return false; }
+      PlatformVideoViewCreationParams that = (PlatformVideoViewCreationParams) o;
+      return playerId.equals(that.playerId);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(playerId);
+    }
+
+    public static final class Builder {
+
+      private @Nullable Long playerId;
+
+      @CanIgnoreReturnValue
+      public @NonNull Builder setPlayerId(@NonNull Long setterArg) {
+        this.playerId = setterArg;
+        return this;
+      }
+
+      public @NonNull PlatformVideoViewCreationParams build() {
+        PlatformVideoViewCreationParams pigeonReturn = new PlatformVideoViewCreationParams();
+        pigeonReturn.setPlayerId(playerId);
+        return pigeonReturn;
+      }
+    }
+
+    @NonNull
+    ArrayList<Object> toList() {
+      ArrayList<Object> toListResult = new ArrayList<>(1);
+      toListResult.add(playerId);
+      return toListResult;
+    }
+
+    static @NonNull PlatformVideoViewCreationParams fromList(@NonNull ArrayList<Object> pigeonVar_list) {
+      PlatformVideoViewCreationParams pigeonResult = new PlatformVideoViewCreationParams();
+      Object playerId = pigeonVar_list.get(0);
+      pigeonResult.setPlayerId((Long) playerId);
+      return pigeonResult;
+    }
+  }
+
   /** Generated class from Pigeon that represents data sent in messages. */
   public static final class CreateMessage {
     private @Nullable String asset;
@@ -135,6 +214,16 @@ public class Messages {
       this.bufferOptions = setterArg;
     }
 
+    private @Nullable PlatformVideoViewType viewType;
+
+    public @Nullable PlatformVideoViewType getViewType() {
+      return viewType;
+    }
+
+    public void setViewType(@Nullable PlatformVideoViewType setterArg) {
+      this.viewType = setterArg;
+    }
+
     /** Constructor is non-public to enforce null safety; use Builder. */
     CreateMessage() {}
 
@@ -143,12 +232,12 @@ public class Messages {
       if (this == o) { return true; }
       if (o == null || getClass() != o.getClass()) { return false; }
       CreateMessage that = (CreateMessage) o;
-      return Objects.equals(asset, that.asset) && Objects.equals(uri, that.uri) && Objects.equals(packageName, that.packageName) && Objects.equals(formatHint, that.formatHint) && httpHeaders.equals(that.httpHeaders) && Objects.equals(bufferOptions, that.bufferOptions);
+      return Objects.equals(asset, that.asset) && Objects.equals(uri, that.uri) && Objects.equals(packageName, that.packageName) && Objects.equals(formatHint, that.formatHint) && httpHeaders.equals(that.httpHeaders) && Objects.equals(bufferOptions, that.bufferOptions) && Objects.equals(viewType, that.viewType);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(asset, uri, packageName, formatHint, httpHeaders, bufferOptions);
+      return Objects.hash(asset, uri, packageName, formatHint, httpHeaders, bufferOptions, viewType);
     }
 
     public static final class Builder {
@@ -201,6 +290,14 @@ public class Messages {
         return this;
       }
 
+      private @Nullable PlatformVideoViewType viewType;
+
+      @CanIgnoreReturnValue
+      public @NonNull Builder setViewType(@Nullable PlatformVideoViewType setterArg) {
+        this.viewType = setterArg;
+        return this;
+      }
+
       public @NonNull CreateMessage build() {
         CreateMessage pigeonReturn = new CreateMessage();
         pigeonReturn.setAsset(asset);
@@ -209,19 +306,21 @@ public class Messages {
         pigeonReturn.setFormatHint(formatHint);
         pigeonReturn.setHttpHeaders(httpHeaders);
         pigeonReturn.setBufferOptions(bufferOptions);
+        pigeonReturn.setViewType(viewType);
         return pigeonReturn;
       }
     }
 
     @NonNull
     ArrayList<Object> toList() {
-      ArrayList<Object> toListResult = new ArrayList<>(6);
+      ArrayList<Object> toListResult = new ArrayList<>(7);
       toListResult.add(asset);
       toListResult.add(uri);
       toListResult.add(packageName);
       toListResult.add(formatHint);
       toListResult.add(httpHeaders);
       toListResult.add(bufferOptions);
+      toListResult.add(viewType);
       return toListResult;
     }
 
@@ -239,6 +338,8 @@ public class Messages {
       pigeonResult.setHttpHeaders((Map<String, String>) httpHeaders);
       Object bufferOptions = pigeonVar_list.get(5);
       pigeonResult.setBufferOptions((BufferOptionsMessage) bufferOptions);
+      Object viewType = pigeonVar_list.get(6);
+      pigeonResult.setViewType((PlatformVideoViewType) viewType);
       return pigeonResult;
     }
   }
@@ -527,11 +628,17 @@ public class Messages {
     @Override
     protected Object readValueOfType(byte type, @NonNull ByteBuffer buffer) {
       switch (type) {
-        case (byte) 129:
-          return CreateMessage.fromList((ArrayList<Object>) readValue(buffer));
+        case (byte) 129: {
+          Object value = readValue(buffer);
+          return value == null ? null : PlatformVideoViewType.values()[((Long) value).intValue()];
+        }
         case (byte) 130:
-          return CacheOptionsMessage.fromList((ArrayList<Object>) readValue(buffer));
+          return PlatformVideoViewCreationParams.fromList((ArrayList<Object>) readValue(buffer));
         case (byte) 131:
+          return CreateMessage.fromList((ArrayList<Object>) readValue(buffer));
+        case (byte) 132:
+          return CacheOptionsMessage.fromList((ArrayList<Object>) readValue(buffer));
+        case (byte) 133:
           return BufferOptionsMessage.fromList((ArrayList<Object>) readValue(buffer));
         default:
           return super.readValueOfType(type, buffer);
@@ -540,14 +647,20 @@ public class Messages {
 
     @Override
     protected void writeValue(@NonNull ByteArrayOutputStream stream, Object value) {
-      if (value instanceof CreateMessage) {
+      if (value instanceof PlatformVideoViewType) {
         stream.write(129);
+        writeValue(stream, value == null ? null : ((PlatformVideoViewType) value).index);
+      } else if (value instanceof PlatformVideoViewCreationParams) {
+        stream.write(130);
+        writeValue(stream, ((PlatformVideoViewCreationParams) value).toList());
+      } else if (value instanceof CreateMessage) {
+        stream.write(131);
         writeValue(stream, ((CreateMessage) value).toList());
       } else if (value instanceof CacheOptionsMessage) {
-        stream.write(130);
+        stream.write(132);
         writeValue(stream, ((CacheOptionsMessage) value).toList());
       } else if (value instanceof BufferOptionsMessage) {
-        stream.write(131);
+        stream.write(133);
         writeValue(stream, ((BufferOptionsMessage) value).toList());
       } else {
         super.writeValue(stream, value);
@@ -563,22 +676,22 @@ public class Messages {
     @NonNull 
     Long create(@NonNull CreateMessage msg);
 
-    void dispose(@NonNull Long textureId);
+    void dispose(@NonNull Long playerId);
 
-    void setLooping(@NonNull Long textureId, @NonNull Boolean looping);
+    void setLooping(@NonNull Long playerId, @NonNull Boolean looping);
 
-    void setVolume(@NonNull Long textureId, @NonNull Double volume);
+    void setVolume(@NonNull Long playerId, @NonNull Double volume);
 
-    void setPlaybackSpeed(@NonNull Long textureId, @NonNull Double speed);
+    void setPlaybackSpeed(@NonNull Long playerId, @NonNull Double speed);
 
-    void play(@NonNull Long textureId);
+    void play(@NonNull Long playerId);
 
     @NonNull 
-    Long position(@NonNull Long textureId);
+    Long position(@NonNull Long playerId);
 
-    void seekTo(@NonNull Long textureId, @NonNull Long position);
+    void seekTo(@NonNull Long playerId, @NonNull Long position);
 
-    void pause(@NonNull Long textureId);
+    void pause(@NonNull Long playerId);
 
     void setMixWithOthers(@NonNull Boolean mixWithOthers);
 
@@ -647,9 +760,9 @@ public class Messages {
               (message, reply) -> {
                 ArrayList<Object> wrapped = new ArrayList<>();
                 ArrayList<Object> args = (ArrayList<Object>) message;
-                Long textureIdArg = (Long) args.get(0);
+                Long playerIdArg = (Long) args.get(0);
                 try {
-                  api.dispose(textureIdArg);
+                  api.dispose(playerIdArg);
                   wrapped.add(0, null);
                 }
  catch (Throwable exception) {
@@ -670,10 +783,10 @@ public class Messages {
               (message, reply) -> {
                 ArrayList<Object> wrapped = new ArrayList<>();
                 ArrayList<Object> args = (ArrayList<Object>) message;
-                Long textureIdArg = (Long) args.get(0);
+                Long playerIdArg = (Long) args.get(0);
                 Boolean loopingArg = (Boolean) args.get(1);
                 try {
-                  api.setLooping(textureIdArg, loopingArg);
+                  api.setLooping(playerIdArg, loopingArg);
                   wrapped.add(0, null);
                 }
  catch (Throwable exception) {
@@ -694,10 +807,10 @@ public class Messages {
               (message, reply) -> {
                 ArrayList<Object> wrapped = new ArrayList<>();
                 ArrayList<Object> args = (ArrayList<Object>) message;
-                Long textureIdArg = (Long) args.get(0);
+                Long playerIdArg = (Long) args.get(0);
                 Double volumeArg = (Double) args.get(1);
                 try {
-                  api.setVolume(textureIdArg, volumeArg);
+                  api.setVolume(playerIdArg, volumeArg);
                   wrapped.add(0, null);
                 }
  catch (Throwable exception) {
@@ -718,10 +831,10 @@ public class Messages {
               (message, reply) -> {
                 ArrayList<Object> wrapped = new ArrayList<>();
                 ArrayList<Object> args = (ArrayList<Object>) message;
-                Long textureIdArg = (Long) args.get(0);
+                Long playerIdArg = (Long) args.get(0);
                 Double speedArg = (Double) args.get(1);
                 try {
-                  api.setPlaybackSpeed(textureIdArg, speedArg);
+                  api.setPlaybackSpeed(playerIdArg, speedArg);
                   wrapped.add(0, null);
                 }
  catch (Throwable exception) {
@@ -742,9 +855,9 @@ public class Messages {
               (message, reply) -> {
                 ArrayList<Object> wrapped = new ArrayList<>();
                 ArrayList<Object> args = (ArrayList<Object>) message;
-                Long textureIdArg = (Long) args.get(0);
+                Long playerIdArg = (Long) args.get(0);
                 try {
-                  api.play(textureIdArg);
+                  api.play(playerIdArg);
                   wrapped.add(0, null);
                 }
  catch (Throwable exception) {
@@ -765,9 +878,9 @@ public class Messages {
               (message, reply) -> {
                 ArrayList<Object> wrapped = new ArrayList<>();
                 ArrayList<Object> args = (ArrayList<Object>) message;
-                Long textureIdArg = (Long) args.get(0);
+                Long playerIdArg = (Long) args.get(0);
                 try {
-                  Long output = api.position(textureIdArg);
+                  Long output = api.position(playerIdArg);
                   wrapped.add(0, output);
                 }
  catch (Throwable exception) {
@@ -788,10 +901,10 @@ public class Messages {
               (message, reply) -> {
                 ArrayList<Object> wrapped = new ArrayList<>();
                 ArrayList<Object> args = (ArrayList<Object>) message;
-                Long textureIdArg = (Long) args.get(0);
+                Long playerIdArg = (Long) args.get(0);
                 Long positionArg = (Long) args.get(1);
                 try {
-                  api.seekTo(textureIdArg, positionArg);
+                  api.seekTo(playerIdArg, positionArg);
                   wrapped.add(0, null);
                 }
  catch (Throwable exception) {
@@ -812,9 +925,9 @@ public class Messages {
               (message, reply) -> {
                 ArrayList<Object> wrapped = new ArrayList<>();
                 ArrayList<Object> args = (ArrayList<Object>) message;
-                Long textureIdArg = (Long) args.get(0);
+                Long playerIdArg = (Long) args.get(0);
                 try {
-                  api.pause(textureIdArg);
+                  api.pause(playerIdArg);
                   wrapped.add(0, null);
                 }
  catch (Throwable exception) {

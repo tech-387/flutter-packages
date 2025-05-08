@@ -34,7 +34,7 @@ target 'Runner' do
   end
 
       # Add your GitHub-hosted pod here
-  pod 'SJMediaCacheServer', :git => 'https://github.com/tech-387/SJMediaCacheServer.git', :branch => 'fix/server-restart-port'
+  pod 'SJMediaCacheServer', :git => 'https://github.com/tech-387/SJMediaCacheServer.git', :branch => '2.0.99'
   
 end
 

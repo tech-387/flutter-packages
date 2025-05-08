@@ -9,6 +9,7 @@ import '../ast.dart';
 import '../functional.dart';
 import '../generator.dart';
 import '../generator_tools.dart';
+import '../types/task_queue.dart';
 import 'templates.dart';
 
 /// Documentation comment open symbol.
@@ -77,6 +78,49 @@ class SwiftOptions {
   }
 }
 
+/// Options that control how Swift code will be generated.
+class InternalSwiftOptions extends InternalOptions {
+  /// Creates a [InternalSwiftOptions] object
+  const InternalSwiftOptions({
+    this.copyrightHeader,
+    required this.swiftOut,
+    this.fileSpecificClassNameComponent,
+    this.errorClassName,
+    this.includeErrorClass = true,
+  });
+
+  /// Creates InternalSwiftOptions from SwiftOptions.
+  InternalSwiftOptions.fromSwiftOptions(
+    SwiftOptions options, {
+    required this.swiftOut,
+    Iterable<String>? copyrightHeader,
+  })  : copyrightHeader = options.copyrightHeader ?? copyrightHeader,
+        fileSpecificClassNameComponent =
+            options.fileSpecificClassNameComponent ??
+                swiftOut.split('/').lastOrNull?.split('.').firstOrNull ??
+                '',
+        errorClassName = options.errorClassName,
+        includeErrorClass = options.includeErrorClass;
+
+  /// A copyright header that will get prepended to generated code.
+  final Iterable<String>? copyrightHeader;
+
+  /// Path to the swift file that will be generated.
+  final String swiftOut;
+
+  /// A String to augment class names to avoid cross file collisions.
+  final String? fileSpecificClassNameComponent;
+
+  /// The name of the error class used for passing custom error parameters.
+  final String? errorClassName;
+
+  /// Whether to include the error class in generation.
+  ///
+  /// This should only ever be set to false if you have another generated
+  /// Swift file in the same directory.
+  final bool includeErrorClass;
+}
+
 /// Options that control how Swift code will be generated for a specific
 /// ProxyApi.
 class SwiftProxyApiOptions {
@@ -138,13 +182,13 @@ class SwiftEventChannelOptions {
 }
 
 /// Class that manages all Swift code generation.
-class SwiftGenerator extends StructuredGenerator<SwiftOptions> {
+class SwiftGenerator extends StructuredGenerator<InternalSwiftOptions> {
   /// Instantiates a Swift Generator.
   const SwiftGenerator();
 
   @override
   void writeFilePrologue(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent, {
     required String dartPackageName,
@@ -159,7 +203,7 @@ class SwiftGenerator extends StructuredGenerator<SwiftOptions> {
 
   @override
   void writeFileImports(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent, {
     required String dartPackageName,
@@ -181,7 +225,7 @@ class SwiftGenerator extends StructuredGenerator<SwiftOptions> {
 
   @override
   void writeEnum(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent,
     Enum anEnum, {
@@ -203,7 +247,7 @@ class SwiftGenerator extends StructuredGenerator<SwiftOptions> {
 
   @override
   void writeGeneralCodec(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent, {
     required String dartPackageName,
@@ -347,11 +391,14 @@ class SwiftGenerator extends StructuredGenerator<SwiftOptions> {
     Indent indent,
     Class classDefinition, {
     bool private = false,
+    bool hashable = true,
   }) {
     final String privateString = private ? 'private ' : '';
     final String extendsString = classDefinition.superClass != null
         ? ': ${classDefinition.superClass!.name}'
-        : '';
+        : hashable
+            ? ': Hashable'
+            : '';
     if (classDefinition.isSwiftClass) {
       indent.write(
           '${privateString}class ${classDefinition.name}$extendsString ');
@@ -381,7 +428,7 @@ class SwiftGenerator extends StructuredGenerator<SwiftOptions> {
   }
 
   void _writeCodecOverflowUtilities(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent,
     List<EnumeratedType> types, {
@@ -400,7 +447,12 @@ class SwiftGenerator extends StructuredGenerator<SwiftOptions> {
     final Class overflowClass =
         Class(name: _overflowClassName, fields: overflowFields);
     indent.newln();
-    _writeDataClassSignature(indent, overflowClass, private: true);
+    _writeDataClassSignature(
+      indent,
+      overflowClass,
+      private: true,
+      hashable: false,
+    );
     indent.addScoped('', '}', () {
       writeClassEncode(
         generatorOptions,
@@ -454,7 +506,7 @@ if (wrapped == nil) {
 
   @override
   void writeDataClass(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent,
     Class classDefinition, {
@@ -485,6 +537,13 @@ if (wrapped == nil) {
         dartPackageName: dartPackageName,
       );
       writeClassEncode(
+        generatorOptions,
+        root,
+        indent,
+        classDefinition,
+        dartPackageName: dartPackageName,
+      );
+      writeClassEquality(
         generatorOptions,
         root,
         indent,
@@ -525,7 +584,7 @@ if (wrapped == nil) {
 
   @override
   void writeClassEncode(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent,
     Class classDefinition, {
@@ -547,8 +606,34 @@ if (wrapped == nil) {
   }
 
   @override
+  void writeClassEquality(
+    InternalSwiftOptions generatorOptions,
+    Root root,
+    Indent indent,
+    Class classDefinition, {
+    required String dartPackageName,
+  }) {
+    indent.writeScoped(
+        'static func == (lhs: ${classDefinition.name}, rhs: ${classDefinition.name}) -> Bool {',
+        '}', () {
+      if (classDefinition.isSwiftClass) {
+        indent.writeScoped('if (lhs === rhs) {', '}', () {
+          indent.writeln('return true');
+        });
+      }
+      indent.write(
+          'return deepEquals${generatorOptions.fileSpecificClassNameComponent}(lhs.toList(), rhs.toList())');
+    });
+
+    indent.writeScoped('func hash(into hasher: inout Hasher) {', '}', () {
+      indent.writeln(
+          'deepHash${generatorOptions.fileSpecificClassNameComponent}(value: toList(), hasher: &hasher)');
+    });
+  }
+
+  @override
   void writeClassDecode(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent,
     Class classDefinition, {
@@ -600,7 +685,7 @@ if (wrapped == nil) {
 
   @override
   void writeApis(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent, {
     required String dartPackageName,
@@ -623,7 +708,7 @@ if (wrapped == nil) {
   /// }
   @override
   void writeFlutterApi(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent,
     AstFlutterApi api, {
@@ -692,7 +777,7 @@ if (wrapped == nil) {
   /// }
   @override
   void writeHostApi(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent,
     AstHostApi api, {
@@ -736,6 +821,21 @@ if (wrapped == nil) {
       indent.addScoped('{', '}', () {
         indent.writeln(
             r'let channelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""');
+        String? serialBackgroundQueue;
+        if (api.methods.any((Method m) =>
+            m.taskQueueType == TaskQueueType.serialBackgroundThread)) {
+          serialBackgroundQueue = 'taskQueue';
+          // TODO(stuartmorgan): Remove the ? once macOS supports task queues
+          // and this is no longer an optional protocol method.
+          // See https://github.com/flutter/flutter/issues/162613 for why this
+          // is an ifdef instead of just relying on the optionality check.
+          indent.format('''
+#if os(iOS)
+  let $serialBackgroundQueue = binaryMessenger.makeBackgroundTaskQueue?()
+#else
+  let $serialBackgroundQueue: FlutterTaskQueue? = nil
+#endif''');
+        }
         for (final Method method in api.methods) {
           _writeHostMethodMessageHandler(
             indent,
@@ -747,6 +847,10 @@ if (wrapped == nil) {
             isAsynchronous: method.isAsynchronous,
             swiftFunction: method.swiftFunction,
             documentationComments: method.documentationComments,
+            serialBackgroundQueue:
+                method.taskQueueType == TaskQueueType.serialBackgroundThread
+                    ? serialBackgroundQueue
+                    : null,
           );
         }
       });
@@ -755,7 +859,7 @@ if (wrapped == nil) {
 
   @override
   void writeInstanceManager(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent, {
     required String dartPackageName,
@@ -767,7 +871,7 @@ if (wrapped == nil) {
 
   @override
   void writeInstanceManagerApi(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent, {
     required String dartPackageName,
@@ -894,7 +998,7 @@ if (wrapped == nil) {
 
   @override
   void writeProxyApiBaseCodec(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent,
   ) {
@@ -949,6 +1053,9 @@ if (wrapped == nil) {
                     let identifier = self.readValue()
                     let instance: AnyObject? = pigeonRegistrar.instanceManager.instance(
                       forIdentifier: identifier is Int64 ? identifier as! Int64 : Int64(identifier as! Int32))
+                    if instance == nil {
+                      print("Failed to find instance with identifier: \\(identifier!)")
+                    }
                     return instance
                   default:
                     return super.readValue(ofType: type)
@@ -1115,7 +1222,7 @@ if (wrapped == nil) {
 
   @override
   void writeProxyApi(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent,
     AstProxyApi api, {
@@ -1268,7 +1375,7 @@ if (wrapped == nil) {
     });
   }
 
-  void _writeWrapError(SwiftOptions generatorOptions, Indent indent) {
+  void _writeWrapError(InternalSwiftOptions generatorOptions, Indent indent) {
     indent.newln();
     indent.write('private func wrapError(_ error: Any) -> [Any?] ');
     indent.addScoped('{', '}', () {
@@ -1306,11 +1413,12 @@ if (wrapped == nil) {
 private func nilOrValue<T>(_ value: Any?) -> T? {
   if value is NSNull { return nil }
   return value as! T?
-}''');
+}
+''');
   }
 
   void _writeCreateConnectionError(
-      SwiftOptions generatorOptions, Indent indent) {
+      InternalSwiftOptions generatorOptions, Indent indent) {
     indent.newln();
     indent.writeScoped(
         'private func createConnectionError(withChannelName channelName: String) -> ${_getErrorClassName(generatorOptions)} {',
@@ -1320,9 +1428,76 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
     });
   }
 
+  void _writeDeepEquals(InternalSwiftOptions generatorOptions, Indent indent) {
+    indent.format('''
+func deepEquals${generatorOptions.fileSpecificClassNameComponent}(_ lhs: Any?, _ rhs: Any?) -> Bool {
+  let cleanLhs = nilOrValue(lhs) as Any?
+  let cleanRhs = nilOrValue(rhs) as Any?
+  switch (cleanLhs, cleanRhs) {
+  case (nil, nil):
+    return true
+
+  case (nil, _), (_, nil):
+    return false
+
+  case is (Void, Void):
+    return true
+
+  case let (cleanLhsHashable, cleanRhsHashable) as (AnyHashable, AnyHashable):
+    return cleanLhsHashable == cleanRhsHashable
+
+  case let (cleanLhsArray, cleanRhsArray) as ([Any?], [Any?]):
+    guard cleanLhsArray.count == cleanRhsArray.count else { return false }
+    for (index, element) in cleanLhsArray.enumerated() {
+      if !deepEquals${generatorOptions.fileSpecificClassNameComponent}(element, cleanRhsArray[index]) {
+        return false
+      }
+    }
+    return true
+
+  case let (cleanLhsDictionary, cleanRhsDictionary) as ([AnyHashable: Any?], [AnyHashable: Any?]):
+    guard cleanLhsDictionary.count == cleanRhsDictionary.count else { return false }
+    for (key, cleanLhsValue) in cleanLhsDictionary {
+      guard cleanRhsDictionary.index(forKey: key) != nil else { return false }
+      if !deepEquals${generatorOptions.fileSpecificClassNameComponent}(cleanLhsValue, cleanRhsDictionary[key]!) {
+        return false
+      }
+    }
+    return true
+
+  default:
+    // Any other type shouldn't be able to be used with pigeon. File an issue if you find this to be untrue.
+    return false
+  }
+}
+
+func deepHash${generatorOptions.fileSpecificClassNameComponent}(value: Any?, hasher: inout Hasher) {
+  if let valueList = value as? [AnyHashable] {
+     for item in valueList { deepHash${generatorOptions.fileSpecificClassNameComponent}(value: item, hasher: &hasher) }
+     return
+  }
+
+  if let valueDict = value as? [AnyHashable: AnyHashable] {
+    for key in valueDict.keys { 
+      hasher.combine(key)
+      deepHash${generatorOptions.fileSpecificClassNameComponent}(value: valueDict[key]!, hasher: &hasher)
+    }
+    return
+  }
+
+  if let hashableValue = value as? AnyHashable {
+    hasher.combine(hashableValue.hashValue)
+  }
+
+  return hasher.combine(String(describing: value))
+}
+
+    ''');
+  }
+
   @override
   void writeGeneralUtilities(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent, {
     required String dartPackageName,
@@ -1341,11 +1516,14 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
 
     _writeIsNullish(indent);
     _writeNilOrValue(indent);
+    if (root.classes.isNotEmpty) {
+      _writeDeepEquals(generatorOptions, indent);
+    }
   }
 
   @override
   void writeEventChannelApi(
-    SwiftOptions generatorOptions,
+    InternalSwiftOptions generatorOptions,
     Root root,
     Indent indent,
     AstEventChannelApi api, {
@@ -1401,7 +1579,7 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
         func endOfStream() {
           sink(FlutterEndOfEventStream)
         }
-      
+
       }
       ''');
     }
@@ -1410,7 +1588,7 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
     for (final Method func in api.methods) {
       indent.format('''
         class ${toUpperCamelCase(func.name)}StreamHandler: PigeonEventChannelWrapper<${_swiftTypeForDartType(func.returnType)}> {
-          static func register(with messenger: FlutterBinaryMessenger, 
+          static func register(with messenger: FlutterBinaryMessenger,
                               instanceName: String = "",
                               streamHandler: ${toUpperCamelCase(func.name)}StreamHandler) {
             var channelName = "${makeChannelName(api, func, dartPackageName)}"
@@ -1428,7 +1606,7 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
 
   void _writeFlutterMethod(
     Indent indent, {
-    required SwiftOptions generatorOptions,
+    required InternalSwiftOptions generatorOptions,
     required String name,
     required String channelName,
     required List<Parameter> parameters,
@@ -1458,7 +1636,7 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
 
   void _writeFlutterMethodMessageCall(
     Indent indent, {
-    required SwiftOptions generatorOptions,
+    required InternalSwiftOptions generatorOptions,
     required List<Parameter> parameters,
     required TypeDeclaration returnType,
     required String channelName,
@@ -1502,7 +1680,7 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
       }
       indent.addScoped('else {', '}', () {
         if (returnType.isVoid) {
-          indent.writeln('completion(.success(Void()))');
+          indent.writeln('completion(.success(()))');
         } else {
           final String fieldType = _swiftTypeForDartType(returnType);
           _writeGenericCasting(
@@ -1532,6 +1710,7 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
     required TypeDeclaration returnType,
     required bool isAsynchronous,
     required String? swiftFunction,
+    String? serialBackgroundQueue,
     String setHandlerCondition = 'let api = api',
     List<String> documentationComments = const <String>[],
     String Function(List<String> safeArgNames, {required String apiVarName})?
@@ -1546,8 +1725,30 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
 
     final String varChannelName = '${name}Channel';
     addDocumentationComments(indent, documentationComments, _docCommentSpec);
-    indent.writeln(
-        'let $varChannelName = FlutterBasicMessageChannel(name: "$channelName", binaryMessenger: binaryMessenger, codec: codec)');
+    final String baseArgs = 'name: "$channelName", '
+        'binaryMessenger: binaryMessenger, codec: codec';
+    // The version with taskQueue: is an optional protocol method that isn't
+    // implemented on macOS yet, so the call has to be conditionalized even
+    // though the taskQueue argument is nullable. The runtime branching can be
+    // removed once macOS supports task queues. The condition is on the task
+    // queue variable not being nil because the earlier code to set it will
+    // return nil on macOS where the optional parts of the protocol are not
+    // implemented.
+    final String channelCreationWithoutTaskQueue =
+        'FlutterBasicMessageChannel($baseArgs)';
+    if (serialBackgroundQueue == null) {
+      indent.writeln('let $varChannelName = $channelCreationWithoutTaskQueue');
+    } else {
+      final String channelCreationWithTaskQueue =
+          'FlutterBasicMessageChannel($baseArgs, taskQueue: $serialBackgroundQueue)';
+
+      indent.write('let $varChannelName = $serialBackgroundQueue == nil');
+      indent.addScoped('', '', () {
+        indent.writeln('? $channelCreationWithoutTaskQueue');
+        indent.writeln(': $channelCreationWithTaskQueue');
+      });
+    }
+
     indent.write('if $setHandlerCondition ');
     indent.addScoped('{', '}', () {
       indent.write('$varChannelName.setMessageHandler ');
@@ -1638,7 +1839,7 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
 
   void _writeProxyApiRegistrar(
     Indent indent, {
-    required SwiftOptions generatorOptions,
+    required InternalSwiftOptions generatorOptions,
     required Iterable<AstProxyApi> allProxyApis,
   }) {
     final String delegateName =
@@ -2039,7 +2240,7 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
   void _writeProxyApiMessageHandlerMethod(
     Indent indent,
     AstProxyApi api, {
-    required SwiftOptions generatorOptions,
+    required InternalSwiftOptions generatorOptions,
     required TypeDeclaration apiAsTypeDeclaration,
     required String swiftApiName,
     required String dartPackageName,
@@ -2267,7 +2468,7 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
   void _writeProxyApiNewInstanceMethod(
     Indent indent,
     AstProxyApi api, {
-    required SwiftOptions generatorOptions,
+    required InternalSwiftOptions generatorOptions,
     required TypeDeclaration apiAsTypeDeclaration,
     required String newInstanceMethodName,
     required String dartPackageName,
@@ -2318,63 +2519,70 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
               .failure(
                 ${_getErrorClassName(generatorOptions)}(
                   code: "ignore-calls-error",
-                  message: "Calls to Dart are being ignored.", details: "")))
-            return''',
+                  message: "Calls to Dart are being ignored.", details: "")))''',
           );
         },
+        addTrailingNewline: false,
       );
 
       indent.writeScoped(
-        'if pigeonRegistrar.instanceManager.containsInstance(pigeonInstance as AnyObject) {',
+        ' else if pigeonRegistrar.instanceManager.containsInstance(pigeonInstance as AnyObject) {',
         '}',
         () {
-          indent.writeln('completion(.success(Void()))');
-          indent.writeln('return');
+          indent.writeln('completion(.success(()))');
         },
+        addTrailingNewline: false,
       );
-      if (api.hasCallbackConstructor()) {
-        indent.writeln(
-          'let pigeonIdentifierArg = pigeonRegistrar.instanceManager.addHostCreatedInstance(pigeonInstance as AnyObject)',
-        );
-        enumerate(api.unattachedFields, (int index, ApiField field) {
-          final String argName = _getSafeArgumentName(index, field);
+      indent.writeScoped(' else {', '}', () {
+        if (api.hasCallbackConstructor()) {
           indent.writeln(
-            'let $argName = try! pigeonDelegate.${field.name}(pigeonApi: self, pigeonInstance: pigeonInstance)',
+            'let pigeonIdentifierArg = pigeonRegistrar.instanceManager.addHostCreatedInstance(pigeonInstance as AnyObject)',
           );
-        });
-        indent.writeln(
-          'let binaryMessenger = pigeonRegistrar.binaryMessenger',
-        );
-        indent.writeln('let codec = pigeonRegistrar.codec');
-        _writeFlutterMethodMessageCall(
-          indent,
-          generatorOptions: generatorOptions,
-          parameters: <Parameter>[
-            Parameter(
-              name: 'pigeonIdentifier',
-              type: const TypeDeclaration(
-                baseName: 'int',
-                isNullable: false,
+          enumerate(api.unattachedFields, (int index, ApiField field) {
+            final String argName = _getSafeArgumentName(index, field);
+            indent.writeln(
+              'let $argName = try! pigeonDelegate.${field.name}(pigeonApi: self, pigeonInstance: pigeonInstance)',
+            );
+          });
+          indent.writeln(
+            'let binaryMessenger = pigeonRegistrar.binaryMessenger',
+          );
+          indent.writeln('let codec = pigeonRegistrar.codec');
+          _writeFlutterMethodMessageCall(
+            indent,
+            generatorOptions: generatorOptions,
+            parameters: <Parameter>[
+              Parameter(
+                name: 'pigeonIdentifier',
+                type: const TypeDeclaration(
+                  baseName: 'int',
+                  isNullable: false,
+                ),
               ),
+              ...api.unattachedFields.map(
+                (ApiField field) {
+                  return Parameter(name: field.name, type: field.type);
+                },
+              ),
+            ],
+            returnType: const TypeDeclaration.voidDeclaration(),
+            channelName: makeChannelNameWithStrings(
+              apiName: api.name,
+              methodName: newInstanceMethodName,
+              dartPackageName: dartPackageName,
             ),
-            ...api.unattachedFields.map(
-              (ApiField field) {
-                return Parameter(name: field.name, type: field.type);
-              },
-            ),
-          ],
-          returnType: const TypeDeclaration.voidDeclaration(),
-          channelName: makeChannelNameWithStrings(
-            apiName: api.name,
-            methodName: newInstanceMethodName,
-            dartPackageName: dartPackageName,
-          ),
-        );
-      } else {
-        indent.writeln(
-          'print("Error: Attempting to create a new Dart instance of ${api.name}, but the class has a nonnull callback method.")',
-        );
-      }
+          );
+        } else {
+          indent.format(
+            '''
+            completion(
+              .failure(
+                ${_getErrorClassName(generatorOptions)}(
+                  code: "new-instance-error",
+                  message: "Error: Attempting to create a new Dart instance of ${api.name}, but the class has a nonnull callback method.", details: "")))''',
+          );
+        }
+      });
     });
 
     if (unsupportedPlatforms != null) {
@@ -2386,7 +2594,7 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
   void _writeProxyApiFlutterMethods(
     Indent indent,
     AstProxyApi api, {
-    required SwiftOptions generatorOptions,
+    required InternalSwiftOptions generatorOptions,
     required TypeDeclaration apiAsTypeDeclaration,
     required String dartPackageName,
     bool writeBody = true,
@@ -2469,7 +2677,7 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
     }
   }
 
-  void _writePigeonError(SwiftOptions generatorOptions, Indent indent) {
+  void _writePigeonError(InternalSwiftOptions generatorOptions, Indent indent) {
     indent.newln();
     indent.writeln(
         '/// Error class for passing custom error details to Dart side.');
@@ -2628,17 +2836,17 @@ String? _tryGetUnsupportedPlatformsCondition(Iterable<TypeDeclaration> types) {
 }
 
 /// Calculates the name of the codec that will be generated for [api].
-String _getMessageCodecName(SwiftOptions options) {
+String _getMessageCodecName(InternalSwiftOptions options) {
   return toUpperCamelCase(
       '${options.fileSpecificClassNameComponent}PigeonCodec');
 }
 
 /// Calculates the name of the codec that will be generated for [api].
-String _getMethodCodecVarName(SwiftOptions options) {
+String _getMethodCodecVarName(InternalSwiftOptions options) {
   return '${toLowerCamelCase(options.fileSpecificClassNameComponent ?? '')}PigeonMethodCodec';
 }
 
-String _getErrorClassName(SwiftOptions generatorOptions) {
+String _getErrorClassName(InternalSwiftOptions generatorOptions) {
   return generatorOptions.errorClassName ?? 'PigeonError';
 }
 

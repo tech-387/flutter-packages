@@ -16,7 +16,6 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
-import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -47,92 +46,75 @@ import androidx.media3.extractor.DefaultExtractorsFactory;
 
 import java.util.Map;
 
-import io.flutter.view.TextureRegistry;
+import io.flutter.view.TextureRegistry.SurfaceProducer;
 
-final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
+/**
+ * A class responsible for managing video playback using {@link ExoPlayer}.
+ *
+ * <p>It provides methods to control playback, adjust volume, and handle seeking.
+ */
+public abstract class VideoPlayer {
   @NonNull private final ExoPlayerProvider exoPlayerProvider;
   @NonNull private final MediaItem mediaItem;
-  @NonNull private final TextureRegistry.SurfaceProducer surfaceProducer;
-  @NonNull private final VideoPlayerCallbacks videoPlayerEvents;
   @NonNull private final VideoPlayerOptions options;
-  @NonNull private ExoPlayer exoPlayer;
+  @NonNull protected ExoPlayer exoPlayer;
   @Nullable private ExoPlayerState savedStateDuring;
   private static DefaultHttpDataSource.Factory httpDataSourceFactory = new DefaultHttpDataSource.Factory();
 
-  /**
-   * Creates a video player.
-   *
-   * @param context application context.
-   * @param events event callbacks.
-   * @param surfaceProducer produces a texture to render to.
-   * @param asset asset to play.
-   * @param options options for playback.
-   * @return a video player instance.
-   */
-  @UnstableApi
-  @NonNull
-  static VideoPlayer create(
+  @NonNull protected final VideoPlayerCallbacks videoPlayerEvents;
+  @Nullable protected final SurfaceProducer surfaceProducer;
+
+
+  @OptIn(markerClass = UnstableApi.class)
+  public static ExoPlayer constructExoPlayer(
       @NonNull Context context,
-      @NonNull VideoPlayerCallbacks events,
-      @NonNull TextureRegistry.SurfaceProducer surfaceProducer,
       @NonNull VideoAsset asset,
       @NonNull VideoPlayerOptions options,
-      @NonNull VideoPlayerBufferOptions bufferOptions
-      ) {
-    return new VideoPlayer(
-        () -> {
+      @NonNull VideoPlayerBufferOptions videoPlayerBufferOptions
+  ) {
+    Log.i("Buffer", "minBufferMs="+videoPlayerBufferOptions.minBufferMs + ",maxBufferMs="+videoPlayerBufferOptions.maxBufferMs + ",bufferForPlaybackMs="+videoPlayerBufferOptions.bufferForPlaybackMs + ",bufferForPlaybackAfterRebufferMs=" + videoPlayerBufferOptions.bufferForPlaybackAfterRebufferMs);
 
-          Log.i("Buffer", "minBufferMs="+bufferOptions.minBufferMs + ",maxBufferMs="+bufferOptions.maxBufferMs + ",bufferForPlaybackMs="+bufferOptions.bufferForPlaybackMs + ",bufferForPlaybackAfterRebufferMs=" + bufferOptions.bufferForPlaybackAfterRebufferMs);
+    LoadControl loadControl = new DefaultLoadControl.Builder().setBufferDurationsMs(
+            Math.toIntExact(videoPlayerBufferOptions.minBufferMs), Math.toIntExact(videoPlayerBufferOptions.maxBufferMs), Math.toIntExact(videoPlayerBufferOptions.bufferForPlaybackMs), Math.toIntExact(videoPlayerBufferOptions.bufferForPlaybackAfterRebufferMs)
+    ).build();
 
-          LoadControl loadControl = new DefaultLoadControl.Builder().setBufferDurationsMs(
-                  Math.toIntExact(bufferOptions.minBufferMs), Math.toIntExact(bufferOptions.maxBufferMs), Math.toIntExact(bufferOptions.bufferForPlaybackMs), Math.toIntExact(bufferOptions.bufferForPlaybackAfterRebufferMs)
-          ).build();
+    Log.i("Cache", "enableCache="+options.enableCache+ ",cacheDirectory="+options.cacheDirectory + ",maxCacheBytes="+options.maxCacheBytes + ",maxFileBytes="+options.maxFileBytes);
 
-          Log.i("Cache", "enableCache="+options.enableCache+ ",cacheDirectory="+options.cacheDirectory + ",maxCacheBytes="+options.maxCacheBytes + ",maxFileBytes="+options.maxFileBytes);
+    ExoPlayer exoPlayer = new ExoPlayer.Builder(context,
+            new DefaultRenderersFactory(context),
+            new DefaultMediaSourceFactory(context, new DefaultExtractorsFactory()),
+            new DefaultTrackSelector(context),
+            loadControl,
+            DefaultBandwidthMeter.getSingletonInstance(context),
+            new DefaultAnalyticsCollector(Clock.DEFAULT)
+    ).build();
 
-          ExoPlayer exoPlayer = new ExoPlayer.Builder(context,
-                  new DefaultRenderersFactory(context),
-                  new DefaultMediaSourceFactory(context, new DefaultExtractorsFactory()),
-                  new DefaultTrackSelector(context),
-                  loadControl,
-                  DefaultBandwidthMeter.getSingletonInstance(context),
-                  new DefaultAnalyticsCollector(Clock.DEFAULT)
-          ).build();
+    Uri uri = Uri.parse(asset.assetUrl);
 
-          Uri uri = Uri.parse(asset.assetUrl);
+    if(asset instanceof HttpVideoAsset) {
+      HttpVideoAsset httpVideoAsset = (HttpVideoAsset) asset;
+      buildHttpDataSourceFactory(httpVideoAsset.httpHeaders);
 
-          if(asset instanceof HttpVideoAsset) {
-            HttpVideoAsset httpVideoAsset = (HttpVideoAsset) asset;
-            buildHttpDataSourceFactory(httpVideoAsset.httpHeaders);
+      DataSource.Factory dataSourceFactory;
+      if (isHTTP(uri) && options.enableCache) {
+        CacheDataSourceFactory cacheDataSourceFactory =
+                new CacheDataSourceFactory(
+                        context,
+                        options.maxCacheBytes,
+                        options.maxFileBytes , options.cacheDirectory);
+        if (!httpVideoAsset.httpHeaders.isEmpty()) {
+          cacheDataSourceFactory.setHeaders(httpVideoAsset.httpHeaders);
+        }
+        dataSourceFactory = cacheDataSourceFactory;
+      } else {
+        dataSourceFactory = new DefaultDataSource.Factory(context);
+      }
 
-            DataSource.Factory dataSourceFactory;
-            if (isHTTP(uri) && options.enableCache) {
-              CacheDataSourceFactory cacheDataSourceFactory =
-                      new CacheDataSourceFactory(
-                              context,
-                              options.maxCacheBytes,
-                              options.maxFileBytes , options.cacheDirectory);
-              if (!httpVideoAsset.httpHeaders.isEmpty()) {
-                cacheDataSourceFactory.setHeaders(httpVideoAsset.httpHeaders);
-              }
-              dataSourceFactory = cacheDataSourceFactory;
-            } else {
-              dataSourceFactory = new DefaultDataSource.Factory(context);
-            }
+      MediaSource mediaSource = buildMediaSource(uri, dataSourceFactory, httpVideoAsset.streamingFormat);
+      exoPlayer.setMediaSource(mediaSource);
+    }
 
-            MediaSource mediaSource = buildMediaSource(uri, dataSourceFactory, httpVideoAsset.streamingFormat);
-            exoPlayer.setMediaSource(mediaSource);
-          }
-
-
-          return exoPlayer;
-        },
-        events,
-        surfaceProducer,
-        asset.getMediaItem(),
-        options,
-            bufferOptions
-            );
+    return exoPlayer;
   }
 
   @OptIn(markerClass = UnstableApi.class)
@@ -207,67 +189,45 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
   }
 
   /** A closure-compatible signature since {@link java.util.function.Supplier} is API level 24. */
-  interface ExoPlayerProvider {
+  public interface ExoPlayerProvider {
     /**
      * Returns a new {@link ExoPlayer}.
      *
      * @return new instance.
      */
+    @NonNull
     ExoPlayer get();
   }
 
-  @VisibleForTesting
-  VideoPlayer(
-      @NonNull ExoPlayerProvider exoPlayerProvider,
+  public VideoPlayer(
       @NonNull VideoPlayerCallbacks events,
-      @NonNull TextureRegistry.SurfaceProducer surfaceProducer,
       @NonNull MediaItem mediaItem,
       @NonNull VideoPlayerOptions options,
-      @NonNull VideoPlayerBufferOptions bufferOptions
+      @Nullable SurfaceProducer surfaceProducer,
+      @NonNull ExoPlayerProvider exoPlayerProvider
       ) {
-    this.exoPlayerProvider = exoPlayerProvider;
     this.videoPlayerEvents = events;
-    this.surfaceProducer = surfaceProducer;
     this.mediaItem = mediaItem;
     this.options = options;
+    this.exoPlayerProvider = exoPlayerProvider;
+    this.surfaceProducer = surfaceProducer;
     this.exoPlayer = createVideoPlayer();
-
-    surfaceProducer.setCallback(this);
   }
 
-  @RestrictTo(RestrictTo.Scope.LIBRARY)
-  public void onSurfaceAvailable() {
-    if (savedStateDuring != null) {
-      exoPlayer = createVideoPlayer();
-      savedStateDuring.restore(exoPlayer);
-      savedStateDuring = null;
-    }
-  }
-
-  @RestrictTo(RestrictTo.Scope.LIBRARY)
-  // TODO(bparrishMines): Replace with onSurfaceCleanup once available on stable. See
-  // https://github.com/flutter/flutter/issues/161256.
-  @SuppressWarnings({"deprecation", "removal"})
-  public void onSurfaceDestroyed() {
-    // Intentionally do not call pause/stop here, because the surface has already been released
-    // at this point (see https://github.com/flutter/flutter/issues/156451).
-    savedStateDuring = ExoPlayerState.save(exoPlayer);
-    exoPlayer.release();
-  }
-
-  private ExoPlayer createVideoPlayer() {
+  @NonNull
+  protected ExoPlayer createVideoPlayer() {
     ExoPlayer exoPlayer = exoPlayerProvider.get();
     exoPlayer.setMediaItem(mediaItem);
     exoPlayer.prepare();
-
-    exoPlayer.setVideoSurface(surfaceProducer.getSurface());
-
-    boolean wasInitialized = savedStateDuring != null;
-    exoPlayer.addListener(new ExoPlayerEventListener(exoPlayer, videoPlayerEvents, wasInitialized));
+    exoPlayer.addListener(createExoPlayerEventListener(exoPlayer, surfaceProducer));
     setAudioAttributes(exoPlayer, options.mixWithOthers);
 
     return exoPlayer;
   }
+
+  @NonNull
+  protected abstract ExoPlayerEventListener createExoPlayerEventListener(
+      @NonNull ExoPlayer exoPlayer, @Nullable SurfaceProducer surfaceProducer);
 
   void sendBufferingUpdate() {
     videoPlayerEvents.onBufferingUpdate(exoPlayer.getBufferedPosition());
@@ -312,12 +272,12 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
     return exoPlayer.getCurrentPosition();
   }
 
-  void dispose() {
-    exoPlayer.release();
-    surfaceProducer.release();
+  @NonNull
+  public ExoPlayer getExoPlayer() {
+    return exoPlayer;
+  }
 
-    // TODO(matanlurey): Remove when embedder no longer calls-back once released.
-    // https://github.com/flutter/flutter/issues/156434.
-    surfaceProducer.setCallback(null);
+  public void dispose() {
+    exoPlayer.release();
   }
 }
