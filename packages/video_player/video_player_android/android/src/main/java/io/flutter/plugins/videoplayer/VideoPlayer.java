@@ -4,6 +4,7 @@
 
 package io.flutter.plugins.videoplayer;
 
+import static android.os.Looper.getMainLooper;
 import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 
@@ -11,6 +12,7 @@ import static com.google.common.net.HttpHeaders.USER_AGENT;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Handler;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -26,12 +28,11 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
-import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
-import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.LoadControl;
+import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
 import androidx.media3.exoplayer.dash.DashMediaSource;
 import androidx.media3.exoplayer.dash.DefaultDashChunkSource;
@@ -42,13 +43,15 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
-import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
+import androidx.media3.exoplayer.upstream.experimental.ExperimentalBandwidthMeter;
+import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 
 import java.util.Map;
 
 import io.flutter.view.TextureRegistry;
 
+@UnstableApi
 final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
   @NonNull private final ExoPlayerProvider exoPlayerProvider;
   @NonNull private final MediaItem mediaItem;
@@ -83,47 +86,75 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
         () -> {
 
           Log.i("Buffer", "minBufferMs="+bufferOptions.minBufferMs + ",maxBufferMs="+bufferOptions.maxBufferMs + ",bufferForPlaybackMs="+bufferOptions.bufferForPlaybackMs + ",bufferForPlaybackAfterRebufferMs=" + bufferOptions.bufferForPlaybackAfterRebufferMs);
-
-          LoadControl loadControl = new DefaultLoadControl.Builder().setBufferDurationsMs(
-                  Math.toIntExact(bufferOptions.minBufferMs), Math.toIntExact(bufferOptions.maxBufferMs), Math.toIntExact(bufferOptions.bufferForPlaybackMs), Math.toIntExact(bufferOptions.bufferForPlaybackAfterRebufferMs)
-          ).build();
-
           Log.i("Cache", "enableCache="+options.enableCache+ ",cacheDirectory="+options.cacheDirectory + ",maxCacheBytes="+options.maxCacheBytes + ",maxFileBytes="+options.maxFileBytes);
 
+          // Custom load control and buffering configuration.
+          LoadControl loadControl = new CustomLoadControl.Builder().setBufferDurationsMs(
+                  Math.toIntExact(bufferOptions.minBufferMs), Math.toIntExact(bufferOptions.maxBufferMs), Math.toIntExact(bufferOptions.bufferForPlaybackMs), Math.toIntExact(bufferOptions.bufferForPlaybackAfterRebufferMs)
+          ).setPrioritizeTimeOverSizeThresholds(false).build();
+
+          // ExoPlayer provides an opportunity to switch to a software decoder if a primary one isn't available.
+          RenderersFactory renderersFactory = new DefaultRenderersFactory(context).setEnableDecoderFallback(true);
+          DefaultMediaSourceFactory mediaSourceFactory = new DefaultMediaSourceFactory(context, new DefaultExtractorsFactory());
+
+          ExperimentalBandwidthMeter.Builder builder = new ExperimentalBandwidthMeter.Builder(context);
+          if (CustomBandwidthListener.lastBitrateEstimate != null) {
+            builder.setInitialBitrateEstimate(CustomBandwidthListener.lastBitrateEstimate);
+          }
+
+          ExperimentalBandwidthMeter bandwidthMeter = builder.build();
+          Log.d("VideoPlayer", "initial estimate = " + bandwidthMeter.getBitrateEstimate());
+
+          // Create a Handler. This is used by ExoPlayer to dispatch the events
+          // back to your main thread (or whichever thread you create the Handler on).
+          Handler mainHandler = new Handler(getMainLooper()); // Using the main looper for UI safety
+
+          // Create custom bandwidth listener
+          CustomBandwidthListener customBandwidthListener = new CustomBandwidthListener(
+                  bandwidthMeter
+          );
+
+          // Add the listener
+          bandwidthMeter.addEventListener(mainHandler, customBandwidthListener);
+
+          DefaultTrackSelector trackSelector;
+          Uri uri = Uri.parse(asset.assetUrl);
+          if(isHTTP(uri) && options.enableCache) {
+            CacheDataSourceFactory cacheDataSourceFactory = new CacheDataSourceFactory(
+                    context,
+                    options.maxCacheBytes,
+                    options.maxFileBytes , options.cacheDirectory, bandwidthMeter, asset.assetUrl);
+            mediaSourceFactory.setDataSourceFactory(cacheDataSourceFactory);
+            trackSelector = new DefaultTrackSelector(context,
+                    new CustomAdaptiveTrackSelectionFactory(asset.assetUrl, cacheDataSourceFactory)
+            );
+          }
+          else {
+            // Custom track selector and custom adaptive track selection factory.
+            trackSelector = new DefaultTrackSelector(context,
+                    new CustomAdaptiveTrackSelectionFactory(asset.assetUrl, null)
+            );
+          }
+
+          Log.d("CustomBitrate", "bandwidthMeter.getBitrateEstimate=" + bandwidthMeter.getBitrateEstimate());
+
           ExoPlayer exoPlayer = new ExoPlayer.Builder(context,
-                  new DefaultRenderersFactory(context),
-                  new DefaultMediaSourceFactory(context, new DefaultExtractorsFactory()),
-                  new DefaultTrackSelector(context),
+                  renderersFactory,
+                  mediaSourceFactory,
+                  trackSelector,
                   loadControl,
-                  DefaultBandwidthMeter.getSingletonInstance(context),
+                  bandwidthMeter,
                   new DefaultAnalyticsCollector(Clock.DEFAULT)
           ).build();
-
-          Uri uri = Uri.parse(asset.assetUrl);
 
           if(asset instanceof HttpVideoAsset) {
             HttpVideoAsset httpVideoAsset = (HttpVideoAsset) asset;
             buildHttpDataSourceFactory(httpVideoAsset.httpHeaders);
-
-            DataSource.Factory dataSourceFactory;
-            if (isHTTP(uri) && options.enableCache) {
-              CacheDataSourceFactory cacheDataSourceFactory =
-                      new CacheDataSourceFactory(
-                              context,
-                              options.maxCacheBytes,
-                              options.maxFileBytes , options.cacheDirectory);
-              if (!httpVideoAsset.httpHeaders.isEmpty()) {
-                cacheDataSourceFactory.setHeaders(httpVideoAsset.httpHeaders);
-              }
-              dataSourceFactory = cacheDataSourceFactory;
-            } else {
-              dataSourceFactory = new DefaultDataSource.Factory(context);
-            }
-
-            MediaSource mediaSource = buildMediaSource(uri, dataSourceFactory, httpVideoAsset.streamingFormat);
+            MediaSource mediaSource = buildMediaSource(uri, httpDataSourceFactory, httpVideoAsset.streamingFormat);
             exoPlayer.setMediaSource(mediaSource);
           }
 
+          exoPlayer.addAnalyticsListener(new EventLogger());
 
           return exoPlayer;
         },
@@ -145,6 +176,7 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
                     : "ExoPlayer";
 
     httpDataSourceFactory.setUserAgent(userAgent).setAllowCrossProtocolRedirects(true);
+
 
     if (httpHeadersNotEmpty) {
       httpDataSourceFactory.setDefaultRequestProperties(httpHeaders);
@@ -186,7 +218,7 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
                 new DefaultDashChunkSource.Factory(mediaDataSourceFactory), mediaDataSourceFactory)
                 .createMediaSource(MediaItem.fromUri(uri));
       case C.CONTENT_TYPE_HLS:
-        return new HlsMediaSource.Factory(mediaDataSourceFactory)
+        return new HlsMediaSource.Factory(mediaDataSourceFactory).setAllowChunklessPreparation(true)
                 .createMediaSource(MediaItem.fromUri(uri));
       case C.CONTENT_TYPE_OTHER:
         return new ProgressiveMediaSource.Factory(mediaDataSourceFactory)
@@ -274,6 +306,7 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
   }
 
   private static void setAudioAttributes(ExoPlayer exoPlayer, boolean isMixMode) {
+    // ExoPlayer uses the audio manager and can request focus on your behalf. However, you need to explicitly do s
     exoPlayer.setAudioAttributes(
         new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(),
         !isMixMode);

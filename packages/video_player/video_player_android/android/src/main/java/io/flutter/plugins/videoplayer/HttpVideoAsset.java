@@ -72,6 +72,7 @@ final class HttpVideoAsset extends VideoAsset {
    * @param initialFactory initial factory, to be configured.
    * @return configured factory, or {@code null} if not needed for this asset type.
    */
+  @OptIn(markerClass = UnstableApi.class)
   @VisibleForTesting
   MediaSource.Factory getMediaSourceFactory(
       Context context, DefaultHttpDataSource.Factory initialFactory) {

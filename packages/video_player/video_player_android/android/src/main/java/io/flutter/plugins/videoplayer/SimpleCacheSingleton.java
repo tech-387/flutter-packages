@@ -1,6 +1,7 @@
 package io.flutter.plugins.videoplayer;
 import android.content.Context;
 
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor;
@@ -13,11 +14,13 @@ public class SimpleCacheSingleton {
     LeastRecentlyUsedCacheEvictor evictor;
     SimpleCache simpleCache;
 
-    private static SimpleCacheSingleton instance;
+    private static volatile SimpleCacheSingleton instance;
 
     private SimpleCacheSingleton(Context context, long maxCacheSize, String cacheDirectory) {
         evictor = new LeastRecentlyUsedCacheEvictor(maxCacheSize);
-        simpleCache = new SimpleCache(new File(context.getCacheDir(), cacheDirectory), evictor, new StandaloneDatabaseProvider(context));
+        File cacheFile = new File(context.getCacheDir(), cacheDirectory);
+        Log.d("Cache", "file + " + cacheFile.getPath());
+        simpleCache = new SimpleCache(cacheFile, evictor, new StandaloneDatabaseProvider(context));
     }
 
     public synchronized static SimpleCacheSingleton getInstance(Context context, long maxCacheSize, String cacheDirectory) {
