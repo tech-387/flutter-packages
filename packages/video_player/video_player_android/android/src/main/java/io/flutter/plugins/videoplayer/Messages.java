@@ -135,6 +135,16 @@ public class Messages {
       this.bufferOptions = setterArg;
     }
 
+    private @Nullable LoggerOptionsMessage loggerOptions;
+
+    public @Nullable LoggerOptionsMessage getLoggerOptions() {
+      return loggerOptions;
+    }
+
+    public void setLoggerOptions(@Nullable LoggerOptionsMessage setterArg) {
+      this.loggerOptions = setterArg;
+    }
+
     /** Constructor is non-public to enforce null safety; use Builder. */
     CreateMessage() {}
 
@@ -143,12 +153,12 @@ public class Messages {
       if (this == o) { return true; }
       if (o == null || getClass() != o.getClass()) { return false; }
       CreateMessage that = (CreateMessage) o;
-      return Objects.equals(asset, that.asset) && Objects.equals(uri, that.uri) && Objects.equals(packageName, that.packageName) && Objects.equals(formatHint, that.formatHint) && httpHeaders.equals(that.httpHeaders) && Objects.equals(bufferOptions, that.bufferOptions);
+      return Objects.equals(asset, that.asset) && Objects.equals(uri, that.uri) && Objects.equals(packageName, that.packageName) && Objects.equals(formatHint, that.formatHint) && httpHeaders.equals(that.httpHeaders) && Objects.equals(bufferOptions, that.bufferOptions) && Objects.equals(loggerOptions, that.loggerOptions);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(asset, uri, packageName, formatHint, httpHeaders, bufferOptions);
+      return Objects.hash(asset, uri, packageName, formatHint, httpHeaders, bufferOptions, loggerOptions);
     }
 
     public static final class Builder {
@@ -201,6 +211,14 @@ public class Messages {
         return this;
       }
 
+      private @Nullable LoggerOptionsMessage loggerOptions;
+
+      @CanIgnoreReturnValue
+      public @NonNull Builder setLoggerOptions(@Nullable LoggerOptionsMessage setterArg) {
+        this.loggerOptions = setterArg;
+        return this;
+      }
+
       public @NonNull CreateMessage build() {
         CreateMessage pigeonReturn = new CreateMessage();
         pigeonReturn.setAsset(asset);
@@ -209,19 +227,21 @@ public class Messages {
         pigeonReturn.setFormatHint(formatHint);
         pigeonReturn.setHttpHeaders(httpHeaders);
         pigeonReturn.setBufferOptions(bufferOptions);
+        pigeonReturn.setLoggerOptions(loggerOptions);
         return pigeonReturn;
       }
     }
 
     @NonNull
     ArrayList<Object> toList() {
-      ArrayList<Object> toListResult = new ArrayList<>(6);
+      ArrayList<Object> toListResult = new ArrayList<>(7);
       toListResult.add(asset);
       toListResult.add(uri);
       toListResult.add(packageName);
       toListResult.add(formatHint);
       toListResult.add(httpHeaders);
       toListResult.add(bufferOptions);
+      toListResult.add(loggerOptions);
       return toListResult;
     }
 
@@ -239,6 +259,8 @@ public class Messages {
       pigeonResult.setHttpHeaders((Map<String, String>) httpHeaders);
       Object bufferOptions = pigeonVar_list.get(5);
       pigeonResult.setBufferOptions((BufferOptionsMessage) bufferOptions);
+      Object loggerOptions = pigeonVar_list.get(6);
+      pigeonResult.setLoggerOptions((LoggerOptionsMessage) loggerOptions);
       return pigeonResult;
     }
   }
@@ -519,6 +541,144 @@ public class Messages {
     }
   }
 
+  /** Generated class from Pigeon that represents data sent in messages. */
+  public static final class LoggerOptionsMessage {
+    private @NonNull Boolean enableTransferListenerLogs;
+
+    public @NonNull Boolean getEnableTransferListenerLogs() {
+      return enableTransferListenerLogs;
+    }
+
+    public void setEnableTransferListenerLogs(@NonNull Boolean setterArg) {
+      if (setterArg == null) {
+        throw new IllegalStateException("Nonnull field \"enableTransferListenerLogs\" is null.");
+      }
+      this.enableTransferListenerLogs = setterArg;
+    }
+
+    private @NonNull Boolean enableBandwidthListenerLogs;
+
+    public @NonNull Boolean getEnableBandwidthListenerLogs() {
+      return enableBandwidthListenerLogs;
+    }
+
+    public void setEnableBandwidthListenerLogs(@NonNull Boolean setterArg) {
+      if (setterArg == null) {
+        throw new IllegalStateException("Nonnull field \"enableBandwidthListenerLogs\" is null.");
+      }
+      this.enableBandwidthListenerLogs = setterArg;
+    }
+
+    private @NonNull Boolean enableAdaptiveTrackSelectionLogs;
+
+    public @NonNull Boolean getEnableAdaptiveTrackSelectionLogs() {
+      return enableAdaptiveTrackSelectionLogs;
+    }
+
+    public void setEnableAdaptiveTrackSelectionLogs(@NonNull Boolean setterArg) {
+      if (setterArg == null) {
+        throw new IllegalStateException("Nonnull field \"enableAdaptiveTrackSelectionLogs\" is null.");
+      }
+      this.enableAdaptiveTrackSelectionLogs = setterArg;
+    }
+
+    private @NonNull Boolean enableCacheDataSourceLogs;
+
+    public @NonNull Boolean getEnableCacheDataSourceLogs() {
+      return enableCacheDataSourceLogs;
+    }
+
+    public void setEnableCacheDataSourceLogs(@NonNull Boolean setterArg) {
+      if (setterArg == null) {
+        throw new IllegalStateException("Nonnull field \"enableCacheDataSourceLogs\" is null.");
+      }
+      this.enableCacheDataSourceLogs = setterArg;
+    }
+
+    /** Constructor is non-public to enforce null safety; use Builder. */
+    LoggerOptionsMessage() {}
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) { return true; }
+      if (o == null || getClass() != o.getClass()) { return false; }
+      LoggerOptionsMessage that = (LoggerOptionsMessage) o;
+      return enableTransferListenerLogs.equals(that.enableTransferListenerLogs) && enableBandwidthListenerLogs.equals(that.enableBandwidthListenerLogs) && enableAdaptiveTrackSelectionLogs.equals(that.enableAdaptiveTrackSelectionLogs) && enableCacheDataSourceLogs.equals(that.enableCacheDataSourceLogs);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(enableTransferListenerLogs, enableBandwidthListenerLogs, enableAdaptiveTrackSelectionLogs, enableCacheDataSourceLogs);
+    }
+
+    public static final class Builder {
+
+      private @Nullable Boolean enableTransferListenerLogs;
+
+      @CanIgnoreReturnValue
+      public @NonNull Builder setEnableTransferListenerLogs(@NonNull Boolean setterArg) {
+        this.enableTransferListenerLogs = setterArg;
+        return this;
+      }
+
+      private @Nullable Boolean enableBandwidthListenerLogs;
+
+      @CanIgnoreReturnValue
+      public @NonNull Builder setEnableBandwidthListenerLogs(@NonNull Boolean setterArg) {
+        this.enableBandwidthListenerLogs = setterArg;
+        return this;
+      }
+
+      private @Nullable Boolean enableAdaptiveTrackSelectionLogs;
+
+      @CanIgnoreReturnValue
+      public @NonNull Builder setEnableAdaptiveTrackSelectionLogs(@NonNull Boolean setterArg) {
+        this.enableAdaptiveTrackSelectionLogs = setterArg;
+        return this;
+      }
+
+      private @Nullable Boolean enableCacheDataSourceLogs;
+
+      @CanIgnoreReturnValue
+      public @NonNull Builder setEnableCacheDataSourceLogs(@NonNull Boolean setterArg) {
+        this.enableCacheDataSourceLogs = setterArg;
+        return this;
+      }
+
+      public @NonNull LoggerOptionsMessage build() {
+        LoggerOptionsMessage pigeonReturn = new LoggerOptionsMessage();
+        pigeonReturn.setEnableTransferListenerLogs(enableTransferListenerLogs);
+        pigeonReturn.setEnableBandwidthListenerLogs(enableBandwidthListenerLogs);
+        pigeonReturn.setEnableAdaptiveTrackSelectionLogs(enableAdaptiveTrackSelectionLogs);
+        pigeonReturn.setEnableCacheDataSourceLogs(enableCacheDataSourceLogs);
+        return pigeonReturn;
+      }
+    }
+
+    @NonNull
+    ArrayList<Object> toList() {
+      ArrayList<Object> toListResult = new ArrayList<>(4);
+      toListResult.add(enableTransferListenerLogs);
+      toListResult.add(enableBandwidthListenerLogs);
+      toListResult.add(enableAdaptiveTrackSelectionLogs);
+      toListResult.add(enableCacheDataSourceLogs);
+      return toListResult;
+    }
+
+    static @NonNull LoggerOptionsMessage fromList(@NonNull ArrayList<Object> pigeonVar_list) {
+      LoggerOptionsMessage pigeonResult = new LoggerOptionsMessage();
+      Object enableTransferListenerLogs = pigeonVar_list.get(0);
+      pigeonResult.setEnableTransferListenerLogs((Boolean) enableTransferListenerLogs);
+      Object enableBandwidthListenerLogs = pigeonVar_list.get(1);
+      pigeonResult.setEnableBandwidthListenerLogs((Boolean) enableBandwidthListenerLogs);
+      Object enableAdaptiveTrackSelectionLogs = pigeonVar_list.get(2);
+      pigeonResult.setEnableAdaptiveTrackSelectionLogs((Boolean) enableAdaptiveTrackSelectionLogs);
+      Object enableCacheDataSourceLogs = pigeonVar_list.get(3);
+      pigeonResult.setEnableCacheDataSourceLogs((Boolean) enableCacheDataSourceLogs);
+      return pigeonResult;
+    }
+  }
+
   private static class PigeonCodec extends StandardMessageCodec {
     public static final PigeonCodec INSTANCE = new PigeonCodec();
 
@@ -533,6 +693,8 @@ public class Messages {
           return CacheOptionsMessage.fromList((ArrayList<Object>) readValue(buffer));
         case (byte) 131:
           return BufferOptionsMessage.fromList((ArrayList<Object>) readValue(buffer));
+        case (byte) 132:
+          return LoggerOptionsMessage.fromList((ArrayList<Object>) readValue(buffer));
         default:
           return super.readValueOfType(type, buffer);
       }
@@ -549,6 +711,9 @@ public class Messages {
       } else if (value instanceof BufferOptionsMessage) {
         stream.write(131);
         writeValue(stream, ((BufferOptionsMessage) value).toList());
+      } else if (value instanceof LoggerOptionsMessage) {
+        stream.write(132);
+        writeValue(stream, ((LoggerOptionsMessage) value).toList());
       } else {
         super.writeValue(stream, value);
       }

@@ -44,6 +44,8 @@ class CreationOptions {
   String? formatHint;
   Map<String?, String?> httpHeaders;
   BufferOptionsMessage? bufferOptions;
+  LoggerOptionsMessage? loggerOptions;
+
   PlatformVideoViewType viewType;
 }
 
@@ -69,6 +71,19 @@ class BufferOptionsMessage {
   final int preferredForwardBufferDuration;
   final bool canUseNetworkResourcesForLiveStreamingWhilePaused;
   final bool automaticallyWaitsToMinimizeStalling;
+}
+
+class LoggerOptionsMessage {
+  LoggerOptionsMessage({
+    required this.enableTransferListenerLogs,
+    required this.enableBandwidthListenerLogs,
+    required this.enableAdaptiveTrackSelectionLogs,
+    required this.enableCacheDataSourceLogs,
+  });
+  final bool enableTransferListenerLogs;
+  final bool enableBandwidthListenerLogs;
+  final bool enableAdaptiveTrackSelectionLogs;
+  final bool enableCacheDataSourceLogs;
 }
 
 @HostApi(dartHostTestHandler: 'TestHostVideoPlayerApi')

@@ -448,6 +448,8 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
           dataSourceDescription,
           videoPlayerBufferOptions: videoPlayerOptions?.bufferOptions ??
               const VideoPlayerBufferOptions(),
+          videoPlayerLoggerOptions: videoPlayerOptions?.loggerOptions ??
+              const VideoPlayerLoggerOptions(),
         )) ??
         kUninitializedTextureId;
 

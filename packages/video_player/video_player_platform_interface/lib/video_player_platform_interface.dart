@@ -54,14 +54,26 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
     DataSource dataSource, {
     VideoPlayerBufferOptions videoPlayerBufferOptions =
         const VideoPlayerBufferOptions(),
+    VideoPlayerLoggerOptions videoPlayerLoggerOptions =
+        const VideoPlayerLoggerOptions(),
   }) {
     throw UnimplementedError('create() has not been implemented.');
   }
 
   /// Creates an instance of a video player based on creation options
   /// and returns its playerId.
-  Future<int?> createWithOptions(VideoCreationOptions options) {
-    return create(options.dataSource);
+  Future<int?> createWithOptions(
+    VideoCreationOptions options, {
+    VideoPlayerBufferOptions videoPlayerBufferOptions =
+        const VideoPlayerBufferOptions(),
+    VideoPlayerLoggerOptions videoPlayerLoggerOptions =
+        const VideoPlayerLoggerOptions(),
+  }) {
+    return create(
+      options.dataSource,
+      videoPlayerBufferOptions: videoPlayerBufferOptions,
+      videoPlayerLoggerOptions: videoPlayerLoggerOptions,
+    );
   }
 
   /// Returns a Stream of [VideoEventType]s.
@@ -415,6 +427,7 @@ class VideoPlayerOptions {
     this.webOptions,
     this.cacheOptions,
     this.bufferOptions,
+    this.loggerOptions,
   });
 
   /// Set this to true to keep playing video in background, when app goes in background.
@@ -436,6 +449,9 @@ class VideoPlayerOptions {
 
   /// Additional buffer options.
   final VideoPlayerBufferOptions? bufferOptions;
+
+  /// Additional logger options.
+  final VideoPlayerLoggerOptions? loggerOptions;
 }
 
 /// [VideoPlayerWebOptions] can be optionally used to set additional web settings
@@ -535,6 +551,33 @@ class VideoPlayerBufferOptions {
   /// Indicates that the player is allowed to delay playback at the specified rate in order to minimize stalling.
   /// Only on iOS.
   final bool automaticallyWaitsToMinimizeStalling;
+}
+
+/// [VideoPlayerLoggerOptions] can be used to set granular logging options.
+class VideoPlayerLoggerOptions {
+  /// [VideoPlayerLoggerOptions] can be optionally used to set the logger settings.
+  const VideoPlayerLoggerOptions({
+    this.enableTransferListenerLogs = true,
+    this.enableBandwidthListenerLogs = true,
+    this.enableAdaptiveTrackSelectionLogs = true,
+    this.enableCacheDataSourceLogs = true,
+  });
+
+  /// Whether to enable logs for CustomTransferListener class.
+  /// Only on Android.
+  final bool enableTransferListenerLogs;
+
+  /// Whether to enable logs for CustomBandwidthListener class.
+  /// Only on Android.
+  final bool enableBandwidthListenerLogs;
+
+  /// Whether to enable logs for CustomAdaptiveTrackSelection class.
+  /// Only on Android.
+  final bool enableAdaptiveTrackSelectionLogs;
+
+  /// Whether to enable logs for CacheDataSourceFactory class.
+  /// Only on Android.
+  final bool enableCacheDataSourceLogs;
 }
 
 /// [VideoPlayerWebOptions] can be used to set how control options are displayed

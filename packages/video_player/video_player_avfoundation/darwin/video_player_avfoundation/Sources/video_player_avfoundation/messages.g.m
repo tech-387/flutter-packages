@@ -65,6 +65,12 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
 - (NSArray<id> *)toList;
 @end
 
+@interface FVPLoggerOptionsMessage ()
++ (FVPLoggerOptionsMessage *)fromList:(NSArray<id> *)list;
++ (nullable FVPLoggerOptionsMessage *)nullableFromList:(NSArray<id> *)list;
+- (NSArray<id> *)toList;
+@end
+
 @implementation FVPPlatformVideoViewCreationParams
 + (instancetype)makeWithPlayerId:(NSInteger )playerId {
   FVPPlatformVideoViewCreationParams* pigeonResult = [[FVPPlatformVideoViewCreationParams alloc] init];
@@ -93,6 +99,7 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
     formatHint:(nullable NSString *)formatHint
     httpHeaders:(NSDictionary<NSString *, NSString *> *)httpHeaders
     bufferOptions:(nullable FVPBufferOptionsMessage *)bufferOptions
+    loggerOptions:(nullable FVPLoggerOptionsMessage *)loggerOptions
     viewType:(FVPPlatformVideoViewType)viewType {
   FVPCreationOptions* pigeonResult = [[FVPCreationOptions alloc] init];
   pigeonResult.asset = asset;
@@ -101,6 +108,7 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
   pigeonResult.formatHint = formatHint;
   pigeonResult.httpHeaders = httpHeaders;
   pigeonResult.bufferOptions = bufferOptions;
+  pigeonResult.loggerOptions = loggerOptions;
   pigeonResult.viewType = viewType;
   return pigeonResult;
 }
@@ -112,7 +120,8 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
   pigeonResult.formatHint = GetNullableObjectAtIndex(list, 3);
   pigeonResult.httpHeaders = GetNullableObjectAtIndex(list, 4);
   pigeonResult.bufferOptions = GetNullableObjectAtIndex(list, 5);
-  FVPPlatformVideoViewTypeBox *boxedFVPPlatformVideoViewType = GetNullableObjectAtIndex(list, 6);
+  pigeonResult.loggerOptions = GetNullableObjectAtIndex(list, 6);
+  FVPPlatformVideoViewTypeBox *boxedFVPPlatformVideoViewType = GetNullableObjectAtIndex(list, 7);
   pigeonResult.viewType = boxedFVPPlatformVideoViewType.value;
   return pigeonResult;
 }
@@ -127,6 +136,7 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
     self.formatHint ?: [NSNull null],
     self.httpHeaders ?: [NSNull null],
     self.bufferOptions ?: [NSNull null],
+    self.loggerOptions ?: [NSNull null],
     [[FVPPlatformVideoViewTypeBox alloc] initWithValue:self.viewType],
   ];
 }
@@ -194,6 +204,39 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
 }
 @end
 
+@implementation FVPLoggerOptionsMessage
++ (instancetype)makeWithEnableTransferListenerLogs:(BOOL )enableTransferListenerLogs
+    enableBandwidthListenerLogs:(BOOL )enableBandwidthListenerLogs
+    enableAdaptiveTrackSelectionLogs:(BOOL )enableAdaptiveTrackSelectionLogs
+    enableCacheDataSourceLogs:(BOOL )enableCacheDataSourceLogs {
+  FVPLoggerOptionsMessage* pigeonResult = [[FVPLoggerOptionsMessage alloc] init];
+  pigeonResult.enableTransferListenerLogs = enableTransferListenerLogs;
+  pigeonResult.enableBandwidthListenerLogs = enableBandwidthListenerLogs;
+  pigeonResult.enableAdaptiveTrackSelectionLogs = enableAdaptiveTrackSelectionLogs;
+  pigeonResult.enableCacheDataSourceLogs = enableCacheDataSourceLogs;
+  return pigeonResult;
+}
++ (FVPLoggerOptionsMessage *)fromList:(NSArray<id> *)list {
+  FVPLoggerOptionsMessage *pigeonResult = [[FVPLoggerOptionsMessage alloc] init];
+  pigeonResult.enableTransferListenerLogs = [GetNullableObjectAtIndex(list, 0) boolValue];
+  pigeonResult.enableBandwidthListenerLogs = [GetNullableObjectAtIndex(list, 1) boolValue];
+  pigeonResult.enableAdaptiveTrackSelectionLogs = [GetNullableObjectAtIndex(list, 2) boolValue];
+  pigeonResult.enableCacheDataSourceLogs = [GetNullableObjectAtIndex(list, 3) boolValue];
+  return pigeonResult;
+}
++ (nullable FVPLoggerOptionsMessage *)nullableFromList:(NSArray<id> *)list {
+  return (list) ? [FVPLoggerOptionsMessage fromList:list] : nil;
+}
+- (NSArray<id> *)toList {
+  return @[
+    @(self.enableTransferListenerLogs),
+    @(self.enableBandwidthListenerLogs),
+    @(self.enableAdaptiveTrackSelectionLogs),
+    @(self.enableCacheDataSourceLogs),
+  ];
+}
+@end
+
 @interface FVPMessagesPigeonCodecReader : FlutterStandardReader
 @end
 @implementation FVPMessagesPigeonCodecReader
@@ -211,6 +254,8 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
       return [FVPCacheOptionsMessage fromList:[self readValue]];
     case 133: 
       return [FVPBufferOptionsMessage fromList:[self readValue]];
+    case 134: 
+      return [FVPLoggerOptionsMessage fromList:[self readValue]];
     default:
       return [super readValueOfType:type];
   }
@@ -236,6 +281,9 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
     [self writeValue:[value toList]];
   } else if ([value isKindOfClass:[FVPBufferOptionsMessage class]]) {
     [self writeByte:133];
+    [self writeValue:[value toList]];
+  } else if ([value isKindOfClass:[FVPLoggerOptionsMessage class]]) {
+    [self writeByte:134];
     [self writeValue:[value toList]];
   } else {
     [super writeValue:value];

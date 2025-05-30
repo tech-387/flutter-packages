@@ -29,34 +29,35 @@ import android.net.Uri;
 class CustomTransferListener implements TransferListener {
 
     private static final String TAG = "CustomTransferListener";
-
     private final Context context;
-
     private static final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
+    private final CustomLogger customLogger;
 
-    public CustomTransferListener(Context context) {
+    public CustomTransferListener(Context context, VideoPlayerLoggerOptions loggerOptions) {
         this.context = context;
+        customLogger = new CustomLogger(TAG, loggerOptions.enableTransferListenerLogs);
     }
 
     @Override
     public void onTransferInitializing(DataSource source, DataSpec dataSpec, boolean isNetwork) {
-        Log.d("CustomTransferListener", "Initializing: " + dataSpec.uri + ", isNetwork=" + isNetwork);
+
+        customLogger.logD( "Initializing: " + dataSpec.uri + ", isNetwork=" + isNetwork);
     }
 
     @Override
     public void onTransferStart(DataSource source, DataSpec dataSpec, boolean isNetwork) {
-        Log.d("CustomTransferListener", "Start: " + dataSpec.uri + ", isNetwork=" + isNetwork);
+        customLogger.logD( "Start: " + dataSpec.uri + ", isNetwork=" + isNetwork);
     }
 
     @Override
     public void onBytesTransferred(DataSource source, DataSpec dataSpec, boolean isNetwork, int bytesTransferred) {
-        Log.v("CustomTransferListener", "Bytes transferred: " + bytesTransferred + ", URI: " + dataSpec.uri);
+        customLogger.logV( "Bytes transferred: " + bytesTransferred + ", URI: " + dataSpec.uri);
     }
 
     @OptIn(markerClass = UnstableApi.class)
     @Override
     public void onTransferEnd(DataSource source, DataSpec dataSpec, boolean isNetwork) {
-        Log.d("CustomTransferListener", "End: " + dataSpec.uri);
+        customLogger.logD( "End: " + dataSpec.uri);
 
         if (!isNetwork) return;
 
@@ -64,7 +65,7 @@ class CustomTransferListener implements TransferListener {
         final Uri uri = dataSpec.uri;
         final String filename = uri.getLastPathSegment();
         if (filename == null || filename.isEmpty()) {
-            Log.w(TAG, "Filename is null or empty from URI: " + uri);
+            customLogger.logW( "Filename is null or empty from URI: " + uri);
             return;
         }
 
@@ -83,13 +84,13 @@ class CustomTransferListener implements TransferListener {
                 String segmentStr = matcher.group(3);
 
                 if (videoId == null || variant == null || segmentStr == null) {
-                    Log.w(TAG, "Invalid group extraction from filename: " + filename);
+                    customLogger.logW( "Invalid group extraction from filename: " + filename);
                     return;
                 }
 
                 int segmentIndex = Integer.parseInt(segmentStr);
 
-                Log.d(TAG, "Video ID: " + videoId + ", Variant: " + variant + ", Segment: " + segmentIndex);
+                customLogger.logD( "Video ID: " + videoId + ", Variant: " + variant + ", Segment: " + segmentIndex);
 
                 File streamingDir = new File(context.getCacheDir(), "metadata");
                 if (!streamingDir.exists()) {
@@ -123,7 +124,7 @@ class CustomTransferListener implements TransferListener {
                 }
 
             } catch (Exception e) {
-                Log.e(TAG, "Error processing transfer end", e);
+                customLogger.logE( "Error processing transfer end", e);
             }
         });
     }

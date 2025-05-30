@@ -36,6 +36,9 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is BufferOptionsMessage) {
       buffer.putUint8(133);
       writeValue(buffer, value.encode());
+    }    else if (value is LoggerOptionsMessage) {
+      buffer.putUint8(134);
+      writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
     }
@@ -55,6 +58,8 @@ class _PigeonCodec extends StandardMessageCodec {
         return CacheOptionsMessage.decode(readValue(buffer)!);
       case 133: 
         return BufferOptionsMessage.decode(readValue(buffer)!);
+      case 134: 
+        return LoggerOptionsMessage.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }

@@ -38,6 +38,8 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
     DataSource dataSource, {
     VideoPlayerBufferOptions videoPlayerBufferOptions =
         const VideoPlayerBufferOptions(),
+    VideoPlayerLoggerOptions videoPlayerLoggerOptions =
+        const VideoPlayerLoggerOptions(),
   }) async {
     String? asset;
     String? packageName;
@@ -70,6 +72,16 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
         bufferForPlaybackMs: videoPlayerBufferOptions.bufferForPlaybackMs,
         bufferForPlaybackAfterRebufferMs:
             videoPlayerBufferOptions.bufferForPlaybackAfterRebufferMs,
+      ),
+      loggerOptions: LoggerOptionsMessage(
+        enableTransferListenerLogs:
+            videoPlayerLoggerOptions.enableTransferListenerLogs,
+        enableBandwidthListenerLogs:
+            videoPlayerLoggerOptions.enableBandwidthListenerLogs,
+        enableAdaptiveTrackSelectionLogs:
+            videoPlayerLoggerOptions.enableAdaptiveTrackSelectionLogs,
+        enableCacheDataSourceLogs:
+            videoPlayerLoggerOptions.enableCacheDataSourceLogs,
       ),
     );
 

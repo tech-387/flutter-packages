@@ -1363,6 +1363,8 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
     DataSource dataSource, {
     VideoPlayerBufferOptions videoPlayerBufferOptions =
         const VideoPlayerBufferOptions(),
+    VideoPlayerLoggerOptions videoPlayerLoggerOptions =
+        const VideoPlayerLoggerOptions(),
   }) async {
     calls.add('create');
     final StreamController<VideoEvent> stream = StreamController<VideoEvent>();

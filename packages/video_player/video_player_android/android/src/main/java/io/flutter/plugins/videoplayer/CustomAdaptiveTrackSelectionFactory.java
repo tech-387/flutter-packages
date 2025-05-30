@@ -14,10 +14,12 @@ public class CustomAdaptiveTrackSelectionFactory extends AdaptiveTrackSelection.
 
     private final String assetUrl;
     private final CacheDataSourceFactory cacheDataSourceFactory;
+    private final VideoPlayerLoggerOptions loggerOptions;
 
-    public CustomAdaptiveTrackSelectionFactory(String assetUrl, CacheDataSourceFactory cacheDataSourceFactory) {
+    public CustomAdaptiveTrackSelectionFactory(String assetUrl, CacheDataSourceFactory cacheDataSourceFactory, VideoPlayerLoggerOptions loggerOptions) {
         this.assetUrl = assetUrl;
         this.cacheDataSourceFactory = cacheDataSourceFactory;
+        this.loggerOptions = loggerOptions;
     }
 
     @OptIn(markerClass = UnstableApi.class)
@@ -35,8 +37,8 @@ public class CustomAdaptiveTrackSelectionFactory extends AdaptiveTrackSelection.
                 type,
                 bandwidthMeter,
                 2_000,
-                4_000,
-                2_000,
+                25_000,
+                10_100,
                 1279,
                 719,
                 0.7f,
@@ -44,7 +46,8 @@ public class CustomAdaptiveTrackSelectionFactory extends AdaptiveTrackSelection.
                 adaptationCheckpoints,
                 Clock.DEFAULT,
                 assetUrl,
-                cacheDataSourceFactory
-                );  // Pass assetUrl here
+                cacheDataSourceFactory,
+                loggerOptions
+        );  // Pass assetUrl here
     }
 }

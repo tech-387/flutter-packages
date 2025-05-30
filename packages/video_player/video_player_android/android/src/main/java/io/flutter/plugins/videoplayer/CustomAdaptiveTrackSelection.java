@@ -24,19 +24,23 @@ import java.util.List;
 @UnstableApi
 public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
 
+    private static final String TAG = "CustomAdaptiveSelection";
     private final String assetUrl;
     private final CacheDataSourceFactory cacheDataSourceFactory;
+    private final CustomLogger customLogger;
 
-    public CustomAdaptiveTrackSelection(TrackGroup group, int[] tracks, BandwidthMeter bandwidthMeter, String assetUrl, CacheDataSourceFactory cacheDataSourceFactory) {
+    public CustomAdaptiveTrackSelection(TrackGroup group, int[] tracks, BandwidthMeter bandwidthMeter, String assetUrl, CacheDataSourceFactory cacheDataSourceFactory, VideoPlayerLoggerOptions loggerOptions) {
         super(group, tracks, bandwidthMeter);
         this.assetUrl = assetUrl;
-        this.cacheDataSourceFactory =cacheDataSourceFactory;
+        this.cacheDataSourceFactory = cacheDataSourceFactory;
+        this.customLogger = new CustomLogger(TAG, loggerOptions.enableAdaptiveTrackSelectionLogs);
     }
 
-    protected CustomAdaptiveTrackSelection(TrackGroup group, int[] tracks, int type, BandwidthMeter bandwidthMeter, long minDurationForQualityIncreaseMs, long maxDurationForQualityDecreaseMs, long minDurationToRetainAfterDiscardMs, int maxWidthToDiscard, int maxHeightToDiscard, float bandwidthFraction, float bufferedFractionToLiveEdgeForQualityIncrease, List<AdaptationCheckpoint> adaptationCheckpoints, Clock clock, String assetUrl, CacheDataSourceFactory cacheDataSourceFactory) {
+    protected CustomAdaptiveTrackSelection(TrackGroup group, int[] tracks, int type, BandwidthMeter bandwidthMeter, long minDurationForQualityIncreaseMs, long maxDurationForQualityDecreaseMs, long minDurationToRetainAfterDiscardMs, int maxWidthToDiscard, int maxHeightToDiscard, float bandwidthFraction, float bufferedFractionToLiveEdgeForQualityIncrease, List<AdaptationCheckpoint> adaptationCheckpoints, Clock clock, String assetUrl, CacheDataSourceFactory cacheDataSourceFactory, VideoPlayerLoggerOptions loggerOptions) {
         super(group, tracks, type, bandwidthMeter, minDurationForQualityIncreaseMs, maxDurationForQualityDecreaseMs, minDurationToRetainAfterDiscardMs, maxWidthToDiscard, maxHeightToDiscard, bandwidthFraction, bufferedFractionToLiveEdgeForQualityIncrease, adaptationCheckpoints, clock);
         this.assetUrl = assetUrl;
         this.cacheDataSourceFactory = cacheDataSourceFactory;
+        this.customLogger = new CustomLogger(TAG, loggerOptions.enableAdaptiveTrackSelectionLogs);
     }
 
 
@@ -48,42 +52,42 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
             List<? extends MediaChunk> queue,
             MediaChunkIterator[] mediaChunkIterators) {
 
-        Log.d("CustomATrackSelection", "----- updateSelectedTrack() -----");
+        customLogger.logD("----- updateSelectedTrack() -----");
 
         // Print timing info
-        Log.d("CustomATrackSelection", "playbackPositionUs: " + playbackPositionUs);
-        Log.d("CustomATrackSelection", "bufferedDurationUs: " + bufferedDurationUs);
-        Log.d("CustomATrackSelection", "availableDurationUs: " + availableDurationUs);
+        customLogger.logD("playbackPositionUs: " + playbackPositionUs);
+        customLogger.logD("bufferedDurationUs: " + bufferedDurationUs);
+        customLogger.logD("availableDurationUs: " + availableDurationUs);
 
         // Print selected format before update
         Format currentFormat = getSelectedFormat();
-        Log.d("CustomATrackSelection", "Current selected format: height=" + currentFormat.height +
+        customLogger.logD("Current selected format: height=" + currentFormat.height +
                 ", width=" + currentFormat.width +
                 ", bitrate=" + currentFormat.bitrate +
                 ", id=" + currentFormat.id);
 
         // Log media chunk queue
         if (!queue.isEmpty()) {
-            Log.d("CustomATrackSelection", "Queue size: " + queue.size());
+            customLogger.logD("Queue size: " + queue.size());
             for (int i = 0; i < queue.size(); i++) {
                 MediaChunk chunk = queue.get(i);
-                Log.d("CustomATrackSelection", "Chunk[" + i + "]: startTimeUs=" + chunk.startTimeUs +
+                customLogger.logD("Chunk[" + i + "]: startTimeUs=" + chunk.startTimeUs +
                         ", endTimeUs=" + chunk.endTimeUs +
                         ", chunkIndex=" + chunk.getNextChunkIndex());
             }
         } else {
-            Log.d("CustomATrackSelection", "Queue is empty or null");
+            customLogger.logD("Queue is empty or null");
         }
 
         // Print info about each MediaChunkIterator
-        Log.d("CustomATrackSelection", "mediaChunkIterators.length = " + mediaChunkIterators.length);
+        customLogger.logD("mediaChunkIterators.length = " + mediaChunkIterators.length);
         for (int i = 0; i < mediaChunkIterators.length; i++) {
             MediaChunkIterator it = mediaChunkIterators[i];
             if (it != null && it.next()) {
-                Log.d("CustomATrackSelection", "Iterator[" + i + "]: chunkStartTimeUs=" + it.getChunkStartTimeUs() +
+                customLogger.logD("Iterator[" + i + "]: chunkStartTimeUs=" + it.getChunkStartTimeUs() +
                         ", chunkEndTimeUs=" + it.getChunkEndTimeUs());
             } else {
-                Log.d("CustomATrackSelection", "Iterator[" + i + "] is empty or null");
+                customLogger.logD("Iterator[" + i + "] is empty or null");
             }
         }
 
@@ -96,24 +100,28 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
 
     @Override
     protected boolean canSelectFormat(Format format, int trackBitrate, long effectiveBitrate) {
-        Log.d("CustomATrackSelection", "----- canSelectFormat() called -----");
+        customLogger.logD("----- canSelectFormat() called -----");
 
-        Log.d("CustomATrackSelection", "  asset.url: " + assetUrl);
+        customLogger.logD("  asset.url: " + assetUrl);
 
-        Log.d("CustomATrackSelection", "Format details:");
-        Log.d("CustomATrackSelection", "  id: " + format.id);
-        Log.d("CustomATrackSelection", "  sampleMimeType: " + format.sampleMimeType);
-        Log.d("CustomATrackSelection", "  bitrate: " + format.bitrate);
-        Log.d("CustomATrackSelection", "  width: " + format.width);
-        Log.d("CustomATrackSelection", "  height: " + format.height);
-        Log.d("CustomATrackSelection", "  channelCount: " + format.channelCount);
-        Log.d("CustomATrackSelection", "  language: " + format.language);
+        customLogger.logD("Format details:");
+        customLogger.logD("  id: " + format.id);
+        customLogger.logD("  sampleMimeType: " + format.sampleMimeType);
+        customLogger.logD("  bitrate: " + format.bitrate);
+        customLogger.logD("  width: " + format.width);
+        customLogger.logD("  height: " + format.height);
+        customLogger.logD("  channelCount: " + format.channelCount);
+        customLogger.logD("  language: " + format.language);
 
-        Log.d("CustomATrackSelection", "trackBitrate: " + trackBitrate);
-        Log.d("CustomATrackSelection", "effectiveBitrate: " + effectiveBitrate);
+        customLogger.logD("trackBitrate: " + trackBitrate);
+        customLogger.logD("effectiveBitrate: " + effectiveBitrate);
 
         try {
-            JSONObject metadataJson = cacheDataSourceFactory.getVideoMetadataJson();
+            JSONObject metadataJson = null;
+            if (cacheDataSourceFactory != null) {
+                metadataJson = cacheDataSourceFactory.getVideoMetadataJson();
+            }
+
             if (metadataJson != null) {
                 // Extract videoId from assetUrl
                 Uri uri = Uri.parse(assetUrl);
@@ -137,7 +145,7 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
                     if (videoEntry.has(currentKey)) {
                         JSONArray segments = videoEntry.getJSONArray(currentKey);
                         if (segments.length() > 0) {
-                            Log.d("CustomATrackSelection", "✅ Cached segments found for current format width=" + currentWidth);
+                            customLogger.logD("✅ Cached segments found for current format width=" + currentWidth);
                             return true;
                         }
                     }
@@ -149,7 +157,8 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
                         try {
                             int w = Integer.parseInt(keys.next());
                             availableWidths.add(w);
-                        } catch (NumberFormatException ignored) {}
+                        } catch (NumberFormatException ignored) {
+                        }
                     }
 
                     Collections.sort(availableWidths);
@@ -157,27 +166,28 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
                         if (width > currentWidth) {
                             JSONArray higherSegments = videoEntry.getJSONArray(String.valueOf(width));
                             if (higherSegments.length() > 0) {
-                                Log.d("CustomATrackSelection", "✅ Cached segments found for HIGHER format width=" + width);
+                                customLogger.logD("✅ Cached segments found for HIGHER format width=" + width);
                                 return true;
                             }
                         }
                     }
 
-                    Log.d("CustomATrackSelection", "⚠️ No cached segments for current or higher formats.");
+                    customLogger.logD("⚠️ No cached segments for current or higher formats.");
                 } else {
-                    Log.d("CustomATrackSelection", "⚠️ No metadata found for videoId: " + videoId);
+                    customLogger.logD("⚠️ No metadata found for videoId: " + videoId);
                 }
             } else {
-                Log.d("CustomATrackSelection", "⚠️ Metadata JSON is null");
+                customLogger.logD("⚠️ Metadata JSON is null");
             }
         } catch (Exception e) {
-            Log.e("CustomATrackSelection", "Error checking cache metadata: " + e.getMessage(), e);
+            customLogger.logE("Error checking cache metadata: " + e.getMessage(), e);
         }
 
         boolean result = super.canSelectFormat(format, trackBitrate, effectiveBitrate);
-        Log.d("CustomATrackSelection", "super.canSelectFormat returned: " + result);
+        customLogger.logD("super.canSelectFormat returned: " + result);
         return result;
     }
+
     @Override
     public boolean shouldCancelChunkLoad(long playbackPositionUs, Chunk loadingChunk, List<? extends MediaChunk> queue) {
 

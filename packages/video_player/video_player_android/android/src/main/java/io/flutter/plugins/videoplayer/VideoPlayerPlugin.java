@@ -7,6 +7,7 @@ package io.flutter.plugins.videoplayer;
 import android.content.Context;
 import android.util.Log;
 import android.util.LongSparseArray;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.OptIn;
 import androidx.media3.common.util.UnstableApi;
@@ -57,6 +58,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
         onDestroy();
     }
 
+    @OptIn(markerClass = UnstableApi.class)
     private void disposeAllPlayers() {
         for (int i = 0; i < videoPlayers.size(); i++) {
             videoPlayers.valueAt(i).dispose();
@@ -86,12 +88,21 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
                         flutterState.binaryMessenger, "flutter.io/videoPlayer/videoEvents" + handle.id());
 
         Messages.BufferOptionsMessage bufferOptionsMessage = arg.getBufferOptions();
+        Messages.LoggerOptionsMessage loggerOptionsMessage = arg.getLoggerOptions();
+
 
         VideoPlayerBufferOptions videoPlayerBufferOptions = new VideoPlayerBufferOptions(
                 bufferOptionsMessage != null ? bufferOptionsMessage.getMinBufferMs() : 15000L,
                 bufferOptionsMessage != null ? bufferOptionsMessage.getMaxBufferMs() : 30000L,
                 bufferOptionsMessage != null ? bufferOptionsMessage.getBufferForPlaybackMs() : 2000L,
                 bufferOptionsMessage != null ? bufferOptionsMessage.getBufferForPlaybackAfterRebufferMs() : 2000L
+        );
+
+        VideoPlayerLoggerOptions videoPlayerLoggerOptions = new VideoPlayerLoggerOptions(
+                loggerOptionsMessage != null ? loggerOptionsMessage.getEnableTransferListenerLogs() : true,
+                loggerOptionsMessage != null ? loggerOptionsMessage.getEnableBandwidthListenerLogs() : true,
+                loggerOptionsMessage != null ? loggerOptionsMessage.getEnableAdaptiveTrackSelectionLogs() : true,
+                loggerOptionsMessage != null ? loggerOptionsMessage.getEnableCacheDataSourceLogs() : true
         );
 
         final VideoAsset videoAsset;
@@ -132,11 +143,13 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
                         handle,
                         videoAsset,
                         options,
-                        videoPlayerBufferOptions
-                        ));
-             return handle.id();
+                        videoPlayerBufferOptions,
+                        videoPlayerLoggerOptions
+                ));
+        return handle.id();
     }
 
+    @OptIn(markerClass = UnstableApi.class)
     @NonNull
     private VideoPlayer getPlayer(long textureId) {
         VideoPlayer player = videoPlayers.get(textureId);
@@ -153,6 +166,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
         return player;
     }
 
+    @OptIn(markerClass = UnstableApi.class)
     @Override
     public void dispose(@NonNull Long textureId) {
         VideoPlayer player = getPlayer(textureId);
@@ -160,30 +174,35 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
         videoPlayers.remove(textureId);
     }
 
+    @OptIn(markerClass = UnstableApi.class)
     @Override
     public void setLooping(@NonNull Long textureId, @NonNull Boolean looping) {
         VideoPlayer player = getPlayer(textureId);
         player.setLooping(looping);
     }
 
+    @OptIn(markerClass = UnstableApi.class)
     @Override
     public void setVolume(@NonNull Long textureId, @NonNull Double volume) {
         VideoPlayer player = getPlayer(textureId);
         player.setVolume(volume);
     }
 
+    @OptIn(markerClass = UnstableApi.class)
     @Override
     public void setPlaybackSpeed(@NonNull Long textureId, @NonNull Double speed) {
         VideoPlayer player = getPlayer(textureId);
         player.setPlaybackSpeed(speed);
     }
 
+    @OptIn(markerClass = UnstableApi.class)
     @Override
     public void play(@NonNull Long textureId) {
         VideoPlayer player = getPlayer(textureId);
         player.play();
     }
 
+    @OptIn(markerClass = UnstableApi.class)
     @Override
     public @NonNull Long position(@NonNull Long textureId) {
         VideoPlayer player = getPlayer(textureId);
@@ -192,12 +211,14 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
         return position;
     }
 
+    @OptIn(markerClass = UnstableApi.class)
     @Override
     public void seekTo(@NonNull Long textureId, @NonNull Long position) {
         VideoPlayer player = getPlayer(textureId);
         player.seekTo(position.intValue());
     }
 
+    @OptIn(markerClass = UnstableApi.class)
     @Override
     public void pause(@NonNull Long textureId) {
         VideoPlayer player = getPlayer(textureId);

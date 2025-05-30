@@ -29,6 +29,7 @@ typedef NS_ENUM(NSUInteger, FVPPlatformVideoViewType) {
 @class FVPCreationOptions;
 @class FVPCacheOptionsMessage;
 @class FVPBufferOptionsMessage;
+@class FVPLoggerOptionsMessage;
 
 /// Information passed to the platform view creation.
 @interface FVPPlatformVideoViewCreationParams : NSObject
@@ -47,6 +48,7 @@ typedef NS_ENUM(NSUInteger, FVPPlatformVideoViewType) {
     formatHint:(nullable NSString *)formatHint
     httpHeaders:(NSDictionary<NSString *, NSString *> *)httpHeaders
     bufferOptions:(nullable FVPBufferOptionsMessage *)bufferOptions
+    loggerOptions:(nullable FVPLoggerOptionsMessage *)loggerOptions
     viewType:(FVPPlatformVideoViewType)viewType;
 @property(nonatomic, copy, nullable) NSString * asset;
 @property(nonatomic, copy, nullable) NSString * uri;
@@ -54,6 +56,7 @@ typedef NS_ENUM(NSUInteger, FVPPlatformVideoViewType) {
 @property(nonatomic, copy, nullable) NSString * formatHint;
 @property(nonatomic, copy) NSDictionary<NSString *, NSString *> * httpHeaders;
 @property(nonatomic, strong, nullable) FVPBufferOptionsMessage * bufferOptions;
+@property(nonatomic, strong, nullable) FVPLoggerOptionsMessage * loggerOptions;
 @property(nonatomic, assign) FVPPlatformVideoViewType viewType;
 @end
 
@@ -79,6 +82,19 @@ typedef NS_ENUM(NSUInteger, FVPPlatformVideoViewType) {
 @property(nonatomic, assign) NSInteger  preferredForwardBufferDuration;
 @property(nonatomic, assign) BOOL  canUseNetworkResourcesForLiveStreamingWhilePaused;
 @property(nonatomic, assign) BOOL  automaticallyWaitsToMinimizeStalling;
+@end
+
+@interface FVPLoggerOptionsMessage : NSObject
+/// `init` unavailable to enforce nonnull fields, see the `make` class method.
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)makeWithEnableTransferListenerLogs:(BOOL )enableTransferListenerLogs
+    enableBandwidthListenerLogs:(BOOL )enableBandwidthListenerLogs
+    enableAdaptiveTrackSelectionLogs:(BOOL )enableAdaptiveTrackSelectionLogs
+    enableCacheDataSourceLogs:(BOOL )enableCacheDataSourceLogs;
+@property(nonatomic, assign) BOOL  enableTransferListenerLogs;
+@property(nonatomic, assign) BOOL  enableBandwidthListenerLogs;
+@property(nonatomic, assign) BOOL  enableAdaptiveTrackSelectionLogs;
+@property(nonatomic, assign) BOOL  enableCacheDataSourceLogs;
 @end
 
 /// The codec used by all APIs.

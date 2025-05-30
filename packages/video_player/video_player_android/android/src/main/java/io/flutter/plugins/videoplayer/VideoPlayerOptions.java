@@ -7,7 +7,7 @@ package io.flutter.plugins.videoplayer;
 class VideoPlayerOptions {
   public boolean mixWithOthers;
 
-  public boolean enableCache = false;
+  public boolean enableCache = true;
   public String cacheDirectory = "streaming";
   public Long maxCacheBytes = 1024 * 1024 * 1024L;
   public Long maxFileBytes = 1024 * 1024 * 100L;

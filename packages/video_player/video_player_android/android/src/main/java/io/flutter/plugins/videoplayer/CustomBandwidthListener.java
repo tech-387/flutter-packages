@@ -5,7 +5,7 @@ import android.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 
- // Use ExoPlayer's Log for consistency and @UnstableApi compatibility
+// Use ExoPlayer's Log for consistency and @UnstableApi compatibility
 
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -20,13 +20,16 @@ public class CustomBandwidthListener implements BandwidthMeter.EventListener {
     private static final String TAG = "CustomBandwidthListener";
 
     public static Long lastBitrateEstimate;
+    private final CustomLogger customLogger;
 
-    public CustomBandwidthListener(BandwidthMeter meter) {
+    public CustomBandwidthListener(BandwidthMeter meter, VideoPlayerLoggerOptions loggerOptions) {
         // Get the initial bitrate estimate
         long initialBitrateEstimate = meter.getBitrateEstimate();
 
+        customLogger = new CustomLogger(TAG, loggerOptions.enableBandwidthListenerLogs);
+
         if (lastBitrateEstimate == null) {
-            Log.d(TAG, "Setting lastBitrate estimate to " + initialBitrateEstimate);
+            customLogger.logD("Setting lastBitrate estimate to " + initialBitrateEstimate);
             lastBitrateEstimate = initialBitrateEstimate;
         }
 
@@ -34,7 +37,7 @@ public class CustomBandwidthListener implements BandwidthMeter.EventListener {
         double initialBitrateMbps = initialBitrateEstimate / 1_000_000.0;
 
         // Log the initial estimate in a readable format
-        Log.d(TAG, String.format(Locale.US, "Initial bandwidth estimate: %.2f Mbps", initialBitrateMbps));
+        customLogger.logD(String.format(Locale.US, "Initial bandwidth estimate: %.2f Mbps", initialBitrateMbps));
     }
 
     @Override
@@ -46,7 +49,7 @@ public class CustomBandwidthListener implements BandwidthMeter.EventListener {
         // Convert bytes to KB or MB for better readability if needed
         double bytesMb = bytes / (1024.0 * 1024.0); // Convert bytes to Megabytes
 
-        Log.d(TAG, String.format(Locale.US,
+        customLogger.logD(String.format(Locale.US,
                 "Bandwidth Sample: Elapsed Time = %d ms, Bytes Transferred = %.2f MB, Bitrate = %.2f Mbps",
                 elapsedMs, bytesMb, bitrateMbps));
     }

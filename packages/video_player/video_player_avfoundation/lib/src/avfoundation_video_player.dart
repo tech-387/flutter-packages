@@ -11,9 +11,6 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 
 import 'messages.g.dart';
 
-// TODO(FirentisTFW): Remove the ignore and rename parameters when adding support for platform views.
-// ignore_for_file: avoid_renaming_method_parameters
-
 /// An iOS implementation of [VideoPlayerPlatform] that uses the
 /// Pigeon-generated [VideoPlayerApi].
 class AVFoundationVideoPlayer extends VideoPlayerPlatform {
@@ -46,6 +43,8 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
     DataSource dataSource, {
     VideoPlayerBufferOptions videoPlayerBufferOptions =
         const VideoPlayerBufferOptions(),
+    VideoPlayerLoggerOptions videoPlayerLoggerOptions =
+        const VideoPlayerLoggerOptions(),
   }) async {
     return createWithOptions(
       VideoCreationOptions(
@@ -54,11 +53,19 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
         // createWithOptions was introduced.
         viewType: VideoViewType.textureView,
       ),
+      videoPlayerBufferOptions: videoPlayerBufferOptions,
+      videoPlayerLoggerOptions: videoPlayerLoggerOptions,
     );
   }
 
   @override
-  Future<int?> createWithOptions(VideoCreationOptions options) async {
+  Future<int?> createWithOptions(
+    VideoCreationOptions options, {
+    VideoPlayerBufferOptions videoPlayerBufferOptions =
+        const VideoPlayerBufferOptions(),
+    VideoPlayerLoggerOptions videoPlayerLoggerOptions =
+        const VideoPlayerLoggerOptions(),
+  }) async {
     final DataSource dataSource = options.dataSource;
     // Platform views are not supported on macOS yet. Use texture view instead.
     final VideoViewType viewType = defaultTargetPlatform == TargetPlatform.macOS
@@ -90,6 +97,25 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
       httpHeaders: httpHeaders,
       formatHint: formatHint,
       viewType: _platformVideoViewTypeFromVideoViewType(viewType),
+      bufferOptions: BufferOptionsMessage(
+        preferredForwardBufferDuration:
+            videoPlayerBufferOptions.preferredForwardBufferDuration,
+        canUseNetworkResourcesForLiveStreamingWhilePaused:
+            videoPlayerBufferOptions
+                .canUseNetworkResourcesForLiveStreamingWhilePaused,
+        automaticallyWaitsToMinimizeStalling:
+            videoPlayerBufferOptions.automaticallyWaitsToMinimizeStalling,
+      ),
+      loggerOptions: LoggerOptionsMessage(
+        enableTransferListenerLogs:
+            videoPlayerLoggerOptions.enableTransferListenerLogs,
+        enableBandwidthListenerLogs:
+            videoPlayerLoggerOptions.enableBandwidthListenerLogs,
+        enableAdaptiveTrackSelectionLogs:
+            videoPlayerLoggerOptions.enableAdaptiveTrackSelectionLogs,
+        enableCacheDataSourceLogs:
+            videoPlayerLoggerOptions.enableCacheDataSourceLogs,
+      ),
     );
 
     final int playerId = await _api.create(pigeonCreationOptions);
@@ -104,46 +130,46 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
-  Future<void> setLooping(int textureId, bool looping) {
-    return _api.setLooping(looping, textureId);
+  Future<void> setLooping(int playerId, bool looping) {
+    return _api.setLooping(looping, playerId);
   }
 
   @override
-  Future<void> play(int textureId) {
-    return _api.play(textureId);
+  Future<void> play(int playerId) {
+    return _api.play(playerId);
   }
 
   @override
-  Future<void> pause(int textureId) {
-    return _api.pause(textureId);
+  Future<void> pause(int playerId) {
+    return _api.pause(playerId);
   }
 
   @override
-  Future<void> setVolume(int textureId, double volume) {
-    return _api.setVolume(volume, textureId);
+  Future<void> setVolume(int playerId, double volume) {
+    return _api.setVolume(volume, playerId);
   }
 
   @override
-  Future<void> setPlaybackSpeed(int textureId, double speed) {
+  Future<void> setPlaybackSpeed(int playerId, double speed) {
     assert(speed > 0);
 
-    return _api.setPlaybackSpeed(speed, textureId);
+    return _api.setPlaybackSpeed(speed, playerId);
   }
 
   @override
-  Future<void> seekTo(int textureId, Duration position) {
-    return _api.seekTo(position.inMilliseconds, textureId);
+  Future<void> seekTo(int playerId, Duration position) {
+    return _api.seekTo(position.inMilliseconds, playerId);
   }
 
   @override
-  Future<Duration> getPosition(int textureId) async {
-    final int position = await _api.getPosition(textureId);
+  Future<Duration> getPosition(int playerId) async {
+    final int position = await _api.getPosition(playerId);
     return Duration(milliseconds: position);
   }
 
   @override
-  Stream<VideoEvent> videoEventsFor(int textureId) {
-    return _eventChannelFor(textureId)
+  Stream<VideoEvent> videoEventsFor(int playerId) {
+    return _eventChannelFor(playerId)
         .receiveBroadcastStream()
         .map((dynamic event) {
       final Map<dynamic, dynamic> map = event as Map<dynamic, dynamic>;
@@ -234,8 +260,8 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
     );
   }
 
-  EventChannel _eventChannelFor(int textureId) {
-    return EventChannel('flutter.io/videoPlayer/videoEvents$textureId');
+  EventChannel _eventChannelFor(int playerId) {
+    return EventChannel('flutter.io/videoPlayer/videoEvents$playerId');
   }
 
   static const Map<VideoFormat, String> _videoFormatStringMap =

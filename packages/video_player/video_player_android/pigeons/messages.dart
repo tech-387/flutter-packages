@@ -21,6 +21,7 @@ class CreateMessage {
   String? formatHint;
   Map<String?, String?> httpHeaders;
   BufferOptionsMessage? bufferOptions;
+  LoggerOptionsMessage? loggerOptions;
 }
 
 class CacheOptionsMessage {
@@ -47,6 +48,19 @@ class BufferOptionsMessage {
   final int maxBufferMs;
   final int bufferForPlaybackMs;
   final int bufferForPlaybackAfterRebufferMs;
+}
+
+class LoggerOptionsMessage {
+  LoggerOptionsMessage({
+    required this.enableTransferListenerLogs,
+    required this.enableBandwidthListenerLogs,
+    required this.enableAdaptiveTrackSelectionLogs,
+    required this.enableCacheDataSourceLogs,
+  });
+  final bool enableTransferListenerLogs;
+  final bool enableBandwidthListenerLogs;
+  final bool enableAdaptiveTrackSelectionLogs;
+  final bool enableCacheDataSourceLogs;
 }
 
 @HostApi(dartHostTestHandler: 'TestHostVideoPlayerApi')

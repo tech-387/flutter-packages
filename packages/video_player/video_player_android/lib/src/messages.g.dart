@@ -36,6 +36,7 @@ class CreateMessage {
     this.formatHint,
     required this.httpHeaders,
     this.bufferOptions,
+    this.loggerOptions,
   });
 
   String? asset;
@@ -50,6 +51,8 @@ class CreateMessage {
 
   BufferOptionsMessage? bufferOptions;
 
+  LoggerOptionsMessage? loggerOptions;
+
   Object encode() {
     return <Object?>[
       asset,
@@ -58,6 +61,7 @@ class CreateMessage {
       formatHint,
       httpHeaders,
       bufferOptions,
+      loggerOptions,
     ];
   }
 
@@ -70,6 +74,7 @@ class CreateMessage {
       formatHint: result[3] as String?,
       httpHeaders: (result[4] as Map<Object?, Object?>?)!.cast<String?, String?>(),
       bufferOptions: result[5] as BufferOptionsMessage?,
+      loggerOptions: result[6] as LoggerOptionsMessage?,
     );
   }
 }
@@ -146,6 +151,42 @@ class BufferOptionsMessage {
   }
 }
 
+class LoggerOptionsMessage {
+  LoggerOptionsMessage({
+    required this.enableTransferListenerLogs,
+    required this.enableBandwidthListenerLogs,
+    required this.enableAdaptiveTrackSelectionLogs,
+    required this.enableCacheDataSourceLogs,
+  });
+
+  bool enableTransferListenerLogs;
+
+  bool enableBandwidthListenerLogs;
+
+  bool enableAdaptiveTrackSelectionLogs;
+
+  bool enableCacheDataSourceLogs;
+
+  Object encode() {
+    return <Object?>[
+      enableTransferListenerLogs,
+      enableBandwidthListenerLogs,
+      enableAdaptiveTrackSelectionLogs,
+      enableCacheDataSourceLogs,
+    ];
+  }
+
+  static LoggerOptionsMessage decode(Object result) {
+    result as List<Object?>;
+    return LoggerOptionsMessage(
+      enableTransferListenerLogs: result[0]! as bool,
+      enableBandwidthListenerLogs: result[1]! as bool,
+      enableAdaptiveTrackSelectionLogs: result[2]! as bool,
+      enableCacheDataSourceLogs: result[3]! as bool,
+    );
+  }
+}
+
 
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
@@ -163,6 +204,9 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is BufferOptionsMessage) {
       buffer.putUint8(131);
       writeValue(buffer, value.encode());
+    }    else if (value is LoggerOptionsMessage) {
+      buffer.putUint8(132);
+      writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
     }
@@ -177,6 +221,8 @@ class _PigeonCodec extends StandardMessageCodec {
         return CacheOptionsMessage.decode(readValue(buffer)!);
       case 131: 
         return BufferOptionsMessage.decode(readValue(buffer)!);
+      case 132: 
+        return LoggerOptionsMessage.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }

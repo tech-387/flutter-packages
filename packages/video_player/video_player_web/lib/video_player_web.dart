@@ -50,6 +50,8 @@ class VideoPlayerPlugin extends VideoPlayerPlatform {
     DataSource dataSource, {
     VideoPlayerBufferOptions videoPlayerBufferOptions =
         const VideoPlayerBufferOptions(),
+    VideoPlayerLoggerOptions videoPlayerLoggerOptions =
+        const VideoPlayerLoggerOptions(),
   }) {
     return createWithOptions(
       VideoCreationOptions(
@@ -61,7 +63,13 @@ class VideoPlayerPlugin extends VideoPlayerPlatform {
   }
 
   @override
-  Future<int> createWithOptions(VideoCreationOptions options) async {
+  Future<int> createWithOptions(
+    VideoCreationOptions options, {
+    VideoPlayerBufferOptions videoPlayerBufferOptions =
+        const VideoPlayerBufferOptions(),
+    VideoPlayerLoggerOptions videoPlayerLoggerOptions =
+        const VideoPlayerLoggerOptions(),
+  }) async {
     // Parameter options.viewType is ignored because web only supports platform views.
 
     final DataSource dataSource = options.dataSource;

@@ -2,7 +2,6 @@ package io.flutter.plugins.videoplayer;
 
 import android.content.Context;
 import android.net.Uri;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -15,14 +14,12 @@ import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.datasource.FileDataSource;
 import androidx.media3.datasource.cache.CacheDataSink;
-import androidx.media3.exoplayer.upstream.BandwidthMeter;
 
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.util.Map;
 
 @UnstableApi
 public class CacheDataSourceFactory implements DataSource.Factory {
@@ -32,21 +29,26 @@ public class CacheDataSourceFactory implements DataSource.Factory {
     private final String cacheDirectory;
     private final String assetUrl;
     private JSONObject videoMetadataJson;
+    private final CustomLogger customLogger;
+    private final VideoPlayerLoggerOptions loggerOptions;
 
     private final DefaultHttpDataSource.Factory defaultHttpDataSourceFactory;
 
     @OptIn(markerClass = UnstableApi.class)
-    CacheDataSourceFactory(Context context, long maxCacheSize, long maxFileSize, String cacheDirectory, BandwidthMeter bandwidthMeter, String assetUrl) {
+    CacheDataSourceFactory(Context context, long maxCacheSize, long maxFileSize, String cacheDirectory, String assetUrl, VideoPlayerLoggerOptions loggerOptions) {
         super();
         this.context = context;
         this.maxCacheSize = maxCacheSize;
         this.maxFileSize = maxFileSize;
         this.cacheDirectory = cacheDirectory;
         this.assetUrl = assetUrl;
+        this.loggerOptions = loggerOptions;
 
         defaultHttpDataSourceFactory = new DefaultHttpDataSource.Factory();
         defaultHttpDataSourceFactory.setUserAgent("ExoPlayer");
         defaultHttpDataSourceFactory.setAllowCrossProtocolRedirects(true);
+
+        customLogger = new CustomLogger(TAG, loggerOptions.enableCacheDataSourceLogs);
 
         loadVideoMetadata();
     }
@@ -70,20 +72,20 @@ public class CacheDataSourceFactory implements DataSource.Factory {
             }
 
             if (videoId == null) {
-                Log.w(TAG, "Video ID could not be extracted from assetUrl: " + assetUrl);
+                customLogger.logW("Video ID could not be extracted from assetUrl: " + assetUrl);
                 return;
             }
 
             File streamingDir = new File(context.getCacheDir(), "metadata");
             if (!streamingDir.exists()) {
-                Log.w(TAG, "Streaming directory not yet created");
+                customLogger.logW("Streaming directory not yet created");
                 return;
             }
 
             // Create individual file per video ID
-            File metadataFile = new File(streamingDir,  videoId + ".json");
+            File metadataFile = new File(streamingDir, videoId + ".json");
             if (!metadataFile.exists()) {
-                Log.w(TAG, "Metadata file not found for video ID: " + videoId);
+                customLogger.logW("Metadata file not found for video ID: " + videoId);
                 return;
             }
 
@@ -96,10 +98,10 @@ public class CacheDataSourceFactory implements DataSource.Factory {
             }
 
             videoMetadataJson = new JSONObject(jsonBuilder.toString());
-            Log.d(TAG, "Loaded metadata for video ID: " + videoId + " → " + videoMetadataJson.toString());
+            customLogger.logD("Loaded metadata for video ID: " + videoId + " → " + videoMetadataJson);
 
         } catch (Exception e) {
-            Log.e(TAG, "Failed to load video metadata: " + e.getMessage(), e);
+            customLogger.logE("Failed to load video metadata: " + e.getMessage(), e);
         }
     }
 
@@ -109,18 +111,13 @@ public class CacheDataSourceFactory implements DataSource.Factory {
     }
 
 
-    @OptIn(markerClass = UnstableApi.class)
-    void setHeaders(Map<String, String> httpHeaders) {
-        defaultHttpDataSourceFactory.setDefaultRequestProperties(httpHeaders);
-    }
-
     @NonNull
     @OptIn(markerClass = UnstableApi.class)
     @Override
     public DataSource createDataSource() {
         DataSource dataSource = defaultHttpDataSourceFactory.createDataSource();
         TransferListener transferListener = new CustomTransferListener(
-                context
+                context, loggerOptions
         );
 
         dataSource.addTransferListener(transferListener);
