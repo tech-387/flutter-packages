@@ -116,19 +116,6 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
                         Log.d("VideoPlayer", "initial estimate = " + bandwidthMeter.getBitrateEstimate());
                     }
 
-                    // Create a Handler. This is used by ExoPlayer to dispatch the events
-                    // back to your main thread (or whichever thread you create the Handler on).
-                    Handler mainHandler = new Handler(getMainLooper()); // Using the main looper for UI safety
-
-                    // Create custom bandwidth listener
-                    CustomBandwidthListener customBandwidthListener = new CustomBandwidthListener(
-                            bandwidthMeter, loggerOptions,
-                            asset.assetUrl
-                    );
-
-                    // Add the listener
-                    bandwidthMeter.addEventListener(mainHandler, customBandwidthListener);
-
                     DefaultTrackSelector trackSelector;
                     Uri uri = Uri.parse(asset.assetUrl);
                     if (isHTTP(uri) && options.enableCache) {
