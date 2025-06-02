@@ -53,7 +53,7 @@ public class CacheDataSourceFactory implements DataSource.Factory {
         defaultHttpDataSourceFactory.setAllowCrossProtocolRedirects(true);
         defaultHttpDataSourceFactory.setDefaultRequestProperties(httpHeaders);
 
-        customFactory = new CustomDataSourceFactory(defaultHttpDataSourceFactory);
+        customFactory = new CustomDataSourceFactory(defaultHttpDataSourceFactory, loggerOptions);
 
         customLogger = new CustomLogger(TAG, loggerOptions.enableCacheDataSourceLogs);
 

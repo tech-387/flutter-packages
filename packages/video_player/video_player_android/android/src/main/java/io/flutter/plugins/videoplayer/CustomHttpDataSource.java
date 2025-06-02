@@ -17,10 +17,15 @@ import java.util.Map;
 @UnstableApi
 public class CustomHttpDataSource implements HttpDataSource {
 
+    private static final String TAG = "CustomAdaptiveSelection";
     private final HttpDataSource wrapped;
+    private final VideoPlayerLoggerOptions loggerOptions;
+    private final CustomLogger customLogger;
 
-    public CustomHttpDataSource(HttpDataSource wrapped) {
+    public CustomHttpDataSource(HttpDataSource wrapped, VideoPlayerLoggerOptions loggerOptions) {
         this.wrapped = wrapped;
+        this.loggerOptions = loggerOptions;
+        customLogger = new CustomLogger(TAG, loggerOptions.enableCacheDataSourceLogs);
     }
 
     @OptIn(markerClass = UnstableApi.class)
@@ -28,17 +33,17 @@ public class CustomHttpDataSource implements HttpDataSource {
     public long open(DataSpec dataSpec) throws HttpDataSourceException {
         Uri uri = dataSpec.uri;
 
-        Log.d("CustomHttpDataSource", "Opening URL: " + uri);
+        customLogger.logD( "Opening URL: " + uri);
 
         Map<String, String> requestHeaders = dataSpec.httpRequestHeaders;
         for (Map.Entry<String, String> entry : requestHeaders.entrySet()) {
-            Log.d("CustomHttpDataSource", "Request header: " + entry.getKey() + " = " + entry.getValue());
+            customLogger.logD( "Request header: " + entry.getKey() + " = " + entry.getValue());
         }
 
         DataSpec modifiedSpec = dataSpec;
 
         if (uri.getLastPathSegment() != null && uri.getLastPathSegment().endsWith(".m3u8")) {
-            Log.d("CustomHttpDataSource", "Detected .m3u8 file, stripping Range header");
+            customLogger.logD( "Detected .m3u8 file, stripping Range header");
 
             modifiedSpec = dataSpec.buildUpon()
                     .setHttpRequestHeaders(stripRange(requestHeaders))
@@ -52,10 +57,10 @@ public class CustomHttpDataSource implements HttpDataSource {
         Uri responseUri = getUri(); // or wrapped.getUri()
         Map<String, List<String>> responseHeaders = getResponseHeaders(); // or wrapped.getResponseHeaders()
 
-        Log.d("CustomHttpDataSource", "Response from: " + responseUri);
+        customLogger.logD( "Response from: " + responseUri);
         if (responseHeaders != null) {
             for (Map.Entry<String, List<String>> entry : responseHeaders.entrySet()) {
-                Log.d("CustomHttpDataSource", "Response header: " + entry.getKey() + " = " + entry.getValue());
+                customLogger.logD( "Response header: " + entry.getKey() + " = " + entry.getValue());
             }
         }
 

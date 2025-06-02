@@ -10,15 +10,17 @@ import java.util.Map;
 public class CustomDataSourceFactory implements HttpDataSource.Factory {
 
     private final DefaultHttpDataSource.Factory delegate;
+    private final VideoPlayerLoggerOptions loggerOptions;
 
-    public CustomDataSourceFactory(DefaultHttpDataSource.Factory delegate) {
+    public CustomDataSourceFactory(DefaultHttpDataSource.Factory delegate, VideoPlayerLoggerOptions loggerOptions) {
         this.delegate = delegate;
+        this.loggerOptions = loggerOptions;
     }
 
     @Override
     public HttpDataSource createDataSource() {
         HttpDataSource base = delegate.createDataSource();
-        return new CustomHttpDataSource(base);
+        return new CustomHttpDataSource(base, loggerOptions);
     }
 
     @Override
