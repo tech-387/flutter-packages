@@ -8,8 +8,8 @@ public class VideoPlayerBufferOptions {
     public Long minDurationForQualityIncreaseMs = 3000L;
     public Long maxDurationForQualityDecreaseMs = 3000L;
     public Long minDurationToRetainAfterDiscardMs = 3000L;
-    public Long maxWidthToDiscard = 1279L;
-    public Long maxHeightToDiscard = 719L;
+    public int maxWidthToDiscard = 1279;
+    public int maxHeightToDiscard = 719;
     public double bandwidthFraction = 0.85F;
     public double bufferedFractionToLiveEdgeForQualityIncrease = 0.75f;
 
@@ -22,8 +22,8 @@ public class VideoPlayerBufferOptions {
                                     Long minDurationForQualityIncreaseMs,
                                     Long maxDurationForQualityDecreaseMs,
                                     Long minDurationToRetainAfterDiscardMs,
-                                    Long maxWidthToDiscard,
-                                    Long maxHeightToDiscard,
+                                    int maxWidthToDiscard,
+                                    int maxHeightToDiscard,
                                     double bandwidthFraction,
                                     double bufferedFractionToLiveEdgeForQualityIncrease
 
