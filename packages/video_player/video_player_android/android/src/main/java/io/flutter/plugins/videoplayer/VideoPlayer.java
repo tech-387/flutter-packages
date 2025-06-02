@@ -49,6 +49,8 @@ import androidx.media3.exoplayer.upstream.experimental.ExperimentalBandwidthMete
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 
+import com.google.common.net.HttpHeaders;
+
 import java.util.Map;
 
 import io.flutter.view.TextureRegistry;
@@ -119,10 +121,14 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
                     DefaultTrackSelector trackSelector;
                     Uri uri = Uri.parse(asset.assetUrl);
                     if (isHTTP(uri) && options.enableCache) {
+                        Map<String, String> headers = null;
+                        if(asset instanceof HttpVideoAsset) {
+                            headers = ((HttpVideoAsset) asset).httpHeaders;
+                        }
                         CacheDataSourceFactory cacheDataSourceFactory = new CacheDataSourceFactory(
                                 context,
                                 options.maxCacheBytes,
-                                options.maxFileBytes, options.cacheDirectory, asset.assetUrl, loggerOptions);
+                                options.maxFileBytes, options.cacheDirectory, asset.assetUrl, loggerOptions, headers);
                         mediaSourceFactory.setDataSourceFactory(cacheDataSourceFactory);
                         trackSelector = new DefaultTrackSelector(context,
                                 new CustomAdaptiveTrackSelectionFactory(asset.assetUrl, cacheDataSourceFactory, loggerOptions, bufferOptions)

@@ -20,6 +20,7 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.util.Map;
 
 @UnstableApi
 public class CacheDataSourceFactory implements DataSource.Factory {
@@ -33,9 +34,11 @@ public class CacheDataSourceFactory implements DataSource.Factory {
     private final VideoPlayerLoggerOptions loggerOptions;
 
     private final DefaultHttpDataSource.Factory defaultHttpDataSourceFactory;
+    private final CustomHttpDataSource.Factory customFactory;
+    private final Map<String, String> httpHeaders;
 
     @OptIn(markerClass = UnstableApi.class)
-    CacheDataSourceFactory(Context context, long maxCacheSize, long maxFileSize, String cacheDirectory, String assetUrl, VideoPlayerLoggerOptions loggerOptions) {
+    CacheDataSourceFactory(Context context, long maxCacheSize, long maxFileSize, String cacheDirectory, String assetUrl, VideoPlayerLoggerOptions loggerOptions, Map<String, String> httpHeaders) {
         super();
         this.context = context;
         this.maxCacheSize = maxCacheSize;
@@ -43,10 +46,14 @@ public class CacheDataSourceFactory implements DataSource.Factory {
         this.cacheDirectory = cacheDirectory;
         this.assetUrl = assetUrl;
         this.loggerOptions = loggerOptions;
+        this.httpHeaders = httpHeaders;
 
         defaultHttpDataSourceFactory = new DefaultHttpDataSource.Factory();
         defaultHttpDataSourceFactory.setUserAgent("ExoPlayer");
         defaultHttpDataSourceFactory.setAllowCrossProtocolRedirects(true);
+        defaultHttpDataSourceFactory.setDefaultRequestProperties(httpHeaders);
+
+        customFactory = new CustomDataSourceFactory(defaultHttpDataSourceFactory);
 
         customLogger = new CustomLogger(TAG, loggerOptions.enableCacheDataSourceLogs);
 
@@ -118,7 +125,7 @@ public class CacheDataSourceFactory implements DataSource.Factory {
     @OptIn(markerClass = UnstableApi.class)
     @Override
     public DataSource createDataSource() {
-        DataSource dataSource = defaultHttpDataSourceFactory.createDataSource();
+        DataSource dataSource = customFactory.createDataSource();
         TransferListener transferListener = new CustomTransferListener(
                 context, loggerOptions,
                 jsonObject -> {
@@ -126,17 +133,18 @@ public class CacheDataSourceFactory implements DataSource.Factory {
                 }
         );
 
-        dataSource.addTransferListener(transferListener);
-
         SimpleCache simpleCache = SimpleCacheSingleton.getInstance(context, maxCacheSize, cacheDirectory).simpleCache;
         CacheDataSource cacheDataSource = new CacheDataSource(simpleCache, dataSource,
                 new FileDataSource(), new CacheDataSink(simpleCache, maxFileSize),
                 CacheDataSource.FLAG_BLOCK_ON_CACHE | CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR, null);
 
+
         cacheDataSource.addTransferListener(transferListener);
 
         return cacheDataSource;
     }
+
+
 }
 
 
