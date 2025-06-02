@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 @UnstableApi
 public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
@@ -28,6 +29,8 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
     private final String assetUrl;
     private final CacheDataSourceFactory cacheDataSourceFactory;
     private final CustomLogger customLogger;
+
+    private long currentChunkIndex = 1;
 
     public CustomAdaptiveTrackSelection(TrackGroup group, int[] tracks, BandwidthMeter bandwidthMeter, String assetUrl, CacheDataSourceFactory cacheDataSourceFactory, VideoPlayerLoggerOptions loggerOptions) {
         super(group, tracks, bandwidthMeter);
@@ -73,9 +76,15 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
                 MediaChunk chunk = queue.get(i);
                 customLogger.logD("Chunk[" + i + "]: startTimeUs=" + chunk.startTimeUs +
                         ", endTimeUs=" + chunk.endTimeUs +
-                        ", chunkIndex=" + chunk.getNextChunkIndex());
+                        ", chunkIndex=" + chunk.getNextChunkIndex() +
+                        ", selectionReason=" + chunk.trackSelectionReason
+                );
+
+                // Update current chunk index.
+                currentChunkIndex = chunk.getNextChunkIndex();
             }
         } else {
+            currentChunkIndex = 1;
             customLogger.logD("Queue is empty or null");
         }
 
@@ -90,6 +99,8 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
                 customLogger.logD("Iterator[" + i + "] is empty or null");
             }
         }
+
+
 
         // You can add custom decision logic here before calling super
         // e.g., avoid switching to low bitrate if high bitrate is cached, etc.
@@ -115,6 +126,7 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
 
         customLogger.logD("trackBitrate: " + trackBitrate);
         customLogger.logD("effectiveBitrate: " + effectiveBitrate);
+        customLogger.logD("currentChunkIndex: " + currentChunkIndex);
 
         try {
             JSONObject metadataJson = null;
@@ -141,38 +153,17 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
                     int currentWidth = format.width;
                     String currentKey = String.valueOf(currentWidth);
 
-                    // 1. Check if the current format has any cached segments.
+                    // 1. Check if the current format has the current segment cached.
                     if (videoEntry.has(currentKey)) {
                         JSONArray segments = videoEntry.getJSONArray(currentKey);
-                        if (segments.length() > 0) {
-                            customLogger.logD("✅ Cached segments found for current format width=" + currentWidth);
-                            return true;
-                        }
-                    }
-
-                    // 2. Check if any higher width format has cached segments.
-                    List<Integer> availableWidths = new ArrayList<>();
-                    Iterator<String> keys = videoEntry.keys();
-                    while (keys.hasNext()) {
-                        try {
-                            int w = Integer.parseInt(keys.next());
-                            availableWidths.add(w);
-                        } catch (NumberFormatException ignored) {
-                        }
-                    }
-
-                    Collections.sort(availableWidths);
-                    for (int width : availableWidths) {
-                        if (width > currentWidth) {
-                            JSONArray higherSegments = videoEntry.getJSONArray(String.valueOf(width));
-                            if (higherSegments.length() > 0) {
-                                customLogger.logD("✅ Cached segments found for HIGHER format width=" + width);
+                        for (int i = 0; i < segments.length(); i++) {
+                            if (segments.getInt(i) == currentChunkIndex) {
+                                customLogger.logD("✅ Current segment " + currentChunkIndex + " is cached for width=" + currentWidth);
                                 return true;
                             }
                         }
                     }
 
-                    customLogger.logD("⚠️ No cached segments for current or higher formats.");
                 } else {
                     customLogger.logD("⚠️ No metadata found for videoId: " + videoId);
                 }
@@ -184,13 +175,15 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
         }
 
         boolean result = super.canSelectFormat(format, trackBitrate, effectiveBitrate);
+
+        // If super.canSelectFormat returns false and this is last resolution (360p) then return true at this point.
+        if(!result && Objects.equals(format.id, "2")) {
+            customLogger.logD("returning true as this is last format");
+            return true;
+        }
+
         customLogger.logD("super.canSelectFormat returned: " + result);
+
         return result;
-    }
-
-    @Override
-    public boolean shouldCancelChunkLoad(long playbackPositionUs, Chunk loadingChunk, List<? extends MediaChunk> queue) {
-
-        return super.shouldCancelChunkLoad(playbackPositionUs, loadingChunk, queue);
     }
 }

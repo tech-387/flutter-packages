@@ -21,10 +21,12 @@ public class CustomBandwidthListener implements BandwidthMeter.EventListener {
 
     public static Long lastBitrateEstimate;
     private final CustomLogger customLogger;
+    private final String assetUrl;
 
-    public CustomBandwidthListener(BandwidthMeter meter, VideoPlayerLoggerOptions loggerOptions) {
+    public CustomBandwidthListener(BandwidthMeter meter, VideoPlayerLoggerOptions loggerOptions, String assetUrl) {
         // Get the initial bitrate estimate
         long initialBitrateEstimate = meter.getBitrateEstimate();
+        this.assetUrl = assetUrl;
 
         customLogger = new CustomLogger(TAG, loggerOptions.enableBandwidthListenerLogs);
 
@@ -37,7 +39,7 @@ public class CustomBandwidthListener implements BandwidthMeter.EventListener {
         double initialBitrateMbps = initialBitrateEstimate / 1_000_000.0;
 
         // Log the initial estimate in a readable format
-        customLogger.logD(String.format(Locale.US, "Initial bandwidth estimate: %.2f Mbps", initialBitrateMbps));
+        customLogger.logD(String.format(Locale.US, "Initial bandwidth estimate: %.2f Mbps" + "(" + assetUrl + ")", initialBitrateMbps));
     }
 
     @Override
@@ -50,7 +52,7 @@ public class CustomBandwidthListener implements BandwidthMeter.EventListener {
         double bytesMb = bytes / (1024.0 * 1024.0); // Convert bytes to Megabytes
 
         customLogger.logD(String.format(Locale.US,
-                "Bandwidth Sample: Elapsed Time = %d ms, Bytes Transferred = %.2f MB, Bitrate = %.2f Mbps",
+                "Bandwidth Sample: Elapsed Time = %d ms, Bytes Transferred = %.2f MB, Bitrate = %.2f Mbps" + "("+assetUrl+")",
                 elapsedMs, bytesMb, bitrateMbps));
     }
 }

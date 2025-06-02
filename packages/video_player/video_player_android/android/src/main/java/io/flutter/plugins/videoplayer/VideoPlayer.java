@@ -43,6 +43,8 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.exoplayer.upstream.experimental.ExperimentalBandwidthMeter;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.extractor.DefaultExtractorsFactory;
@@ -106,12 +108,9 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
                     RenderersFactory renderersFactory = new DefaultRenderersFactory(context).setEnableDecoderFallback(true);
                     DefaultMediaSourceFactory mediaSourceFactory = new DefaultMediaSourceFactory(context, new DefaultExtractorsFactory());
 
-                    ExperimentalBandwidthMeter.Builder builder = new ExperimentalBandwidthMeter.Builder(context);
-                    if (CustomBandwidthListener.lastBitrateEstimate != null) {
-                        builder.setInitialBitrateEstimate(CustomBandwidthListener.lastBitrateEstimate);
-                    }
+                    DefaultBandwidthMeter.Builder builder = BandwidthEstimatorSingleton.getInstance(context).bandwidthMeter;
 
-                    ExperimentalBandwidthMeter bandwidthMeter = builder.build();
+                    DefaultBandwidthMeter bandwidthMeter = builder.build();
 
                     if(loggerOptions.enableBandwidthListenerLogs) {
                         Log.d("VideoPlayer", "initial estimate = " + bandwidthMeter.getBitrateEstimate());
@@ -123,7 +122,8 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
 
                     // Create custom bandwidth listener
                     CustomBandwidthListener customBandwidthListener = new CustomBandwidthListener(
-                            bandwidthMeter, loggerOptions
+                            bandwidthMeter, loggerOptions,
+                            asset.assetUrl
                     );
 
                     // Add the listener

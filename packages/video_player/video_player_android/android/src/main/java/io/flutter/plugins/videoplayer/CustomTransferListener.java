@@ -32,10 +32,12 @@ class CustomTransferListener implements TransferListener {
     private final Context context;
     private static final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
     private final CustomLogger customLogger;
+    private final JSONObjectCallback callback;
 
-    public CustomTransferListener(Context context, VideoPlayerLoggerOptions loggerOptions) {
+    public CustomTransferListener(Context context, VideoPlayerLoggerOptions loggerOptions, JSONObjectCallback callback) {
         this.context = context;
         customLogger = new CustomLogger(TAG, loggerOptions.enableTransferListenerLogs);
+        this.callback = callback;
     }
 
     @Override
@@ -100,7 +102,6 @@ class CustomTransferListener implements TransferListener {
                 // Create individual file per video ID
                 File videoMetaFile = new File(streamingDir, videoId + ".json");
 
-
                 JSONObject metadata = videoMetaFile.exists()
                         ? new JSONObject(readFileCompat(videoMetaFile))
                         : new JSONObject();
@@ -118,8 +119,14 @@ class CustomTransferListener implements TransferListener {
                     videoObject.put(variant, segments);
                     metadata.put(videoId, videoObject);
 
+                    String metadataString = metadata.toString(2);
+
+                    if (callback != null) {
+                        callback.onResult(metadata);
+                    }
+
                     try (FileWriter writer = new FileWriter(videoMetaFile)) {
-                        writer.write(metadata.toString(2));
+                        writer.write(metadataString);
                     }
                 }
 

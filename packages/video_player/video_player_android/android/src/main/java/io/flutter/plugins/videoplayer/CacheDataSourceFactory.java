@@ -107,6 +107,9 @@ public class CacheDataSourceFactory implements DataSource.Factory {
 
     @Nullable
     public JSONObject getVideoMetadataJson() {
+        if(videoMetadataJson == null) {
+            loadVideoMetadata();
+        }
         return videoMetadataJson;
     }
 
@@ -117,7 +120,10 @@ public class CacheDataSourceFactory implements DataSource.Factory {
     public DataSource createDataSource() {
         DataSource dataSource = defaultHttpDataSourceFactory.createDataSource();
         TransferListener transferListener = new CustomTransferListener(
-                context, loggerOptions
+                context, loggerOptions,
+                jsonObject -> {
+                    videoMetadataJson = jsonObject;
+                }
         );
 
         dataSource.addTransferListener(transferListener);
