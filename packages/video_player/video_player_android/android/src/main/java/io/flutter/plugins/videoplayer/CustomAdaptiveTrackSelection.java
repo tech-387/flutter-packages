@@ -1,13 +1,11 @@
 package io.flutter.plugins.videoplayer;
 
 import android.net.Uri;
-import android.util.Log;
 
 import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.exoplayer.source.chunk.Chunk;
 import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
 import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection;
@@ -16,9 +14,6 @@ import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 

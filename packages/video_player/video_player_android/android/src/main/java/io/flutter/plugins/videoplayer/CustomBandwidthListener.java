@@ -1,13 +1,9 @@
 package io.flutter.plugins.videoplayer;
 
-import android.util.Log;
-
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 
 // Use ExoPlayer's Log for consistency and @UnstableApi compatibility
-
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 import java.util.Locale; // For formatting numbers consistently
 

@@ -3,9 +3,7 @@ package io.flutter.plugins.videoplayer;
 import android.content.Context;
 
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
-import androidx.media3.exoplayer.upstream.experimental.ExperimentalBandwidthMeter;
 
 @UnstableApi
 public class BandwidthEstimatorSingleton {
