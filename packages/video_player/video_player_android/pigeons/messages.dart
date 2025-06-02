@@ -43,11 +43,25 @@ class BufferOptionsMessage {
     required this.maxBufferMs,
     required this.bufferForPlaybackMs,
     required this.bufferForPlaybackAfterRebufferMs,
+    required this.minDurationForQualityIncreaseMs,
+    required this.maxDurationForQualityDecreaseMs,
+    required this.minDurationToRetainAfterDiscardMs,
+    required this.maxWidthToDiscard,
+    required this.maxHeightToDiscard,
+    required this.bandwidthFraction,
+    required this.bufferedFractionToLiveEdgeForQualityIncrease,
   });
   final int minBufferMs;
   final int maxBufferMs;
   final int bufferForPlaybackMs;
   final int bufferForPlaybackAfterRebufferMs;
+  final int minDurationForQualityIncreaseMs;
+  final int maxDurationForQualityDecreaseMs;
+  final int minDurationToRetainAfterDiscardMs;
+  final int maxWidthToDiscard;
+  final int maxHeightToDiscard;
+  final double bandwidthFraction;
+  final double bufferedFractionToLiveEdgeForQualityIncrease;
 }
 
 class LoggerOptionsMessage {

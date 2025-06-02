@@ -15,11 +15,13 @@ public class CustomAdaptiveTrackSelectionFactory extends AdaptiveTrackSelection.
     private final String assetUrl;
     private final CacheDataSourceFactory cacheDataSourceFactory;
     private final VideoPlayerLoggerOptions loggerOptions;
+    private final VideoPlayerBufferOptions bufferOptions;
 
-    public CustomAdaptiveTrackSelectionFactory(String assetUrl, CacheDataSourceFactory cacheDataSourceFactory, VideoPlayerLoggerOptions loggerOptions) {
+    public CustomAdaptiveTrackSelectionFactory(String assetUrl, CacheDataSourceFactory cacheDataSourceFactory, VideoPlayerLoggerOptions loggerOptions, VideoPlayerBufferOptions bufferOptions) {
         this.assetUrl = assetUrl;
         this.cacheDataSourceFactory = cacheDataSourceFactory;
         this.loggerOptions = loggerOptions;
+        this.bufferOptions = bufferOptions;
     }
 
     @OptIn(markerClass = UnstableApi.class)
@@ -36,9 +38,9 @@ public class CustomAdaptiveTrackSelectionFactory extends AdaptiveTrackSelection.
                 tracks,
                 type,
                 bandwidthMeter,
-                2_000,
-                4_000,
-                10_100,
+                3_000,
+                3_000,
+                2_100,
                 1279,
                 719,
                 0.85f,

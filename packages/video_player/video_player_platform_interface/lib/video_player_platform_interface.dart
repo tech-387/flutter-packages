@@ -513,6 +513,13 @@ class VideoPlayerBufferOptions {
     this.maxBufferMs = 30000,
     this.bufferForPlaybackMs = 2000,
     this.bufferForPlaybackAfterRebufferMs = 2000,
+    this.minDurationForQualityIncreaseMs = 3000,
+    this.maxDurationForQualityDecreaseMs = 3000,
+    this.minDurationToRetainAfterDiscardMs = 3000,
+    this.maxWidthToDiscard = 1279,
+    this.maxHeightToDiscard = 719,
+    this.bandwidthFraction = 0.85,
+    this.bufferedFractionToLiveEdgeForQualityIncrease = 0.75,
     this.preferredForwardBufferDuration = 6,
     this.canUseNetworkResourcesForLiveStreamingWhilePaused = false,
     this.automaticallyWaitsToMinimizeStalling = false,
@@ -534,6 +541,40 @@ class VideoPlayerBufferOptions {
   /// A rebuffer is defined to be caused by buffer depletion rather than a user action.
   /// Only on Android.
   final int bufferForPlaybackAfterRebufferMs;
+
+  /// The minimum duration of buffered data required for the selected track to switch to one of higher quality.
+  /// Only on Android.
+  final int minDurationForQualityIncreaseMs;
+
+  /// The maximum duration of buffered data required for the selected track to switch to one of lower quality.
+  /// Only on Android.
+  final int maxDurationForQualityDecreaseMs;
+
+  /// When switching to a video track of higher quality, the selection may indicate that media already buffered at the lower quality can be discarded to speed up the switch.
+  /// This is the minimum duration of media that must be retained at the lower quality.
+  /// It must be at least [minDurationForQualityIncreaseMs].
+  /// Only on Android.
+  final int minDurationToRetainAfterDiscardMs;
+
+  /// The maximum video width that the selector may discard from the buffer to speed up switching to a higher quality.
+  /// Only on Android.
+  final int maxWidthToDiscard;
+
+  /// The maximum video height that the selector may discard from the buffer to speed up switching to a higher quality.
+  /// Only on Android.
+  final int maxHeightToDiscard;
+
+  /// The fraction of the available bandwidth that the selection should consider available for use.
+  /// Setting to a value less than 1 is recommended to account for inaccuracies in the bandwidth estimator.
+  /// Only on Android.
+  final double bandwidthFraction;
+
+  /// For live streaming, the fraction of the duration from current playback position to the live edge
+  /// that has to be buffered before the selected track can be switched to one of higher quality.
+  /// This parameter is only applied when the playback position is closer to the live edge than [minDurationForQualityIncreaseMs],
+  /// which would otherwise prevent switching to a higher quality from happening.
+  /// Only on Android.
+  final double bufferedFractionToLiveEdgeForQualityIncrease;
 
   /// Indicates the media duration the caller prefers the player to buffer from the network ahead of the playhead to guard against playback disruption.
   /// The value is in seconds. If it is set to 0, the player will choose an appropriate level of buffering for most use cases.

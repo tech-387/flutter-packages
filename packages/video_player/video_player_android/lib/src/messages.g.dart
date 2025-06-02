@@ -121,6 +121,13 @@ class BufferOptionsMessage {
     required this.maxBufferMs,
     required this.bufferForPlaybackMs,
     required this.bufferForPlaybackAfterRebufferMs,
+    required this.minDurationForQualityIncreaseMs,
+    required this.maxDurationForQualityDecreaseMs,
+    required this.minDurationToRetainAfterDiscardMs,
+    required this.maxWidthToDiscard,
+    required this.maxHeightToDiscard,
+    required this.bandwidthFraction,
+    required this.bufferedFractionToLiveEdgeForQualityIncrease,
   });
 
   int minBufferMs;
@@ -131,12 +138,33 @@ class BufferOptionsMessage {
 
   int bufferForPlaybackAfterRebufferMs;
 
+  int minDurationForQualityIncreaseMs;
+
+  int maxDurationForQualityDecreaseMs;
+
+  int minDurationToRetainAfterDiscardMs;
+
+  int maxWidthToDiscard;
+
+  int maxHeightToDiscard;
+
+  double bandwidthFraction;
+
+  double bufferedFractionToLiveEdgeForQualityIncrease;
+
   Object encode() {
     return <Object?>[
       minBufferMs,
       maxBufferMs,
       bufferForPlaybackMs,
       bufferForPlaybackAfterRebufferMs,
+      minDurationForQualityIncreaseMs,
+      maxDurationForQualityDecreaseMs,
+      minDurationToRetainAfterDiscardMs,
+      maxWidthToDiscard,
+      maxHeightToDiscard,
+      bandwidthFraction,
+      bufferedFractionToLiveEdgeForQualityIncrease,
     ];
   }
 
@@ -147,6 +175,13 @@ class BufferOptionsMessage {
       maxBufferMs: result[1]! as int,
       bufferForPlaybackMs: result[2]! as int,
       bufferForPlaybackAfterRebufferMs: result[3]! as int,
+      minDurationForQualityIncreaseMs: result[4]! as int,
+      maxDurationForQualityDecreaseMs: result[5]! as int,
+      minDurationToRetainAfterDiscardMs: result[6]! as int,
+      maxWidthToDiscard: result[7]! as int,
+      maxHeightToDiscard: result[8]! as int,
+      bandwidthFraction: result[9]! as double,
+      bufferedFractionToLiveEdgeForQualityIncrease: result[10]! as double,
     );
   }
 }

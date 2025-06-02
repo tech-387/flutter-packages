@@ -169,11 +169,13 @@ class MiniController extends ValueNotifier<VideoPlayerValue> {
   /// package and null otherwise.
   MiniController.asset(this.dataSource, {this.package})
       : dataSourceType = DataSourceType.asset,
+        videoPlayerBufferOptions = null,
         super(const VideoPlayerValue(duration: Duration.zero));
 
   /// Constructs a [MiniController] playing a video from obtained from
   /// the network.
-  MiniController.network(this.dataSource)
+  MiniController.network(this.dataSource,
+      {required this.videoPlayerBufferOptions})
       : dataSourceType = DataSourceType.network,
         package = null,
         super(const VideoPlayerValue(duration: Duration.zero));
@@ -183,6 +185,7 @@ class MiniController extends ValueNotifier<VideoPlayerValue> {
       : dataSource = Uri.file(file.absolute.path).toString(),
         dataSourceType = DataSourceType.file,
         package = null,
+        videoPlayerBufferOptions = null,
         super(const VideoPlayerValue(duration: Duration.zero));
 
   /// The URI to the video file. This will be in different formats depending on
@@ -192,6 +195,8 @@ class MiniController extends ValueNotifier<VideoPlayerValue> {
   /// Describes the type of data source this [MiniController]
   /// is constructed with.
   final DataSourceType dataSourceType;
+
+  final VideoPlayerBufferOptions? videoPlayerBufferOptions;
 
   /// Only set for [asset] videos. The package that the asset was loaded from.
   final String? package;
@@ -224,9 +229,9 @@ class MiniController extends ValueNotifier<VideoPlayerValue> {
         );
       case DataSourceType.network:
         dataSourceDescription = DataSource(
-          sourceType: DataSourceType.network,
-          uri: dataSource,
-        );
+            sourceType: DataSourceType.network,
+            uri: dataSource,
+            formatHint: VideoFormat.hls);
       case DataSourceType.file:
         dataSourceDescription = DataSource(
           sourceType: DataSourceType.file,
@@ -239,7 +244,12 @@ class MiniController extends ValueNotifier<VideoPlayerValue> {
         );
     }
 
-    _textureId = (await _platform.create(dataSourceDescription)) ??
+    _textureId = (await _platform.create(dataSourceDescription,
+            videoPlayerBufferOptions:
+                videoPlayerBufferOptions ?? const VideoPlayerBufferOptions(),
+            videoPlayerLoggerOptions: const VideoPlayerLoggerOptions(
+              enableCacheDataSourceLogs: false,
+            ))) ??
         kUninitializedTextureId;
     _creatingCompleter!.complete(null);
     final Completer<void> initializingCompleter = Completer<void>();
@@ -506,7 +516,7 @@ class _VideoProgressIndicatorState extends State<VideoProgressIndicator> {
   @override
   Widget build(BuildContext context) {
     const Color playedColor = Color.fromRGBO(255, 0, 0, 0.7);
-    const Color bufferedColor = Color.fromRGBO(50, 50, 200, 0.2);
+    const Color bufferedColor = Colors.green;
     const Color backgroundColor = Color.fromRGBO(200, 200, 200, 0.5);
 
     Widget progressIndicator;

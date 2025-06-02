@@ -457,6 +457,97 @@ public class Messages {
       this.bufferForPlaybackAfterRebufferMs = setterArg;
     }
 
+    private @NonNull Long minDurationForQualityIncreaseMs;
+
+    public @NonNull Long getMinDurationForQualityIncreaseMs() {
+      return minDurationForQualityIncreaseMs;
+    }
+
+    public void setMinDurationForQualityIncreaseMs(@NonNull Long setterArg) {
+      if (setterArg == null) {
+        throw new IllegalStateException("Nonnull field \"minDurationForQualityIncreaseMs\" is null.");
+      }
+      this.minDurationForQualityIncreaseMs = setterArg;
+    }
+
+    private @NonNull Long maxDurationForQualityDecreaseMs;
+
+    public @NonNull Long getMaxDurationForQualityDecreaseMs() {
+      return maxDurationForQualityDecreaseMs;
+    }
+
+    public void setMaxDurationForQualityDecreaseMs(@NonNull Long setterArg) {
+      if (setterArg == null) {
+        throw new IllegalStateException("Nonnull field \"maxDurationForQualityDecreaseMs\" is null.");
+      }
+      this.maxDurationForQualityDecreaseMs = setterArg;
+    }
+
+    private @NonNull Long minDurationToRetainAfterDiscardMs;
+
+    public @NonNull Long getMinDurationToRetainAfterDiscardMs() {
+      return minDurationToRetainAfterDiscardMs;
+    }
+
+    public void setMinDurationToRetainAfterDiscardMs(@NonNull Long setterArg) {
+      if (setterArg == null) {
+        throw new IllegalStateException("Nonnull field \"minDurationToRetainAfterDiscardMs\" is null.");
+      }
+      this.minDurationToRetainAfterDiscardMs = setterArg;
+    }
+
+    private @NonNull Long maxWidthToDiscard;
+
+    public @NonNull Long getMaxWidthToDiscard() {
+      return maxWidthToDiscard;
+    }
+
+    public void setMaxWidthToDiscard(@NonNull Long setterArg) {
+      if (setterArg == null) {
+        throw new IllegalStateException("Nonnull field \"maxWidthToDiscard\" is null.");
+      }
+      this.maxWidthToDiscard = setterArg;
+    }
+
+    private @NonNull Long maxHeightToDiscard;
+
+    public @NonNull Long getMaxHeightToDiscard() {
+      return maxHeightToDiscard;
+    }
+
+    public void setMaxHeightToDiscard(@NonNull Long setterArg) {
+      if (setterArg == null) {
+        throw new IllegalStateException("Nonnull field \"maxHeightToDiscard\" is null.");
+      }
+      this.maxHeightToDiscard = setterArg;
+    }
+
+    private @NonNull Double bandwidthFraction;
+
+    public @NonNull Double getBandwidthFraction() {
+      return bandwidthFraction;
+    }
+
+    public void setBandwidthFraction(@NonNull Double setterArg) {
+      if (setterArg == null) {
+        throw new IllegalStateException("Nonnull field \"bandwidthFraction\" is null.");
+      }
+      this.bandwidthFraction = setterArg;
+    }
+
+    private @NonNull Double bufferedFractionToLiveEdgeForQualityIncrease;
+
+    public @NonNull Double getBufferedFractionToLiveEdgeForQualityIncrease() {
+      return bufferedFractionToLiveEdgeForQualityIncrease;
+    }
+
+    public void setBufferedFractionToLiveEdgeForQualityIncrease(@NonNull Double setterArg) {
+      if (setterArg == null) {
+        throw new IllegalStateException("Nonnull field \"bufferedFractionToLiveEdgeForQualityIncrease\" is null.");
+      }
+      this.bufferedFractionToLiveEdgeForQualityIncrease = setterArg;
+    }
+
     /** Constructor is non-public to enforce null safety; use Builder. */
     BufferOptionsMessage() {}
 
@@ -465,12 +556,12 @@ public class Messages {
       if (this == o) { return true; }
       if (o == null || getClass() != o.getClass()) { return false; }
       BufferOptionsMessage that = (BufferOptionsMessage) o;
-      return minBufferMs.equals(that.minBufferMs) && maxBufferMs.equals(that.maxBufferMs) && bufferForPlaybackMs.equals(that.bufferForPlaybackMs) && bufferForPlaybackAfterRebufferMs.equals(that.bufferForPlaybackAfterRebufferMs);
+      return minBufferMs.equals(that.minBufferMs) && maxBufferMs.equals(that.maxBufferMs) && bufferForPlaybackMs.equals(that.bufferForPlaybackMs) && bufferForPlaybackAfterRebufferMs.equals(that.bufferForPlaybackAfterRebufferMs) && minDurationForQualityIncreaseMs.equals(that.minDurationForQualityIncreaseMs) && maxDurationForQualityDecreaseMs.equals(that.maxDurationForQualityDecreaseMs) && minDurationToRetainAfterDiscardMs.equals(that.minDurationToRetainAfterDiscardMs) && maxWidthToDiscard.equals(that.maxWidthToDiscard) && maxHeightToDiscard.equals(that.maxHeightToDiscard) && bandwidthFraction.equals(that.bandwidthFraction) && bufferedFractionToLiveEdgeForQualityIncrease.equals(that.bufferedFractionToLiveEdgeForQualityIncrease);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(minBufferMs, maxBufferMs, bufferForPlaybackMs, bufferForPlaybackAfterRebufferMs);
+      return Objects.hash(minBufferMs, maxBufferMs, bufferForPlaybackMs, bufferForPlaybackAfterRebufferMs, minDurationForQualityIncreaseMs, maxDurationForQualityDecreaseMs, minDurationToRetainAfterDiscardMs, maxWidthToDiscard, maxHeightToDiscard, bandwidthFraction, bufferedFractionToLiveEdgeForQualityIncrease);
     }
 
     public static final class Builder {
@@ -507,23 +598,93 @@ public class Messages {
         return this;
       }
 
+      private @Nullable Long minDurationForQualityIncreaseMs;
+
+      @CanIgnoreReturnValue
+      public @NonNull Builder setMinDurationForQualityIncreaseMs(@NonNull Long setterArg) {
+        this.minDurationForQualityIncreaseMs = setterArg;
+        return this;
+      }
+
+      private @Nullable Long maxDurationForQualityDecreaseMs;
+
+      @CanIgnoreReturnValue
+      public @NonNull Builder setMaxDurationForQualityDecreaseMs(@NonNull Long setterArg) {
+        this.maxDurationForQualityDecreaseMs = setterArg;
+        return this;
+      }
+
+      private @Nullable Long minDurationToRetainAfterDiscardMs;
+
+      @CanIgnoreReturnValue
+      public @NonNull Builder setMinDurationToRetainAfterDiscardMs(@NonNull Long setterArg) {
+        this.minDurationToRetainAfterDiscardMs = setterArg;
+        return this;
+      }
+
+      private @Nullable Long maxWidthToDiscard;
+
+      @CanIgnoreReturnValue
+      public @NonNull Builder setMaxWidthToDiscard(@NonNull Long setterArg) {
+        this.maxWidthToDiscard = setterArg;
+        return this;
+      }
+
+      private @Nullable Long maxHeightToDiscard;
+
+      @CanIgnoreReturnValue
+      public @NonNull Builder setMaxHeightToDiscard(@NonNull Long setterArg) {
+        this.maxHeightToDiscard = setterArg;
+        return this;
+      }
+
+      private @Nullable Double bandwidthFraction;
+
+      @CanIgnoreReturnValue
+      public @NonNull Builder setBandwidthFraction(@NonNull Double setterArg) {
+        this.bandwidthFraction = setterArg;
+        return this;
+      }
+
+      private @Nullable Double bufferedFractionToLiveEdgeForQualityIncrease;
+
+      @CanIgnoreReturnValue
+      public @NonNull Builder setBufferedFractionToLiveEdgeForQualityIncrease(@NonNull Double setterArg) {
+        this.bufferedFractionToLiveEdgeForQualityIncrease = setterArg;
+        return this;
+      }
+
       public @NonNull BufferOptionsMessage build() {
         BufferOptionsMessage pigeonReturn = new BufferOptionsMessage();
         pigeonReturn.setMinBufferMs(minBufferMs);
         pigeonReturn.setMaxBufferMs(maxBufferMs);
         pigeonReturn.setBufferForPlaybackMs(bufferForPlaybackMs);
         pigeonReturn.setBufferForPlaybackAfterRebufferMs(bufferForPlaybackAfterRebufferMs);
+        pigeonReturn.setMinDurationForQualityIncreaseMs(minDurationForQualityIncreaseMs);
+        pigeonReturn.setMaxDurationForQualityDecreaseMs(maxDurationForQualityDecreaseMs);
+        pigeonReturn.setMinDurationToRetainAfterDiscardMs(minDurationToRetainAfterDiscardMs);
+        pigeonReturn.setMaxWidthToDiscard(maxWidthToDiscard);
+        pigeonReturn.setMaxHeightToDiscard(maxHeightToDiscard);
+        pigeonReturn.setBandwidthFraction(bandwidthFraction);
+        pigeonReturn.setBufferedFractionToLiveEdgeForQualityIncrease(bufferedFractionToLiveEdgeForQualityIncrease);
         return pigeonReturn;
       }
     }
 
     @NonNull
     ArrayList<Object> toList() {
-      ArrayList<Object> toListResult = new ArrayList<>(4);
+      ArrayList<Object> toListResult = new ArrayList<>(11);
       toListResult.add(minBufferMs);
       toListResult.add(maxBufferMs);
       toListResult.add(bufferForPlaybackMs);
       toListResult.add(bufferForPlaybackAfterRebufferMs);
+      toListResult.add(minDurationForQualityIncreaseMs);
+      toListResult.add(maxDurationForQualityDecreaseMs);
+      toListResult.add(minDurationToRetainAfterDiscardMs);
+      toListResult.add(maxWidthToDiscard);
+      toListResult.add(maxHeightToDiscard);
+      toListResult.add(bandwidthFraction);
+      toListResult.add(bufferedFractionToLiveEdgeForQualityIncrease);
       return toListResult;
     }
 
@@ -537,6 +698,20 @@ public class Messages {
       pigeonResult.setBufferForPlaybackMs((Long) bufferForPlaybackMs);
       Object bufferForPlaybackAfterRebufferMs = pigeonVar_list.get(3);
       pigeonResult.setBufferForPlaybackAfterRebufferMs((Long) bufferForPlaybackAfterRebufferMs);
+      Object minDurationForQualityIncreaseMs = pigeonVar_list.get(4);
+      pigeonResult.setMinDurationForQualityIncreaseMs((Long) minDurationForQualityIncreaseMs);
+      Object maxDurationForQualityDecreaseMs = pigeonVar_list.get(5);
+      pigeonResult.setMaxDurationForQualityDecreaseMs((Long) maxDurationForQualityDecreaseMs);
+      Object minDurationToRetainAfterDiscardMs = pigeonVar_list.get(6);
+      pigeonResult.setMinDurationToRetainAfterDiscardMs((Long) minDurationToRetainAfterDiscardMs);
+      Object maxWidthToDiscard = pigeonVar_list.get(7);
+      pigeonResult.setMaxWidthToDiscard((Long) maxWidthToDiscard);
+      Object maxHeightToDiscard = pigeonVar_list.get(8);
+      pigeonResult.setMaxHeightToDiscard((Long) maxHeightToDiscard);
+      Object bandwidthFraction = pigeonVar_list.get(9);
+      pigeonResult.setBandwidthFraction((Double) bandwidthFraction);
+      Object bufferedFractionToLiveEdgeForQualityIncrease = pigeonVar_list.get(10);
+      pigeonResult.setBufferedFractionToLiveEdgeForQualityIncrease((Double) bufferedFractionToLiveEdgeForQualityIncrease);
       return pigeonResult;
     }
   }

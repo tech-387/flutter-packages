@@ -95,7 +95,14 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
                 bufferOptionsMessage != null ? bufferOptionsMessage.getMinBufferMs() : 15000L,
                 bufferOptionsMessage != null ? bufferOptionsMessage.getMaxBufferMs() : 30000L,
                 bufferOptionsMessage != null ? bufferOptionsMessage.getBufferForPlaybackMs() : 2000L,
-                bufferOptionsMessage != null ? bufferOptionsMessage.getBufferForPlaybackAfterRebufferMs() : 2000L
+                bufferOptionsMessage != null ? bufferOptionsMessage.getBufferForPlaybackAfterRebufferMs() : 2000L,
+                bufferOptionsMessage != null ? bufferOptionsMessage.getMinDurationForQualityIncreaseMs() : 3000L,
+                bufferOptionsMessage != null ? bufferOptionsMessage.getMaxDurationForQualityDecreaseMs() : 3000L,
+                bufferOptionsMessage != null ? bufferOptionsMessage.getMinDurationToRetainAfterDiscardMs() : 3000L,
+                bufferOptionsMessage != null ? bufferOptionsMessage.getMaxWidthToDiscard() : 1279,
+                bufferOptionsMessage != null ? bufferOptionsMessage.getMaxHeightToDiscard() : 719,
+                bufferOptionsMessage != null ? bufferOptionsMessage.getBandwidthFraction() : 0.85f,
+                bufferOptionsMessage != null ? bufferOptionsMessage.getBufferedFractionToLiveEdgeForQualityIncrease() : 0.75f
         );
 
         VideoPlayerLoggerOptions videoPlayerLoggerOptions = new VideoPlayerLoggerOptions(

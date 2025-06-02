@@ -72,6 +72,17 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
         bufferForPlaybackMs: videoPlayerBufferOptions.bufferForPlaybackMs,
         bufferForPlaybackAfterRebufferMs:
             videoPlayerBufferOptions.bufferForPlaybackAfterRebufferMs,
+        minDurationForQualityIncreaseMs:
+            videoPlayerBufferOptions.minDurationForQualityIncreaseMs,
+        maxDurationForQualityDecreaseMs:
+            videoPlayerBufferOptions.maxDurationForQualityDecreaseMs,
+        minDurationToRetainAfterDiscardMs:
+            videoPlayerBufferOptions.minDurationToRetainAfterDiscardMs,
+        maxWidthToDiscard: videoPlayerBufferOptions.maxWidthToDiscard,
+        maxHeightToDiscard: videoPlayerBufferOptions.maxHeightToDiscard,
+        bandwidthFraction: videoPlayerBufferOptions.bandwidthFraction,
+        bufferedFractionToLiveEdgeForQualityIncrease: videoPlayerBufferOptions
+            .bufferedFractionToLiveEdgeForQualityIncrease,
       ),
       loggerOptions: LoggerOptionsMessage(
         enableTransferListenerLogs:

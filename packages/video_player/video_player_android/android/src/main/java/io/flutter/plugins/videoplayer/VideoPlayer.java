@@ -138,12 +138,12 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
                                 options.maxFileBytes, options.cacheDirectory, asset.assetUrl, loggerOptions);
                         mediaSourceFactory.setDataSourceFactory(cacheDataSourceFactory);
                         trackSelector = new DefaultTrackSelector(context,
-                                new CustomAdaptiveTrackSelectionFactory(asset.assetUrl, cacheDataSourceFactory, loggerOptions)
+                                new CustomAdaptiveTrackSelectionFactory(asset.assetUrl, cacheDataSourceFactory, loggerOptions, bufferOptions)
                         );
                     } else {
                         // Custom track selector and custom adaptive track selection factory.
                         trackSelector = new DefaultTrackSelector(context,
-                                new CustomAdaptiveTrackSelectionFactory(asset.assetUrl, null, loggerOptions)
+                                new CustomAdaptiveTrackSelectionFactory(asset.assetUrl, null, loggerOptions, bufferOptions)
                         );
                     }
 
