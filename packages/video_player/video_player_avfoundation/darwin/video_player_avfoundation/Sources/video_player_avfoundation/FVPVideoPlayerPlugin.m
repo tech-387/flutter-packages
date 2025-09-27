@@ -190,8 +190,6 @@ static void upgradeAudioSessionCategory(AVAudioSessionCategory requestedCategory
           // Sets additional headers, if provided in input.
           config.HTTPAdditionalHeaders = options.httpHeaders;
             
-          [SJMediaCacheServer.shared setActive:YES];
-            
           [SJMediaCacheServer.shared setCacheMaxDiskSize:_videoPlayerOptions.maxCacheBytes];
           
           NSURL *originalURL = [NSURL URLWithString:options.uri];
@@ -249,7 +247,6 @@ static void upgradeAudioSessionCategory(AVAudioSessionCategory requestedCategory
 }
 
 - (void)playPlayer:(NSInteger)textureId error:(FlutterError **)error {
-  [SJMediaCacheServer.shared setActive:YES];
   FVPVideoPlayer *player = self.playersByTextureId[@(textureId)];
   [player play];
 }
@@ -262,7 +259,6 @@ static void upgradeAudioSessionCategory(AVAudioSessionCategory requestedCategory
 - (void)seekTo:(NSInteger)position
      forPlayer:(NSInteger)textureId
     completion:(nonnull void (^)(FlutterError *_Nullable))completion {
-  [SJMediaCacheServer.shared setActive:YES];
   FVPVideoPlayer *player = self.playersByTextureId[@(textureId)];
   [player seekTo:position
       completionHandler:^(BOOL finished) {
