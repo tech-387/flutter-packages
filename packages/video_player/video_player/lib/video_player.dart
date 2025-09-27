@@ -20,6 +20,7 @@ export 'package:video_player_platform_interface/video_player_platform_interface.
         VideoFormat,
         VideoPlayerBufferOptions,
         VideoPlayerCacheOptions,
+        VideoPlayerLoggerOptions,
         VideoPlayerOptions,
         VideoPlayerWebOptions,
         VideoPlayerWebOptionsControls;
