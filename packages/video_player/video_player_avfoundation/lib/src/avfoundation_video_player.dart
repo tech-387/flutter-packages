@@ -51,7 +51,7 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
         dataSource: dataSource,
         // Texture view was the only supported view type before
         // createWithOptions was introduced.
-        viewType: VideoViewType.textureView,
+        viewType: VideoViewType.platformView,
       ),
       videoPlayerBufferOptions: videoPlayerBufferOptions,
       videoPlayerLoggerOptions: videoPlayerLoggerOptions,
