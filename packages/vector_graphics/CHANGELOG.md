@@ -1,3 +1,21 @@
+## 1.2.0
+
+* Adds `imageBuilder` property to `VectorGraphic` for wrapping the loaded vector graphic widget.
+
+## 1.1.21
+
+* Corrected width/height parameter documentation in VectorGraphic widget.
+
+## 1.1.20
+
+* Updates minimum supported SDK version to Flutter 3.35/Dart 3.9.
+* Respect BoxFit parameter when viewbox is specified.
+
+## 1.1.19
+
+* Updates minimum supported SDK version to Flutter 3.24/Dart 3.5.
+* Enhance image handling by adding validity checks and clear error messages for improved robustness and maintainability.
+
 ## 1.1.18
 
 * Allow transition between placeholder and loaded image to have an animation.

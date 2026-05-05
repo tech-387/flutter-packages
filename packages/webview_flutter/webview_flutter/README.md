@@ -11,7 +11,7 @@ On Android the WebView widget is backed by a [WebView](https://developer.android
 
 |             | Android | iOS   | macOS  |
 |-------------|---------|-------|--------|
-| **Support** | SDK 21+ | 12.0+ | 10.14+ |
+| **Support** | SDK 24+ | 13.0+ | 10.15+ |
 
 ## Usage
 
@@ -54,27 +54,12 @@ Widget build(BuildContext context) {
     body: WebViewWidget(controller: controller),
   );
 }
+
 ```
 
 See the Dartdocs for [WebViewController](https://pub.dev/documentation/webview_flutter/latest/webview_flutter/WebViewController-class.html)
 and [WebViewWidget](https://pub.dev/documentation/webview_flutter/latest/webview_flutter/WebViewWidget-class.html)
 for more details.
-
-### Android Platform Views
-
-This plugin uses
-[Platform Views](https://docs.flutter.dev/platform-integration/android/platform-views) to
-embed the Android's WebView within the Flutter app.
-
-You should however make sure to set the correct `minSdkVersion` in `android/app/build.gradle` if it was previously lower than 19:
-
-```groovy
-android {
-    defaultConfig {
-        minSdkVersion 19
-    }
-}
-```
 
 ### Platform-Specific Features
 
@@ -122,8 +107,7 @@ if (WebViewPlatform.instance is WebKitWebViewPlatform) {
   params = const PlatformWebViewControllerCreationParams();
 }
 
-final WebViewController controller =
-    WebViewController.fromPlatformCreationParams(params);
+final controller = WebViewController.fromPlatformCreationParams(params);
 // ···
 if (controller.platform is AndroidWebViewController) {
   AndroidWebViewController.enableDebugging(true);
@@ -174,10 +158,9 @@ for more details.
 
 ### PlatformView Implementation on Android
 
-The PlatformView implementation for Android uses Texture Layer Hybrid Composition on versions 23+
-and automatically fallbacks to Hybrid Composition for version 19-23. See section
+The PlatformView implementation for Android uses Texture Layer Hybrid Composition. See section
 `Platform-Specific Features` and [AndroidWebViewWidgetCreationParams.displayWithHybridComposition](https://pub.dev/documentation/webview_flutter_android/latest/webview_flutter_android/AndroidWebViewWidgetCreationParams/displayWithHybridComposition.html)
-to manually switch to Hybrid Composition on versions 23+.
+to manually switch to Hybrid Composition.
 
 ### API Changes
 

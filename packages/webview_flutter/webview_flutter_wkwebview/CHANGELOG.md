@@ -1,3 +1,131 @@
+## 3.25.1
+
+* Relands update to prevent message calls when application will terminate.
+* Updates minimum supported SDK version to Flutter 3.38/Dart 3.10.
+
+## 3.25.0
+
+* Adds support for retrieving cookies with `PlatformWebViewCookieManager.getCookies`.
+
+## 3.24.5
+
+* Reverts `3.24.4` to prevent missing `FlutterSceneLifeCycleDelegate` build error.
+
+## 3.24.4
+
+* Updates plugin to prevent message calls when application will terminate.
+
+## 3.24.3
+
+* Adds support to get failing url from DNS errors on iOS 26+.
+
+## 3.24.2
+
+* Fixes dartdoc comments that accidentally used HTML.
+
+## 3.24.1
+
+* Updates platform views on iOS to only have a weak reference to the native view. This is a
+  potential workaround to prevent a crash during the Flutter engine shutdown. See https://github.com/flutter/flutter/issues/168535
+
+## 3.24.0
+
+* Adds support for `WebKitWebViewControllerCreationParams.javaScriptCanOpenWindowsAutomatically` to allow JavaScript's
+  `window.open()` to work without user interaction on iOS and macOS.
+
+## 3.23.8
+
+* Fixes lossy transition from Dart Color to native UIColor when calling `setBackgroundColor`.
+
+## 3.23.7
+
+* Fixes crash when calling setOnConsoleMessage multiple times.
+
+## 3.23.6
+
+* Fixes a crash if WebViewFlutterWKWebViewExternalAPI is passed the wrong registry.
+
+## 3.23.5
+
+* Removes internal native library Dart proxy.
+
+## 3.23.4
+
+* Replaces use of deprecated Color.value.
+
+## 3.23.3
+
+* Updates to Pigeon 26.
+
+## 3.23.2
+
+* Removes specialization of 'map' to fix a Swift warning.
+
+## 3.23.1
+
+* Removes code for versions of iOS older than 13.0.
+* Updates minimum supported SDK version to Flutter 3.35.
+
+## 3.23.0
+
+* Adds support for `PlatformWebViewController.loadFileWithParams`.
+* Introduces `WebKitLoadFileParams`, a platform-specific extension of `LoadFileParams` for iOS and macOS that adds support for `readAccessPath`.
+
+## 3.22.1
+
+* Changes the handling of a Flutter method failure from throwing an assertion error to logging the
+  error.
+* Updates minimum supported SDK version to Flutter 3.27/Dart 3.6.
+
+## 3.22.0
+
+* Adds support to respond to recoverable SSL certificate errors. See `WebKitNavigationDelegate.setOnSSlAuthError`.
+
+## 3.21.0
+
+* Adds support to set whether to draw the scrollbar. See
+  `WebKitWebViewController.setVerticalScrollBarEnabled`,
+  `WebKitWebViewController.setHorizontalScrollBarEnabled`,
+  `WebKitWebViewController.supportsSetScrollBarsEnabled`.
+
+## 3.20.0
+
+* Adds support to disable a preview of the destination for a link. See
+  `WebKitWebViewController.setAllowsLinkPreview`.
+
+## 3.19.0
+
+* Adds support to set the over-scroll mode for the WebView. See `WebKitWebViewController.setOverScrollMode`.
+
+## 3.18.6
+
+* Fixes `PlatformException` when calling `loadFlutterAsset` on macOS.
+* Updates native wrapper with methods handling `SecTust` and `SecCertificate`. 
+
+## 3.18.5
+
+* Fixes crash when sending undefined message via JavaScript channel.
+
+## 3.18.4
+
+* Fixes crash when native `WKFrameInfo.request` is nil.
+
+## 3.18.3
+
+* Fixes crash where the native `AuthenticationChallengeResponse` could not be found for auth
+  requests.
+
+## 3.18.2
+
+* Updates generated pigeon code to ensure the internal wrapper immediately sends constructor calls.
+
+## 3.18.1
+
+* Fixes bug that would allow the API wrapper to return `null` when a non-null value was required in
+  a callback method.
+* Changes default method to enable JavaScript for web content to
+  `WKWebpagePreferences.allowsContentJavaScript`. 
+
 ## 3.18.0
 
 * Updates internal API wrapper to use ProxyApis.

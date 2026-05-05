@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -111,21 +111,21 @@ class WebLinkDelegateState extends State<WebLinkDelegate> {
       fit: StackFit.passthrough,
       children: <Widget>[
         _buildChild(context),
-        Positioned.fill(
-          child: _buildPlatformView(context),
-        ),
+        Positioned.fill(child: _buildPlatformView(context)),
       ],
     );
   }
 
   Widget _buildChild(BuildContext context) {
-    return Semantics(
-      link: true,
-      identifier: _semanticsIdentifier,
-      linkUrl: widget.link.uri,
-      child: widget.link.builder(
-        context,
-        widget.link.isDisabled ? null : _followLink,
+    return MergeSemantics(
+      child: Semantics(
+        link: true,
+        identifier: _semanticsIdentifier,
+        linkUrl: widget.link.uri,
+        child: widget.link.builder(
+          context,
+          widget.link.isDisabled ? null : _followLink,
+        ),
       ),
     );
   }
@@ -136,21 +136,23 @@ class WebLinkDelegateState extends State<WebLinkDelegate> {
         child: PlatformViewLink(
           viewType: linkViewType,
           onCreatePlatformView: (PlatformViewCreationParams params) {
-            _controller =
-                LinkViewController.fromParams(params, _semanticsIdentifier);
+            _controller = LinkViewController.fromParams(
+              params,
+              _semanticsIdentifier,
+            );
             return _controller
               ..setUri(widget.link.uri)
               ..setTarget(widget.link.target);
           },
           surfaceFactory:
               (BuildContext context, PlatformViewController controller) {
-            return PlatformViewSurface(
-              controller: controller,
-              gestureRecognizers: const <Factory<
-                  OneSequenceGestureRecognizer>>{},
-              hitTestBehavior: PlatformViewHitTestBehavior.transparent,
-            );
-          },
+                return PlatformViewSurface(
+                  controller: controller,
+                  gestureRecognizers:
+                      const <Factory<OneSequenceGestureRecognizer>>{},
+                  hitTestBehavior: PlatformViewHitTestBehavior.transparent,
+                );
+              },
         ),
       ),
     );
@@ -160,8 +162,8 @@ class WebLinkDelegateState extends State<WebLinkDelegate> {
 final JSAny _useCapture = <String, Object>{'capture': true}.jsify()!;
 
 /// Signature for the function that triggers a link.
-typedef TriggerLinkCallback = void Function(
-    int viewId, html.MouseEvent? mouseEvent);
+typedef TriggerLinkCallback =
+    void Function(int viewId, html.MouseEvent? mouseEvent);
 
 /// Keeps track of the signals required to trigger a link.
 ///
@@ -184,10 +186,7 @@ typedef TriggerLinkCallback = void Function(
 class LinkTriggerSignals {
   /// Creates a [LinkTriggerSignals] instance that calls [triggerLink] when all
   /// the signals are received within a [staleTimeout] duration.
-  LinkTriggerSignals({
-    required this.triggerLink,
-    required this.staleTimeout,
-  });
+  LinkTriggerSignals({required this.triggerLink, required this.staleTimeout});
 
   /// The function to be called when all signals have been received and the link
   /// is ready to be triggered.
@@ -198,6 +197,16 @@ class LinkTriggerSignals {
   /// Signals have to arrive within [staleTimeout] duration between them to be
   /// considered valid. If they don't, the signals are reset.
   final Duration staleTimeout;
+
+  /// Whether the browser can do the navigation itself.
+  ///
+  /// If the link is activated by a click event, then we know the browser can do the navigation by
+  /// itself.
+  ///
+  /// In some cases, we decide to prevent default on the click event, so [canBrowserNavigate] is
+  /// set to false to indicate that the browser is not able to perform the navigation anymore. In
+  /// such case, the navigation has to be performed programmatically (using `launchUrl`).
+  bool canBrowserNavigate = false;
 
   bool get _hasAllSignals => _hasFollowLink && _hasDomEvent;
 
@@ -232,7 +241,7 @@ class LinkTriggerSignals {
   void onFollowLink({required int viewId}) {
     _hasFollowLink = true;
     _viewIdFromFollowLink = viewId;
-    _didUpdate();
+    _scheduleReset();
   }
 
   /// Handles a [mouseEvent] signal from a specific [viewId].
@@ -254,7 +263,26 @@ class LinkTriggerSignals {
     _hasDomEvent = true;
     _viewIdFromDomEvent = viewId;
     _mouseEvent = mouseEvent;
-    _didUpdate();
+    _scheduleReset();
+
+    if (mouseEvent != null) {
+      canBrowserNavigate = true;
+      // We have to make a decision whether to allow the browser to navigate or not. The decision
+      // has to be made before the end of the event loop.
+      //
+      // If we don't hear back from the `followLink` signal by the end of the event loop, we should
+      // prevent the browser from navigating. If the `followLink` signal arrives later, we can
+      // navigate programmatically using `launchUrl`.
+      scheduleMicrotask(() {
+        if (!_hasDomEvent) {
+          // By the time the microtask runs, the link may have already been triggered. In that case,
+          // we want to do nothing here.
+          return;
+        }
+        canBrowserNavigate = false;
+        mouseEvent.preventDefault();
+      });
+    }
   }
 
   bool _hasFollowLink = false;
@@ -279,7 +307,7 @@ class LinkTriggerSignals {
 
   Timer? _resetTimer;
 
-  void _didUpdate() {
+  void _scheduleReset() {
     _resetTimer?.cancel();
     _resetTimer = Timer(staleTimeout, reset);
   }
@@ -296,6 +324,7 @@ class LinkTriggerSignals {
     _viewIdFromDomEvent = null;
 
     _mouseEvent = null;
+    canBrowserNavigate = false;
   }
 }
 
@@ -319,8 +348,7 @@ class LinkViewController extends PlatformViewController {
     String semanticsIdentifier,
   ) {
     final int viewId = params.id;
-    final LinkViewController controller =
-        LinkViewController(viewId, semanticsIdentifier);
+    final controller = LinkViewController(viewId, semanticsIdentifier);
     controller._initialize().then((_) {
       /// Because _initialize is async, it can happen that [LinkViewController.dispose]
       /// may get called before this `then` callback.
@@ -434,10 +462,7 @@ class LinkViewController extends PlatformViewController {
   }
 
   static void _onGlobalClick(html.MouseEvent event) {
-    handleGlobalClick(
-      event: event,
-      target: event.target as html.Element?,
-    );
+    handleGlobalClick(event: event, target: event.target as html.Element?);
   }
 
   /// Global click handler that's called for every click event on the window.
@@ -461,10 +486,7 @@ class LinkViewController extends PlatformViewController {
       return;
     }
 
-    _triggerSignals.onMouseEvent(
-      viewId: viewIdFromTarget,
-      mouseEvent: event,
-    );
+    _triggerSignals.onMouseEvent(viewId: viewIdFromTarget, mouseEvent: event);
 
     _triggerSignals.triggerLinkIfReady();
   }
@@ -500,10 +522,7 @@ class LinkViewController extends PlatformViewController {
     _element.setAttribute('aria-hidden', 'true');
     _element.setAttribute('tabIndex', '-1');
 
-    final Map<String, dynamic> args = <String, dynamic>{
-      'id': viewId,
-      'viewType': linkViewType,
-    };
+    final args = <String, dynamic>{'id': viewId, 'viewType': linkViewType};
     await SystemChannels.platform_views.invokeMethod<void>('create', args);
   }
 
@@ -514,7 +533,7 @@ class LinkViewController extends PlatformViewController {
   static void _triggerLink(int viewId, html.MouseEvent? mouseEvent) {
     final LinkViewController controller = _instancesByViewId[viewId]!;
 
-    if (mouseEvent != null && _isModifierKey(mouseEvent)) {
+    if (_triggerSignals.canBrowserNavigate && _isModifierKey(mouseEvent)) {
       // When the click is accompanied by a modifier key (e.g. cmd+click or
       // shift+click), we want to let the browser do its thing (e.g. open a new
       // tab or a new window).
@@ -522,22 +541,22 @@ class LinkViewController extends PlatformViewController {
     }
 
     if (controller._isExternalLink) {
-      if (mouseEvent == null) {
-        // When external links are triggered by keyboard, they are not handled by
-        // the browser. So we have to launch the url manually.
-        UrlLauncherPlatform.instance
-            .launchUrl(controller._uri.toString(), const LaunchOptions());
+      if (!_triggerSignals.canBrowserNavigate) {
+        // When the browser can't do the navigation, we have to launch the url manually.
+        UrlLauncherPlatform.instance.launchUrl(
+          controller._uri.toString(),
+          const LaunchOptions(),
+        );
       }
 
-      // When triggerd by a mouse event, external links will be handled by the
-      // browser, so we don't have to do anything.
+      // Otherwise, let the browser handle it, so we don't have to do anything.
       return;
     }
 
     // Internal links are pushed through Flutter's navigation system instead of
     // letting the browser handle it.
     mouseEvent?.preventDefault();
-    final String routeName = controller._uri.toString();
+    final routeName = controller._uri.toString();
     pushRouteToFrameworkFunction(routeName);
   }
 
@@ -599,8 +618,9 @@ class LinkViewController extends PlatformViewController {
       return null;
     }
 
-    final String? semanticsIdentifier =
-        semanticsLink.getAttribute('flt-semantics-identifier');
+    final String? semanticsIdentifier = semanticsLink.getAttribute(
+      'flt-semantics-identifier',
+    );
     if (semanticsIdentifier == null) {
       return null;
     }
@@ -675,7 +695,11 @@ html.Element? _getClosestSemanticsLink(html.Element element) {
   return element.closest('a[id^="flt-semantic-node-"]');
 }
 
-bool _isModifierKey(html.Event event) {
+bool _isModifierKey(html.Event? event) {
+  if (event == null) {
+    return false;
+  }
+
   // This method accepts both KeyboardEvent and MouseEvent but there's no common
   // interface that contains the `ctrlKey`, `altKey`, `metaKey`, and `shiftKey`
   // properties. So we have to cast the event to either `KeyboardEvent` or

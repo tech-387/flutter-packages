@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:vector_graphics/vector_graphics_compat.dart';
 
 class _TolerantComparator extends LocalFileComparator {
   _TolerantComparator(super.testFile);
@@ -24,9 +25,10 @@ class _TolerantComparator extends LocalFileComparator {
       } else {
         // ignore: avoid_print
         print(
-            'Warning - golden differed less than .06% (${result.diffPercent}%), '
-            'ignoring failure but producing output\n'
-            '$error');
+          'Warning - golden differed less than .06% (${result.diffPercent}%), '
+          'ignoring failure but producing output\n'
+          '$error',
+        );
       }
     }
     return true;
@@ -39,36 +41,62 @@ Future<void> _checkWidgetAndGolden(Key key, String filename) async {
   await expectLater(widgetFinder, matchesGoldenFile('golden_widget/$filename'));
 }
 
+class _TestColorMapper extends ColorMapper {
+  const _TestColorMapper();
+
+  /// Substitutes specific colors for testing the SVG rendering.
+  @override
+  Color substitute(
+    String? id,
+    String elementName,
+    String attributeName,
+    Color color,
+  ) {
+    if (color == const Color(0xFF42A5F5)) {
+      return const Color(0xFF00FF00); // Green
+    }
+    if (color == const Color(0xFF0D47A1)) {
+      return const Color(0xFFFF0000); // Red
+    }
+    if (color == const Color(0xFF616161)) {
+      return const Color(0xFF0000FF); // Blue
+    }
+    if (color == const Color(0xFF000000)) {
+      return const Color(0xFFFFFF00); // Yellow
+    }
+    return color;
+  }
+}
+
 void main() {
-  final MediaQueryData mediaQueryData =
-      MediaQueryData.fromView(PlatformDispatcher.instance.implicitView!);
+  final mediaQueryData = MediaQueryData.fromView(
+    PlatformDispatcher.instance.implicitView!,
+  );
 
   setUpAll(() {
-    final LocalFileComparator oldComparator =
-        goldenFileComparator as LocalFileComparator;
-    final _TolerantComparator newComparator =
-        _TolerantComparator(Uri.parse('${oldComparator.basedir}test'));
+    final oldComparator = goldenFileComparator as LocalFileComparator;
+    final newComparator = _TolerantComparator(
+      Uri.parse('${oldComparator.basedir}test'),
+    );
     expect(oldComparator.basedir, newComparator.basedir);
     goldenFileComparator = newComparator;
   });
 
   testWidgets(
-      'SvgPicture does not use a color filtering widget when no color specified',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(
-      SvgPicture.string(
-        svgStr,
-        width: 100.0,
-        height: 100.0,
-      ),
-    );
-    await tester.pumpAndSettle();
+    'SvgPicture does not use a color filtering widget when no color specified',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        SvgPicture.string(svgStr, width: 100.0, height: 100.0),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.byType(ColorFiltered), findsNothing);
-  });
+      expect(find.byType(ColorFiltered), findsNothing);
+    },
+  );
 
-  testWidgets('SvgPicture can work with a FittedBox',
-      (WidgetTester tester) async {
+  testWidgets('SvgPicture can work with a FittedBox', (
+    WidgetTester tester,
+  ) async {
     final GlobalKey key = GlobalKey();
     await tester.pumpWidget(
       MediaQuery(
@@ -80,11 +108,7 @@ void main() {
             Flexible(
               child: FittedBox(
                 fit: BoxFit.fitWidth,
-                child: SvgPicture.string(
-                  svgStr,
-                  width: 20.0,
-                  height: 14.0,
-                ),
+                child: SvgPicture.string(svgStr, width: 20.0, height: 14.0),
               ),
             ),
           ],
@@ -103,10 +127,29 @@ void main() {
         data: mediaQueryData,
         child: RepaintBoundary(
           key: key,
+          child: SvgPicture.string(svgStr, width: 100.0, height: 100.0),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await _checkWidgetAndGolden(key, 'flutter_logo.string.png');
+  });
+
+  testWidgets('SvgPicture.string with renderingStrategy', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey key = GlobalKey();
+    await tester.pumpWidget(
+      MediaQuery(
+        data: mediaQueryData,
+        child: RepaintBoundary(
+          key: key,
           child: SvgPicture.string(
             svgStr,
             width: 100.0,
             height: 100.0,
+            renderingStrategy: RenderingStrategy.raster,
           ),
         ),
       ),
@@ -116,17 +159,35 @@ void main() {
     await _checkWidgetAndGolden(key, 'flutter_logo.string.png');
   });
 
+  testWidgets('SvgPicture.string with colorMapper', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey key = GlobalKey();
+    await tester.pumpWidget(
+      MediaQuery(
+        data: mediaQueryData,
+        child: RepaintBoundary(
+          key: key,
+          child: SvgPicture.string(
+            svgStr,
+            width: 100.0,
+            height: 100.0,
+            colorMapper: const _TestColorMapper(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await _checkWidgetAndGolden(key, 'flutter_logo.string.color_mapper.png');
+  });
+
   testWidgets('SvgPicture natural size', (WidgetTester tester) async {
     final GlobalKey key = GlobalKey();
     await tester.pumpWidget(
       MediaQuery(
         data: mediaQueryData,
-        child: Center(
-          key: key,
-          child: SvgPicture.string(
-            svgStr,
-          ),
-        ),
+        child: Center(key: key, child: SvgPicture.string(svgStr)),
       ),
     );
 
@@ -139,12 +200,7 @@ void main() {
     await tester.pumpWidget(
       MediaQuery(
         data: mediaQueryData,
-        child: Center(
-          key: key,
-          child: SvgPicture.string(
-            stickFigureSvgStr,
-          ),
-        ),
+        child: Center(key: key, child: SvgPicture.string(stickFigureSvgStr)),
       ),
     );
 
@@ -237,10 +293,24 @@ void main() {
     await tester.pumpWidget(
       MediaQuery(
         data: mediaQueryData,
+        child: RepaintBoundary(key: key, child: SvgPicture.memory(svgBytes)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _checkWidgetAndGolden(key, 'flutter_logo.memory.png');
+  });
+
+  testWidgets('SvgPicture.memory with strategy', (WidgetTester tester) async {
+    final GlobalKey key = GlobalKey();
+    await tester.pumpWidget(
+      MediaQuery(
+        data: mediaQueryData,
         child: RepaintBoundary(
           key: key,
           child: SvgPicture.memory(
             svgBytes,
+            renderingStrategy: RenderingStrategy.raster,
           ),
         ),
       ),
@@ -250,8 +320,45 @@ void main() {
     await _checkWidgetAndGolden(key, 'flutter_logo.memory.png');
   });
 
+  testWidgets('SvgPicture.memory with colorMapper', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey key = GlobalKey();
+    await tester.pumpWidget(
+      MediaQuery(
+        data: mediaQueryData,
+        child: RepaintBoundary(
+          key: key,
+          child: SvgPicture.memory(
+            svgBytes,
+            colorMapper: const _TestColorMapper(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _checkWidgetAndGolden(key, 'flutter_logo.memory.color_mapper.png');
+  });
+
   testWidgets('SvgPicture.asset', (WidgetTester tester) async {
-    final FakeAssetBundle fakeAsset = FakeAssetBundle();
+    final fakeAsset = FakeAssetBundle();
+    final GlobalKey key = GlobalKey();
+    await tester.pumpWidget(
+      MediaQuery(
+        data: mediaQueryData,
+        child: RepaintBoundary(
+          key: key,
+          child: SvgPicture.asset('test.svg', bundle: fakeAsset),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _checkWidgetAndGolden(key, 'flutter_logo.asset.png');
+  });
+
+  testWidgets('SvgPicture.asset with strategy', (WidgetTester tester) async {
+    final fakeAsset = FakeAssetBundle();
     final GlobalKey key = GlobalKey();
     await tester.pumpWidget(
       MediaQuery(
@@ -261,6 +368,7 @@ void main() {
           child: SvgPicture.asset(
             'test.svg',
             bundle: fakeAsset,
+            renderingStrategy: RenderingStrategy.raster,
           ),
         ),
       ),
@@ -269,9 +377,54 @@ void main() {
     await _checkWidgetAndGolden(key, 'flutter_logo.asset.png');
   });
 
-  testWidgets('SvgPicture.asset DefaultAssetBundle',
-      (WidgetTester tester) async {
-    final FakeAssetBundle fakeAsset = FakeAssetBundle();
+  testWidgets('SvgPicture.asset with colorMapper', (WidgetTester tester) async {
+    final fakeAsset = FakeAssetBundle();
+    final GlobalKey key = GlobalKey();
+    await tester.pumpWidget(
+      MediaQuery(
+        data: mediaQueryData,
+        child: RepaintBoundary(
+          key: key,
+          child: SvgPicture.asset(
+            'test.svg',
+            bundle: fakeAsset,
+            colorMapper: const _TestColorMapper(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _checkWidgetAndGolden(key, 'flutter_logo.asset.color_mapper.png');
+  });
+
+  testWidgets('SvgPicture.asset DefaultAssetBundle', (
+    WidgetTester tester,
+  ) async {
+    final fakeAsset = FakeAssetBundle();
+    final GlobalKey key = GlobalKey();
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: MediaQuery(
+          data: mediaQueryData,
+          child: DefaultAssetBundle(
+            bundle: fakeAsset,
+            child: RepaintBoundary(
+              key: key,
+              child: SvgPicture.asset('test.svg', semanticsLabel: 'Test SVG'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _checkWidgetAndGolden(key, 'flutter_logo.asset.png');
+  });
+
+  testWidgets('SvgPicture.asset DefaultAssetBundle with strategy', (
+    WidgetTester tester,
+  ) async {
+    final fakeAsset = FakeAssetBundle();
     final GlobalKey key = GlobalKey();
     await tester.pumpWidget(
       Directionality(
@@ -285,6 +438,7 @@ void main() {
               child: SvgPicture.asset(
                 'test.svg',
                 semanticsLabel: 'Test SVG',
+                renderingStrategy: RenderingStrategy.raster,
               ),
             ),
           ),
@@ -295,7 +449,50 @@ void main() {
     await _checkWidgetAndGolden(key, 'flutter_logo.asset.png');
   });
 
+  testWidgets('SvgPicture.asset DefaultAssetBundle with colorMapper', (
+    WidgetTester tester,
+  ) async {
+    final fakeAsset = FakeAssetBundle();
+    final GlobalKey key = GlobalKey();
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: MediaQuery(
+          data: mediaQueryData,
+          child: DefaultAssetBundle(
+            bundle: fakeAsset,
+            child: RepaintBoundary(
+              key: key,
+              child: SvgPicture.asset(
+                'test.svg',
+                semanticsLabel: 'Test SVG',
+                colorMapper: const _TestColorMapper(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _checkWidgetAndGolden(key, 'flutter_logo.asset.color_mapper.png');
+  });
+
   testWidgets('SvgPicture.network', (WidgetTester tester) async {
+    final GlobalKey key = GlobalKey();
+    await tester.pumpWidget(
+      MediaQuery(
+        data: mediaQueryData,
+        child: RepaintBoundary(
+          key: key,
+          child: SvgPicture.network('test.svg', httpClient: FakeHttpClient()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _checkWidgetAndGolden(key, 'flutter_logo.network.png');
+  });
+
+  testWidgets('SvgPicture.network with strategy', (WidgetTester tester) async {
     final GlobalKey key = GlobalKey();
     await tester.pumpWidget(
       MediaQuery(
@@ -305,6 +502,7 @@ void main() {
           child: SvgPicture.network(
             'test.svg',
             httpClient: FakeHttpClient(),
+            renderingStrategy: RenderingStrategy.raster,
           ),
         ),
       ),
@@ -313,9 +511,30 @@ void main() {
     await _checkWidgetAndGolden(key, 'flutter_logo.network.png');
   });
 
+  testWidgets('SvgPicture.network with colorMapper', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey key = GlobalKey();
+    await tester.pumpWidget(
+      MediaQuery(
+        data: mediaQueryData,
+        child: RepaintBoundary(
+          key: key,
+          child: SvgPicture.network(
+            'test.svg',
+            httpClient: FakeHttpClient(),
+            colorMapper: const _TestColorMapper(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _checkWidgetAndGolden(key, 'flutter_logo.network.color_mapper.png');
+  });
+
   testWidgets('SvgPicture.network with headers', (WidgetTester tester) async {
     final GlobalKey key = GlobalKey();
-    final FakeHttpClient client = FakeHttpClient();
+    final client = FakeHttpClient();
     await tester.pumpWidget(
       MediaQuery(
         data: mediaQueryData,
@@ -333,17 +552,14 @@ void main() {
     expect(client.headers['a'], 'b');
   });
 
-  testWidgets('SvgPicture can be created without a MediaQuery',
-      (WidgetTester tester) async {
+  testWidgets('SvgPicture can be created without a MediaQuery', (
+    WidgetTester tester,
+  ) async {
     final GlobalKey key = GlobalKey();
     await tester.pumpWidget(
       RepaintBoundary(
         key: key,
-        child: SvgPicture.string(
-          svgStr,
-          width: 100.0,
-          height: 100.0,
-        ),
+        child: SvgPicture.string(svgStr, width: 100.0, height: 100.0),
       ),
     );
 
@@ -357,10 +573,7 @@ void main() {
       await tester.pumpWidget(
         MediaQuery(
           data: mediaQueryData,
-          child: SvgPicture.network(
-            'notFound.svg',
-            httpClient: client,
-          ),
+          child: SvgPicture.network('notFound.svg', httpClient: client),
         ),
       );
     }, isNotNull);
@@ -392,11 +605,7 @@ void main() {
       Directionality(
         textDirection: TextDirection.ltr,
         child: RepaintBoundary(
-          child: SvgPicture.string(
-            svgStr,
-            width: 100.0,
-            height: 100.0,
-          ),
+          child: SvgPicture.string(svgStr, width: 100.0, height: 100.0),
         ),
       ),
     );
@@ -426,8 +635,9 @@ void main() {
     expect(find.byType(Semantics), findsNothing);
   });
 
-  testWidgets('SvgPicture colorFilter - flutter logo',
-      (WidgetTester tester) async {
+  testWidgets('SvgPicture colorFilter - flutter logo', (
+    WidgetTester tester,
+  ) async {
     final GlobalKey key = GlobalKey();
     await tester.pumpWidget(
       RepaintBoundary(
@@ -449,7 +659,7 @@ void main() {
   });
 
   testWidgets('SvgPicture colorFilter with text', (WidgetTester tester) async {
-    const String svgData = '''
+    const svgData = '''
 <svg font-family="arial" font-size="14" height="160" width="88" xmlns="http://www.w3.org/2000/svg">
   <g stroke="#000" stroke-linecap="round" stroke-width="2" stroke-opacity="1" fill-opacity="1" stroke-linejoin="miter">
     <g>
@@ -484,13 +694,15 @@ void main() {
   });
 
   testWidgets('Can take AlignmentDirectional', (WidgetTester tester) async {
-    await tester.pumpWidget(Directionality(
-      textDirection: TextDirection.ltr,
-      child: SvgPicture.string(
-        svgStr,
-        alignment: AlignmentDirectional.bottomEnd,
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: SvgPicture.string(
+          svgStr,
+          alignment: AlignmentDirectional.bottomEnd,
+        ),
       ),
-    ));
+    );
     expect(find.byType(SvgPicture), findsOneWidget);
   });
 
@@ -498,7 +710,7 @@ void main() {
     testWidgets('circle (cx, cy, r)', (WidgetTester tester) async {
       final GlobalKey key = GlobalKey();
 
-      const String svgStr = '''
+      const svgStr = '''
 <svg width="800px" height="600px" xmlns="http://www.w3.org/2000/svg">
   <circle cx="0.5em" cy="0.5em" r="0.5em" fill="orange" />
 </svg>
@@ -518,11 +730,12 @@ void main() {
       await _checkWidgetAndGolden(key, 'circle.em_ex.png');
     });
 
-    testWidgets('rect (x, y, width, height, rx, ry)',
-        (WidgetTester tester) async {
+    testWidgets('rect (x, y, width, height, rx, ry)', (
+      WidgetTester tester,
+    ) async {
       final GlobalKey key = GlobalKey();
 
-      const String svgStr = '''
+      const svgStr = '''
 <svg width="800px" height="600px" xmlns="http://www.w3.org/2000/svg">
   <rect x="2em" y="1.5em" width="4em" height="3em" rx="0.5em" ry="0.5em" fill="orange" />
 </svg>
@@ -545,7 +758,7 @@ void main() {
     testWidgets('ellipse (cx, cy, rx, ry)', (WidgetTester tester) async {
       final GlobalKey key = GlobalKey();
 
-      const String svgStr = '''
+      const svgStr = '''
 <svg width="800px" height="600px" xmlns="http://www.w3.org/2000/svg">
   <ellipse cx="7em" cy="4em" rx="1em" ry="2em" fill="orange" />
 </svg>
@@ -568,7 +781,7 @@ void main() {
     testWidgets('line (x1, y1, x2, y2)', (WidgetTester tester) async {
       final GlobalKey key = GlobalKey();
 
-      const String svgStr = '''
+      const svgStr = '''
 <svg width="800px" height="600px" xmlns="http://www.w3.org/2000/svg">
   <line x1="0em" y1="6em" x2="4em" y2="0em" stroke="orange" />
   <line x1="4em" y1="0em" x2="8em" y2="6em" stroke="orange" />
@@ -594,7 +807,7 @@ void main() {
     testWidgets('circle (cx, cy, r)', (WidgetTester tester) async {
       final GlobalKey key = GlobalKey();
 
-      const String svgStr = '''
+      const svgStr = '''
 <svg width="800px" height="600px" xmlns="http://www.w3.org/2000/svg">
   <circle cx="0.5ex" cy="0.5ex" r="0.5ex" fill="orange" />
 </svg>
@@ -605,10 +818,7 @@ void main() {
           key: key,
           child: SvgPicture.string(
             svgStr,
-            theme: const SvgTheme(
-              fontSize: 1500,
-              xHeight: 600,
-            ),
+            theme: const SvgTheme(fontSize: 1500, xHeight: 600),
           ),
         ),
       );
@@ -617,11 +827,12 @@ void main() {
       await _checkWidgetAndGolden(key, 'circle.em_ex2.png');
     });
 
-    testWidgets('rect (x, y, width, height, rx, ry)',
-        (WidgetTester tester) async {
+    testWidgets('rect (x, y, width, height, rx, ry)', (
+      WidgetTester tester,
+    ) async {
       final GlobalKey key = GlobalKey();
 
-      const String svgStr = '''
+      const svgStr = '''
 <svg width="800px" height="600px" xmlns="http://www.w3.org/2000/svg">
   <rect x="2ex" y="1.5ex" width="4ex" height="3ex" rx="0.5ex" ry="0.5ex" fill="orange" />
 </svg>
@@ -632,10 +843,7 @@ void main() {
           key: key,
           child: SvgPicture.string(
             svgStr,
-            theme: const SvgTheme(
-              fontSize: 300,
-              xHeight: 100,
-            ),
+            theme: const SvgTheme(fontSize: 300, xHeight: 100),
           ),
         ),
       );
@@ -647,7 +855,7 @@ void main() {
     testWidgets('ellipse (cx, cy, rx, ry)', (WidgetTester tester) async {
       final GlobalKey key = GlobalKey();
 
-      const String svgStr = '''
+      const svgStr = '''
 <svg width="800px" height="600px" xmlns="http://www.w3.org/2000/svg">
   <ellipse cx="7ex" cy="4ex" rx="1ex" ry="2ex" fill="orange" />
 </svg>
@@ -658,10 +866,7 @@ void main() {
           key: key,
           child: SvgPicture.string(
             svgStr,
-            theme: const SvgTheme(
-              fontSize: 300,
-              xHeight: 100,
-            ),
+            theme: const SvgTheme(fontSize: 300, xHeight: 100),
           ),
         ),
       );
@@ -673,7 +878,7 @@ void main() {
     testWidgets('line (x1, y1, x2, y2)', (WidgetTester tester) async {
       final GlobalKey key = GlobalKey();
 
-      const String svgStr = '''
+      const svgStr = '''
 <svg width="800px" height="600px" xmlns="http://www.w3.org/2000/svg">
   <line x1="0ex" y1="6ex" x2="4ex" y2="0ex" stroke="orange" />
   <line x1="4ex" y1="0ex" x2="8ex" y2="6ex" stroke="orange" />
@@ -685,10 +890,7 @@ void main() {
           key: key,
           child: SvgPicture.string(
             svgStr,
-            theme: const SvgTheme(
-              fontSize: 300,
-              xHeight: 100,
-            ),
+            theme: const SvgTheme(fontSize: 300, xHeight: 100),
           ),
         ),
       );
@@ -701,16 +903,19 @@ void main() {
   testWidgets('SvgPicture - two of the same', (WidgetTester tester) async {
     // Regression test to make sure the same SVG can render twice in the same
     // view. If layers are incorrectly reused, this will fail.
-    await tester.pumpWidget(RepaintBoundary(
+    await tester.pumpWidget(
+      RepaintBoundary(
         child: Directionality(
-      textDirection: TextDirection.ltr,
-      child: Row(
-        children: <Widget>[
-          SvgPicture.string(simpleSvg),
-          SvgPicture.string(simpleSvg),
-        ],
+          textDirection: TextDirection.ltr,
+          child: Row(
+            children: <Widget>[
+              SvgPicture.string(simpleSvg),
+              SvgPicture.string(simpleSvg),
+            ],
+          ),
+        ),
       ),
-    )));
+    );
     await tester.pumpAndSettle();
 
     await expectLater(
@@ -724,7 +929,7 @@ void main() {
   testWidgets('SvgPicture - with cached images', (WidgetTester tester) async {
     // Simple red and blue 10x10 squares.
     // Borrowed from https://gist.github.com/ondrek/7413434?permalink_comment_id=4674255#gistcomment-4674255
-    final Map<String, String> images = <String, String>{
+    final images = <String, String>{
       'red':
           'iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mP8z8BQz0AEYBxVSF+FABJADveWkH6oAAAAAElFTkSuQmCC',
       'blue':
@@ -735,7 +940,8 @@ void main() {
     // is used on each iteration.
     for (final String key in images.keys) {
       final String image = images[key]!;
-      final String svgStr = '''
+      final svgStr =
+          '''
 <svg
   xmlns="http://www.w3.org/2000/svg"
   xmlns:xlink="http://www.w3.org/1999/xlink" width="100" height="100">
@@ -743,50 +949,54 @@ void main() {
 </svg>''';
 
       // First try with SvgPicture.string
-      await tester.pumpWidget(RepaintBoundary(
-        child: SvgPicture.string(svgStr),
-      ));
+      await tester.pumpWidget(
+        RepaintBoundary(child: SvgPicture.string(svgStr)),
+      );
       await tester.runAsync(() => vg.waitForPendingDecodes());
       await tester.pumpAndSettle();
 
       Finder widgetFinder = find.byType(SvgPicture);
       expect(widgetFinder, findsOneWidget);
       await expectLater(
-          widgetFinder, matchesGoldenFile('golden_widget/image_$key.png'));
+        widgetFinder,
+        matchesGoldenFile('golden_widget/image_$key.png'),
+      );
 
       // Then with SvgPicture.memory
-      await tester.pumpWidget(RepaintBoundary(
-        // ignore: unnecessary_cast
-        child: SvgPicture.memory(utf8.encode(svgStr) as Uint8List),
-      ));
+      await tester.pumpWidget(
+        RepaintBoundary(
+          // ignore: unnecessary_cast
+          child: SvgPicture.memory(utf8.encode(svgStr) as Uint8List),
+        ),
+      );
       await tester.runAsync(() => vg.waitForPendingDecodes());
       await tester.pumpAndSettle();
 
       widgetFinder = find.byType(SvgPicture);
       expect(widgetFinder, findsOneWidget);
       await expectLater(
-          widgetFinder, matchesGoldenFile('golden_widget/image_$key.png'));
+        widgetFinder,
+        matchesGoldenFile('golden_widget/image_$key.png'),
+      );
     }
   });
 
   group('SvgPicture - errorBuilder', () {
-    testWidgets('SvgPicture.string handles failure',
-        (WidgetTester tester) async {
+    testWidgets('SvgPicture.string handles failure', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         MediaQuery(
           data: mediaQueryData,
           child: SvgPicture.string(
             '<!-- invalid svg -->',
-            errorBuilder: (
-              BuildContext context,
-              Object error,
-              StackTrace stackTrace,
-            ) {
-              return const Directionality(
-                textDirection: TextDirection.ltr,
-                child: Text('image failed'),
-              );
-            },
+            errorBuilder:
+                (BuildContext context, Object error, StackTrace stackTrace) {
+                  return const Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Text('image failed'),
+                  );
+                },
           ),
         ),
       );
@@ -795,23 +1005,21 @@ void main() {
       expect(find.text('image failed'), findsOneWidget);
     });
 
-    testWidgets('SvgPicture.memory handles failure',
-        (WidgetTester tester) async {
+    testWidgets('SvgPicture.memory handles failure', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         MediaQuery(
           data: mediaQueryData,
           child: SvgPicture.memory(
             Uint8List.fromList(utf8.encode('<!-- invalid svg -->')),
-            errorBuilder: (
-              BuildContext context,
-              Object error,
-              StackTrace stackTrace,
-            ) {
-              return const Directionality(
-                textDirection: TextDirection.ltr,
-                child: Text('image failed'),
-              );
-            },
+            errorBuilder:
+                (BuildContext context, Object error, StackTrace stackTrace) {
+                  return const Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Text('image failed'),
+                  );
+                },
           ),
         ),
       );
@@ -820,23 +1028,21 @@ void main() {
       expect(find.text('image failed'), findsOneWidget);
     });
 
-    testWidgets('SvgPicture.asset handles failure',
-        (WidgetTester tester) async {
+    testWidgets('SvgPicture.asset handles failure', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         MediaQuery(
           data: mediaQueryData,
           child: SvgPicture.asset(
             '/wrong path',
-            errorBuilder: (
-              BuildContext context,
-              Object error,
-              StackTrace stackTrace,
-            ) {
-              return const Directionality(
-                textDirection: TextDirection.ltr,
-                child: Text('image failed'),
-              );
-            },
+            errorBuilder:
+                (BuildContext context, Object error, StackTrace stackTrace) {
+                  return const Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Text('image failed'),
+                  );
+                },
           ),
         ),
       );
@@ -851,16 +1057,13 @@ void main() {
           data: mediaQueryData,
           child: SvgPicture.file(
             File('nosuchfile'),
-            errorBuilder: (
-              BuildContext context,
-              Object error,
-              StackTrace stackTrace,
-            ) {
-              return const Directionality(
-                textDirection: TextDirection.ltr,
-                child: Text('image failed'),
-              );
-            },
+            errorBuilder:
+                (BuildContext context, Object error, StackTrace stackTrace) {
+                  return const Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Text('image failed'),
+                  );
+                },
           ),
         ),
       );

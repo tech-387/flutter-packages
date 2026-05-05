@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,7 +15,7 @@ interface ProxyApiInterface
 
 @RequiresApi(25) class ClassWithApiRequirement
 
-class ProxyApiRegistrar(binaryMessenger: BinaryMessenger) :
+open class ProxyApiRegistrar(binaryMessenger: BinaryMessenger) :
     ProxyApiTestsPigeonProxyApiRegistrar(binaryMessenger) {
   override fun getPigeonApiProxyApiTestClass(): PigeonApiProxyApiTestClass {
     return ProxyApiTestClassApi(this)
@@ -103,78 +103,6 @@ class ProxyApiTestClassApi(override val pigeonRegistrar: ProxyApiRegistrar) :
 
   override fun staticAttachedField(): ProxyApiSuperClass {
     return ProxyApiSuperClass()
-  }
-
-  override fun aBool(pigeon_instance: ProxyApiTestClass): Boolean {
-    return true
-  }
-
-  override fun anInt(pigeon_instance: ProxyApiTestClass): Long {
-    return 0
-  }
-
-  override fun aDouble(pigeon_instance: ProxyApiTestClass): Double {
-    return 0.0
-  }
-
-  override fun aString(pigeon_instance: ProxyApiTestClass): String {
-    return ""
-  }
-
-  override fun aUint8List(pigeon_instance: ProxyApiTestClass): ByteArray {
-    return byteArrayOf()
-  }
-
-  override fun aList(pigeon_instance: ProxyApiTestClass): List<Any?> {
-    return listOf<String>()
-  }
-
-  override fun aMap(pigeon_instance: ProxyApiTestClass): Map<String?, Any?> {
-    return mapOf<String?, String>()
-  }
-
-  override fun anEnum(pigeon_instance: ProxyApiTestClass): ProxyApiTestEnum {
-    return ProxyApiTestEnum.ONE
-  }
-
-  override fun aProxyApi(pigeon_instance: ProxyApiTestClass): ProxyApiSuperClass {
-    return ProxyApiSuperClass()
-  }
-
-  override fun aNullableBool(pigeon_instance: ProxyApiTestClass): Boolean? {
-    return null
-  }
-
-  override fun aNullableInt(pigeon_instance: ProxyApiTestClass): Long? {
-    return null
-  }
-
-  override fun aNullableDouble(pigeon_instance: ProxyApiTestClass): Double? {
-    return null
-  }
-
-  override fun aNullableString(pigeon_instance: ProxyApiTestClass): String? {
-    return null
-  }
-
-  override fun aNullableUint8List(pigeon_instance: ProxyApiTestClass): ByteArray? {
-    return null
-  }
-
-  override fun aNullableList(pigeon_instance: ProxyApiTestClass): List<Any?>? {
-    return null
-  }
-
-  override fun aNullableMap(pigeon_instance: ProxyApiTestClass): Map<String?, Any?>? {
-    return null
-  }
-
-  override fun aNullableEnum(pigeon_instance: ProxyApiTestClass): ProxyApiTestEnum? {
-    return null
-  }
-
-  override fun aNullableProxyApi(pigeon_instance: ProxyApiTestClass): ProxyApiSuperClass? {
-    return null
   }
 
   override fun noop(pigeon_instance: ProxyApiTestClass) {}

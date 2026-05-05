@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -107,8 +107,10 @@ class Camera
   private CameraProperties cameraProperties;
   private final CameraFeatureFactory cameraFeatureFactory;
   private final Activity activity;
+
   /** A {@link CameraCaptureSession.CaptureCallback} that handles events related to JPEG capture. */
   private final CameraCaptureCallback cameraCaptureCallback;
+
   /** A {@link Handler} for running tasks in the background. */
   Handler backgroundHandler;
 
@@ -119,12 +121,15 @@ class Camera
   CameraCaptureSession captureSession;
   @VisibleForTesting ImageReader pictureImageReader;
   ImageStreamReader imageStreamReader;
+
   /** {@link CaptureRequest.Builder} for the camera preview */
   CaptureRequest.Builder previewRequestBuilder;
 
   @VisibleForTesting MediaRecorder mediaRecorder;
+
   /** True when recording video. */
   boolean recordingVideo;
+
   /** True when the preview is paused. */
   @VisibleForTesting boolean pausedPreview;
 
@@ -132,6 +137,7 @@ class Camera
 
   /** Holds the current capture timeouts */
   private CaptureTimeoutsWrapper captureTimeouts;
+
   /** Holds the last known capture properties */
   private CameraCaptureProperties captureProps;
 
@@ -152,6 +158,7 @@ class Camera
       return cameraDevice.createCaptureRequest(templateType);
     }
 
+    @SuppressLint("UseRequiresApi")
     @TargetApi(VERSION_CODES.P)
     @Override
     public void createCaptureSession(SessionConfiguration config) throws CameraAccessException {
@@ -225,30 +232,6 @@ class Camera
             dartMessenger,
             videoCaptureSettings.resolutionPreset);
 
-    Integer recordingFps = null;
-
-    if (videoCaptureSettings.fps != null && videoCaptureSettings.fps.intValue() > 0) {
-      recordingFps = videoCaptureSettings.fps;
-    } else {
-
-      if (SdkCapabilityChecker.supportsEncoderProfiles()) {
-        EncoderProfiles encoderProfiles = getRecordingProfile();
-        if (encoderProfiles != null && encoderProfiles.getVideoProfiles().size() > 0) {
-          recordingFps = encoderProfiles.getVideoProfiles().get(0).getFrameRate();
-        }
-      } else {
-        CamcorderProfile camcorderProfile = getRecordingProfileLegacy();
-        recordingFps = null != camcorderProfile ? camcorderProfile.videoFrameRate : null;
-      }
-    }
-
-    if (recordingFps != null && recordingFps.intValue() > 0) {
-
-      final FpsRangeFeature fpsRange = new FpsRangeFeature(cameraProperties);
-      fpsRange.setValue(new Range<Integer>(recordingFps, recordingFps));
-      this.cameraFeatures.setFpsRange(fpsRange);
-    }
-
     // Create capture callback.
     captureTimeouts = new CaptureTimeoutsWrapper(3000, 3000);
     captureProps = new CameraCaptureProperties();
@@ -294,8 +277,9 @@ class Camera
 
     MediaRecorderBuilder mediaRecorderBuilder;
 
-    // TODO(camsim99): Revert changes that allow legacy code to be used when recordingProfile is null
-    // once this has largely been fixed on the Android side. https://github.com/flutter/flutter/issues/119668
+    // TODO(camsim99): Revert changes that allow legacy code to be used when recordingProfile
+    // is null once this has largely been fixed on the Android side.
+    // https://github.com/flutter/flutter/issues/119668
     if (SdkCapabilityChecker.supportsEncoderProfiles() && getRecordingProfile() != null) {
       mediaRecorderBuilder =
           new MediaRecorderBuilder(
@@ -324,6 +308,36 @@ class Camera
                     ? getDeviceOrientationManager().getVideoOrientation()
                     : getDeviceOrientationManager().getVideoOrientation(lockedOrientation))
             .build();
+  }
+
+  /**
+   * Updates the FpsRange camera features with the appropriate FPS range. It sets the minimum and
+   * maximum fps range to the same value, as that's what is recommended for video recording.
+   */
+  private void setFpsCameraFeatureForRecording(CameraProperties cameraProperties) {
+    Integer recordingFps = null;
+
+    if (videoCaptureSettings.fps != null && videoCaptureSettings.fps.intValue() > 0) {
+      recordingFps = videoCaptureSettings.fps;
+    } else {
+
+      if (SdkCapabilityChecker.supportsEncoderProfiles()) {
+        EncoderProfiles encoderProfiles = getRecordingProfile();
+        if (encoderProfiles != null && encoderProfiles.getVideoProfiles().size() > 0) {
+          recordingFps = encoderProfiles.getVideoProfiles().get(0).getFrameRate();
+        }
+      } else {
+        CamcorderProfile camcorderProfile = getRecordingProfileLegacy();
+        recordingFps = null != camcorderProfile ? camcorderProfile.videoFrameRate : null;
+      }
+    }
+
+    if (recordingFps != null && recordingFps.intValue() > 0) {
+
+      final FpsRangeFeature fpsRange = new FpsRangeFeature(cameraProperties);
+      fpsRange.setValue(new Range<Integer>(recordingFps, recordingFps));
+      this.cameraFeatures.setFpsRange(fpsRange);
+    }
   }
 
   @SuppressLint("MissingPermission")
@@ -366,16 +380,19 @@ class Camera
           public void onOpened(@NonNull CameraDevice device) {
             cameraDevice = new DefaultCameraDeviceWrapper(device);
             try {
-              startPreview();
-              if (!recordingVideo) { // only send initialization if we werent already recording and switching cameras
-                dartMessenger.sendCameraInitializedEvent(
-                    resolutionFeature.getPreviewSize().getWidth(),
-                    resolutionFeature.getPreviewSize().getHeight(),
-                    cameraFeatures.getExposureLock().getValue(),
-                    cameraFeatures.getAutoFocus().getValue(),
-                    cameraFeatures.getExposurePoint().checkIsSupported(),
-                    cameraFeatures.getFocusPoint().checkIsSupported());
-              }
+              // only send initialization if we werent already recording and switching cameras
+              Runnable onSuccess =
+                  recordingVideo
+                      ? null
+                      : () ->
+                          dartMessenger.sendCameraInitializedEvent(
+                              resolutionFeature.getPreviewSize().getWidth(),
+                              resolutionFeature.getPreviewSize().getHeight(),
+                              cameraFeatures.getExposureLock().getValue(),
+                              cameraFeatures.getAutoFocus().getValue(),
+                              cameraFeatures.getExposurePoint().checkIsSupported(),
+                              cameraFeatures.getFocusPoint().checkIsSupported());
+              startPreview(onSuccess);
             } catch (Exception e) {
               String message =
                   (e.getMessage() == null)
@@ -535,6 +552,7 @@ class Camera
     }
   }
 
+  @SuppressLint("UseRequiresApi")
   @TargetApi(VERSION_CODES.P)
   private void createCaptureSessionWithSessionConfig(
       List<OutputConfiguration> outputConfigs, CameraCaptureSession.StateCallback callback)
@@ -851,6 +869,9 @@ class Camera
     // Re-create autofocus feature so it's using continuous capture focus mode now.
     cameraFeatures.setAutoFocus(
         cameraFeatureFactory.createAutoFocusFeature(cameraProperties, false));
+    // Reset to non recording fps range (the default)
+    cameraFeatures.setFpsRange(cameraFeatureFactory.createFpsRangeFeature(cameraProperties));
+
     recordingVideo = false;
     try {
       closeRenderer();
@@ -861,7 +882,8 @@ class Camera
     }
     mediaRecorder.reset();
     try {
-      startPreview();
+      // Don't wait for start preview
+      startPreview(null);
     } catch (CameraAccessException | IllegalStateException | InterruptedException e) {
       throw new Messages.FlutterError("videoRecordingFailed", e.getMessage(), null);
     }
@@ -876,12 +898,7 @@ class Camera
     }
 
     try {
-      if (SdkCapabilityChecker.supportsVideoPause()) {
-        mediaRecorder.pause();
-      } else {
-        throw new Messages.FlutterError(
-            "videoRecordingFailed", "pauseVideoRecording requires Android API +24.", null);
-      }
+      mediaRecorder.pause();
     } catch (IllegalStateException e) {
       throw new Messages.FlutterError("videoRecordingFailed", e.getMessage(), null);
     }
@@ -893,12 +910,7 @@ class Camera
     }
 
     try {
-      if (SdkCapabilityChecker.supportsVideoPause()) {
-        mediaRecorder.resume();
-      } else {
-        throw new Messages.FlutterError(
-            "videoRecordingFailed", "resumeVideoRecording requires Android API +24.", null);
-      }
+      mediaRecorder.resume();
     } catch (IllegalStateException e) {
       throw new Messages.FlutterError("videoRecordingFailed", e.getMessage(), null);
     }
@@ -1150,24 +1162,41 @@ class Camera
         null, (code, message) -> dartMessenger.sendCameraErrorEvent(message));
   }
 
-  public void startPreview() throws CameraAccessException, InterruptedException {
-    // If recording is already in progress, the camera is being flipped, so send it through the VideoRenderer to keep the correct orientation.
+  public void startPreview(@Nullable Runnable onSuccessCallback)
+      throws CameraAccessException, InterruptedException {
+    // If recording is already in progress, the camera is being flipped, so send it through the
+    // VideoRenderer to keep the correct orientation.
     if (recordingVideo) {
-      startPreviewWithVideoRendererStream();
+      startPreviewWithVideoRendererStream(onSuccessCallback);
     } else {
-      startRegularPreview();
+      startRegularPreview(onSuccessCallback);
     }
   }
 
-  private void startRegularPreview() throws CameraAccessException {
-    if (pictureImageReader == null || pictureImageReader.getSurface() == null) return;
+  private void startRegularPreview(@Nullable Runnable onSuccessCallback)
+      throws CameraAccessException {
+    if (pictureImageReader == null || pictureImageReader.getSurface() == null) {
+      // noop
+      if (onSuccessCallback != null) {
+        onSuccessCallback.run();
+      }
+      return;
+    }
+
     Log.i(TAG, "startPreview");
-    createCaptureSession(CameraDevice.TEMPLATE_PREVIEW, pictureImageReader.getSurface());
+    createCaptureSession(
+        CameraDevice.TEMPLATE_PREVIEW, onSuccessCallback, pictureImageReader.getSurface());
   }
 
-  private void startPreviewWithVideoRendererStream()
+  private void startPreviewWithVideoRendererStream(@Nullable Runnable onSuccessCallback)
       throws CameraAccessException, InterruptedException {
-    if (videoRenderer == null) return;
+    if (videoRenderer == null) {
+      // noop
+      if (onSuccessCallback != null) {
+        onSuccessCallback.run();
+      }
+      return;
+    }
 
     // get rotation for rendered video
     final PlatformChannel.DeviceOrientation lockedOrientation =
@@ -1191,7 +1220,8 @@ class Camera
     }
     videoRenderer.setRotation(rotation);
 
-    createCaptureSession(CameraDevice.TEMPLATE_RECORD, videoRenderer.getInputSurface());
+    createCaptureSession(
+        CameraDevice.TEMPLATE_RECORD, onSuccessCallback, videoRenderer.getInputSurface());
   }
 
   public void startPreviewWithImageStream(EventChannel imageStreamChannel)
@@ -1252,6 +1282,8 @@ class Camera
     // Re-create autofocus feature so it's using video focus mode now.
     cameraFeatures.setAutoFocus(
         cameraFeatureFactory.createAutoFocusFeature(cameraProperties, true));
+    // Update camera features with the desired fps range
+    setFpsCameraFeatureForRecording(cameraProperties);
   }
 
   private void setStreamHandler(EventChannel imageStreamChannel) {
@@ -1355,7 +1387,8 @@ class Camera
           "setDescriptionWhileRecordingFailed", "Device was not recording", null);
     }
 
-    // See VideoRenderer.java; support for this EGL extension is required to switch camera while recording.
+    // See VideoRenderer.java; support for this EGL extension is required to switch camera while
+    // recording.
     if (!SdkCapabilityChecker.supportsEglRecordableAndroid()) {
       throw new Messages.FlutterError(
           "setDescriptionWhileRecordingFailed",
@@ -1375,6 +1408,7 @@ class Camera
             videoCaptureSettings.resolutionPreset);
     cameraFeatures.setAutoFocus(
         cameraFeatureFactory.createAutoFocusFeature(cameraProperties, true));
+    setFpsCameraFeatureForRecording(cameraProperties);
     try {
       open(imageFormatGroup);
     } catch (CameraAccessException e) {

@@ -1,3 +1,26 @@
+## 1.2.0
+
+* Adds support for percentage units in SVG shape attributes (rect, circle, ellipse, line).
+
+## 1.1.20
+
+* Fixes color parsing for modern rgb and rgba CSS syntax.
+* Updates minimum supported SDK version to Flutter 3.35/Dart 3.9.
+
+## 1.1.19
+
+* Updates allowed version range of `xml` to include up to 6.6.1.
+* Updates minimum supported SDK version to Flutter 3.29/Dart 3.7.
+
+## 1.1.18
+
+* Updates minimum supported SDK version to Flutter 3.27/Dart 3.6.
+* Fixes SVG matrix parsing to explicitly set the Z scale value.
+
+## 1.1.17
+
+* Fixes a bug where stroke opacity not applied by color mapper.
+
 ## 1.1.16
 
 * Sets stroke-width to 1 by default when an invalid value is parsed instead of throwing an exception.

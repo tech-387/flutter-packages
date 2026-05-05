@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,49 +6,43 @@ import 'dart:io' show Platform;
 
 import 'package:path/path.dart' as p;
 import 'package:pigeon/pigeon.dart';
+import 'package:pigeon/src/ast.dart';
 import 'package:pigeon/src/generator_tools.dart';
 
 import 'process_utils.dart';
 
-enum GeneratorLanguage {
-  cpp,
-  dart,
-  gobject,
-  java,
-  kotlin,
-  objc,
-  swift,
-}
+enum GeneratorLanguage { cpp, dart, gobject, java, kotlin, objc, swift }
 
 // A map of pigeons/ files to the languages that they can't yet be generated
 // for due to limitations of that generator.
 const Map<String, Set<GeneratorLanguage>> _unsupportedFiles =
     <String, Set<GeneratorLanguage>>{
-  'event_channel_tests': <GeneratorLanguage>{
-    GeneratorLanguage.cpp,
-    GeneratorLanguage.gobject,
-    GeneratorLanguage.java,
-    GeneratorLanguage.objc,
-  },
-  'event_channel_without_classes_tests': <GeneratorLanguage>{
-    GeneratorLanguage.cpp,
-    GeneratorLanguage.gobject,
-    GeneratorLanguage.java,
-    GeneratorLanguage.objc,
-  },
-  'proxy_api_tests': <GeneratorLanguage>{
-    GeneratorLanguage.cpp,
-    GeneratorLanguage.gobject,
-    GeneratorLanguage.java,
-    GeneratorLanguage.objc,
-  },
-};
+      'event_channel_tests': <GeneratorLanguage>{
+        GeneratorLanguage.cpp,
+        GeneratorLanguage.gobject,
+        GeneratorLanguage.java,
+        GeneratorLanguage.objc,
+      },
+      'event_channel_without_classes_tests': <GeneratorLanguage>{
+        GeneratorLanguage.cpp,
+        GeneratorLanguage.gobject,
+        GeneratorLanguage.java,
+        GeneratorLanguage.objc,
+      },
+      'proxy_api_tests': <GeneratorLanguage>{
+        GeneratorLanguage.cpp,
+        GeneratorLanguage.gobject,
+        GeneratorLanguage.java,
+        GeneratorLanguage.objc,
+      },
+    };
 
 String _snakeToPascalCase(String snake) {
   final List<String> parts = snake.split('_');
   return parts
-      .map((String part) =>
-          part.substring(0, 1).toUpperCase() + part.substring(1))
+      .map(
+        (String part) => part.substring(0, 1).toUpperCase() + part.substring(1),
+      )
       .join();
 }
 
@@ -60,14 +54,12 @@ String _snakeToPascalCase(String snake) {
 // TODO(stuartmorgan): Remove the need for this when addressing
 // https://github.com/flutter/flutter/issues/115168.
 String _javaFilenameForName(String inputName) {
-  const Map<String, String> specialCases = <String, String>{
-    'message': 'MessagePigeon',
-  };
+  const specialCases = <String, String>{'message': 'MessagePigeon'};
   return specialCases[inputName] ?? _snakeToPascalCase(inputName);
 }
 
 Future<int> generateExamplePigeons() async {
-  int success = 0;
+  var success = 0;
   success = await runPigeon(
     input: './example/app/pigeons/messages.dart',
     basePath: './example/app',
@@ -81,12 +73,13 @@ Future<int> generateExamplePigeons() async {
   return success;
 }
 
-Future<int> generateTestPigeons(
-    {required String baseDir, bool includeOverflow = false}) async {
+Future<int> generateTestPigeons({
+  required String baseDir,
+  bool includeOverflow = false,
+}) async {
   // TODO(stuartmorgan): Make this dynamic rather than hard-coded. Or eliminate
   // it entirely; see https://github.com/flutter/flutter/issues/115169.
-  const Set<String> inputs = <String>{
-    'background_platform_channels',
+  const inputs = <String>{
     'core_tests',
     'enum',
     'event_channel_tests',
@@ -101,29 +94,38 @@ Future<int> generateTestPigeons(
     'proxy_api_tests',
   };
 
-  final String outputBase = p.join(baseDir, 'platform_tests', 'test_plugin');
-  final String alternateOutputBase =
-      p.join(baseDir, 'platform_tests', 'alternate_language_test_plugin');
-  final String sharedDartOutputBase =
-      p.join(baseDir, 'platform_tests', 'shared_test_plugin_code');
+  const testPluginName = 'test_plugin';
+  const alternateTestPluginName = 'alternate_language_test_plugin';
+  final String outputBase = p.join(baseDir, 'platform_tests', testPluginName);
+  final String alternateOutputBase = p.join(
+    baseDir,
+    'platform_tests',
+    alternateTestPluginName,
+  );
+  final String sharedDartOutputBase = p.join(
+    baseDir,
+    'platform_tests',
+    'shared_test_plugin_code',
+  );
 
-  for (final String input in inputs) {
+  for (final input in inputs) {
     final String pascalCaseName = _snakeToPascalCase(input);
     final Set<GeneratorLanguage> skipLanguages =
         _unsupportedFiles[input] ?? <GeneratorLanguage>{};
 
     final bool kotlinErrorClassGenerationTestFiles =
-        input == 'core_tests' || input == 'background_platform_channels';
+        input == 'core_tests' || input == 'primitive';
 
-    final String kotlinErrorName = kotlinErrorClassGenerationTestFiles
+    final kotlinErrorName = kotlinErrorClassGenerationTestFiles
         ? 'FlutterError'
         : '${pascalCaseName}Error';
 
     final bool swiftErrorUseDefaultErrorName =
-        input == 'core_tests' || input == 'background_platform_channels';
+        input == 'core_tests' || input == 'primitive';
 
-    final String? swiftErrorClassName =
-        swiftErrorUseDefaultErrorName ? null : '${pascalCaseName}Error';
+    final String? swiftErrorClassName = swiftErrorUseDefaultErrorName
+        ? null
+        : '${pascalCaseName}Error';
 
     // Generate the default language test plugin output.
     int generateCode = await runPigeon(
@@ -140,13 +142,13 @@ Future<int> generateTestPigeons(
           : '$outputBase/android/src/main/kotlin/com/example/test_plugin/$pascalCaseName.gen.kt',
       kotlinPackage: 'com.example.test_plugin',
       kotlinErrorClassName: kotlinErrorName,
-      kotlinIncludeErrorClass: input != 'core_tests',
-      // iOS
+      kotlinIncludeErrorClass: input != 'primitive',
+      // iOS/macOS
       swiftOut: skipLanguages.contains(GeneratorLanguage.swift)
           ? null
-          : '$outputBase/ios/Classes/$pascalCaseName.gen.swift',
+          : '$outputBase/darwin/$testPluginName/Sources/$testPluginName/$pascalCaseName.gen.swift',
       swiftErrorClassName: swiftErrorClassName,
-      swiftIncludeErrorClass: input != 'background_platform_channels',
+      swiftIncludeErrorClass: input != 'primitive',
       // Linux
       gobjectHeaderOut: skipLanguages.contains(GeneratorLanguage.gobject)
           ? null
@@ -169,25 +171,11 @@ Future<int> generateTestPigeons(
       return generateCode;
     }
 
-    // macOS has to be run as a separate generation, since currently Pigeon
-    // doesn't have a way to output separate macOS and iOS Swift output in a
-    // single invocation.
-    generateCode = await runPigeon(
-      input: './pigeons/$input.dart',
-      swiftOut: skipLanguages.contains(GeneratorLanguage.swift)
-          ? null
-          : '$outputBase/macos/Classes/$pascalCaseName.gen.swift',
-      swiftErrorClassName: swiftErrorClassName,
-      swiftIncludeErrorClass: input != 'background_platform_channels',
-      suppressVersion: true,
-      dartPackageName: 'pigeon_integration_tests',
-      injectOverflowTypes: includeOverflow && input == 'core_tests',
-    );
-    if (generateCode != 0) {
-      return generateCode;
-    }
-
     // Generate the alternate language test plugin output.
+    final objcBase =
+        '$alternateOutputBase/darwin/$alternateTestPluginName/Sources/$alternateTestPluginName/';
+    final objcBaseRelativeHeaderPath =
+        'include/$alternateTestPluginName/$pascalCaseName.gen.h';
     generateCode = await runPigeon(
       input: './pigeons/$input.dart',
       // Android
@@ -196,44 +184,45 @@ Future<int> generateTestPigeons(
       javaOut: skipLanguages.contains(GeneratorLanguage.java)
           ? null
           : '$alternateOutputBase/android/src/main/java/com/example/'
-              'alternate_language_test_plugin/${_javaFilenameForName(input)}.java',
+                'alternate_language_test_plugin/${_javaFilenameForName(input)}.java',
       javaPackage: 'com.example.alternate_language_test_plugin',
-      // iOS
+      // iOS/macOS
       objcHeaderOut: skipLanguages.contains(GeneratorLanguage.objc)
           ? null
-          : '$alternateOutputBase/ios/Classes/$pascalCaseName.gen.h',
+          : '$objcBase/$objcBaseRelativeHeaderPath',
       objcSourceOut: skipLanguages.contains(GeneratorLanguage.objc)
           ? null
-          : '$alternateOutputBase/ios/Classes/$pascalCaseName.gen.m',
-      objcPrefix: input == 'core_tests' ? 'FLT' : '',
+          : '$objcBase/$pascalCaseName.gen.m',
+      objcHeaderIncludePath: './$objcBaseRelativeHeaderPath',
+      objcPrefix: input == 'core_tests'
+          ? 'FLT'
+          : input == 'enum'
+          ? 'PGN'
+          : '',
       suppressVersion: true,
       dartPackageName: 'pigeon_integration_tests',
       injectOverflowTypes: includeOverflow && input == 'core_tests',
-    );
-    if (generateCode != 0) {
-      return generateCode;
-    }
-
-    // macOS has to be run as a separate generation, since currently Pigeon
-    // doesn't have a way to output separate macOS and iOS Swift output in a
-    // single invocation.
-    generateCode = await runPigeon(
-      input: './pigeons/$input.dart',
-      objcHeaderOut: skipLanguages.contains(GeneratorLanguage.objc)
-          ? null
-          : '$alternateOutputBase/macos/Classes/$pascalCaseName.gen.h',
-      objcSourceOut: skipLanguages.contains(GeneratorLanguage.objc)
-          ? null
-          : '$alternateOutputBase/macos/Classes/$pascalCaseName.gen.m',
-      objcPrefix: input == 'core_tests' ? 'FLT' : '',
-      suppressVersion: true,
-      dartPackageName: 'pigeon_integration_tests',
-      injectOverflowTypes: includeOverflow && input == 'core_tests',
+      mergeDefinitionFileOptions: input != 'enum',
     );
     if (generateCode != 0) {
       return generateCode;
     }
   }
+
+  // Test case for useGeneratedAnnotation feature with core_tests
+  final String corePascalCaseName = _snakeToPascalCase('core_tests');
+  final int generateCodeWithAnnotation = await runPigeon(
+    input: './pigeons/core_tests.dart',
+    kotlinOut:
+        '$outputBase/android/src/main/kotlin/com/example/test_plugin/annotation/${corePascalCaseName}WithAnnotation.gen.kt',
+    kotlinPackage: 'com.example.test_plugin.annotation',
+    kotlinErrorClassName: 'FlutterError',
+    kotlinUseGeneratedAnnotation: true,
+  );
+  if (generateCodeWithAnnotation != 0) {
+    return generateCodeWithAnnotation;
+  }
+
   return 0;
 }
 
@@ -243,6 +232,7 @@ Future<int> runPigeon({
   String? kotlinPackage,
   String? kotlinErrorClassName,
   bool kotlinIncludeErrorClass = true,
+  bool kotlinUseGeneratedAnnotation = false,
   bool swiftIncludeErrorClass = true,
   String? swiftOut,
   String? swiftErrorClassName,
@@ -259,11 +249,13 @@ Future<int> runPigeon({
   String? objcHeaderOut,
   String? objcSourceOut,
   String objcPrefix = '',
+  String? objcHeaderIncludePath,
   bool suppressVersion = false,
   String copyrightHeader = './copyright_header.txt',
   String? basePath,
   String? dartPackageName,
   bool injectOverflowTypes = false,
+  bool mergeDefinitionFileOptions = true,
 }) async {
   // Temporarily suppress the version output via the global flag if requested.
   // This is done because having the version in all the generated test output
@@ -277,19 +269,37 @@ Future<int> runPigeon({
   if (suppressVersion) {
     includeVersionInGeneratedWarning = false;
   }
+
+  // parse results in advance when overflow is included to avoid exposing as public option
+  final ParseResults parseResults = Pigeon().parseFile(input);
+  if (injectOverflowTypes) {
+    final addedEnums = List<Enum>.generate(totalCustomCodecKeysAllowed - 1, (
+      final int tag,
+    ) {
+      return Enum(
+        name: 'FillerEnum$tag',
+        members: <EnumMember>[EnumMember(name: 'FillerMember$tag')],
+      );
+    });
+    addedEnums.addAll(parseResults.root.enums);
+    parseResults.root.enums = addedEnums;
+  }
+
   final int result = await Pigeon.runWithOptions(
     PigeonOptions(
       input: input,
       copyrightHeader: copyrightHeader,
       dartOut: dartOut,
       dartTestOut: dartTestOut,
-      dartOptions: const DartOptions(),
+      dartOptions: const DartOptions(ignoreLints: false),
       cppHeaderOut: cppHeaderOut,
       cppSourceOut: cppSourceOut,
       cppOptions: CppOptions(namespace: cppNamespace),
-      gobjectHeaderOut: gobjectHeaderOut,
-      gobjectSourceOut: gobjectSourceOut,
-      gobjectOptions: GObjectOptions(module: gobjectModule),
+      gobjectHeaderOut: injectOverflowTypes ? null : gobjectHeaderOut,
+      gobjectSourceOut: injectOverflowTypes ? null : gobjectSourceOut,
+      gobjectOptions: injectOverflowTypes
+          ? null
+          : GObjectOptions(module: gobjectModule),
       javaOut: javaOut,
       javaOptions: JavaOptions(package: javaPackage),
       kotlinOut: kotlinOut,
@@ -297,10 +307,14 @@ Future<int> runPigeon({
         package: kotlinPackage,
         errorClassName: kotlinErrorClassName,
         includeErrorClass: kotlinIncludeErrorClass,
+        useGeneratedAnnotation: kotlinUseGeneratedAnnotation,
       ),
       objcHeaderOut: objcHeaderOut,
       objcSourceOut: objcSourceOut,
-      objcOptions: ObjcOptions(prefix: objcPrefix),
+      objcOptions: ObjcOptions(
+        prefix: objcPrefix,
+        headerIncludePath: objcHeaderIncludePath,
+      ),
       swiftOut: swiftOut,
       swiftOptions: SwiftOptions(
         errorClassName: swiftErrorClassName,
@@ -309,7 +323,9 @@ Future<int> runPigeon({
       basePath: basePath,
       dartPackageName: dartPackageName,
     ),
-    injectOverflowTypes: injectOverflowTypes,
+    // ignore: invalid_use_of_visible_for_testing_member
+    parseResults: injectOverflowTypes ? parseResults : null,
+    mergeDefinitionFileOptions: mergeDefinitionFileOptions,
   );
   includeVersionInGeneratedWarning = originalWarningSetting;
   return result;
@@ -332,38 +348,33 @@ Future<int> formatAllFiles({
     GeneratorLanguage.swift,
   },
 }) {
-  final String dartCommand = Platform.isWindows ? 'dart.exe' : 'dart';
+  final dartCommand = Platform.isWindows ? 'dart.exe' : 'dart';
   return runProcess(
-      dartCommand,
-      <String>[
-        'run',
-        'script/tool/bin/flutter_plugin_tools.dart',
-        'format',
-        '--packages=pigeon',
-        if (languages.contains(GeneratorLanguage.cpp) ||
-            languages.contains(GeneratorLanguage.gobject) ||
-            languages.contains(GeneratorLanguage.objc))
-          '--clang-format'
-        else
-          '--no-clang-format',
-        if (languages.contains(GeneratorLanguage.java))
-          '--java'
-        else
-          '--no-java',
-        if (languages.contains(GeneratorLanguage.dart))
-          '--dart'
-        else
-          '--no-dart',
-        if (languages.contains(GeneratorLanguage.kotlin))
-          '--kotlin'
-        else
-          '--no-kotlin',
-        if (languages.contains(GeneratorLanguage.swift))
-          '--swift'
-        else
-          '--no-swift',
-      ],
-      workingDirectory: repositoryRoot,
-      streamOutput: false,
-      logFailure: true);
+    dartCommand,
+    <String>[
+      'run',
+      'script/tool/bin/flutter_plugin_tools.dart',
+      'format',
+      '--packages=pigeon',
+      if (languages.contains(GeneratorLanguage.cpp) ||
+          languages.contains(GeneratorLanguage.gobject) ||
+          languages.contains(GeneratorLanguage.objc))
+        '--clang-format'
+      else
+        '--no-clang-format',
+      if (languages.contains(GeneratorLanguage.java)) '--java' else '--no-java',
+      if (languages.contains(GeneratorLanguage.dart)) '--dart' else '--no-dart',
+      if (languages.contains(GeneratorLanguage.kotlin))
+        '--kotlin'
+      else
+        '--no-kotlin',
+      if (languages.contains(GeneratorLanguage.swift))
+        '--swift'
+      else
+        '--no-swift',
+    ],
+    workingDirectory: repositoryRoot,
+    streamOutput: false,
+    logFailure: true,
+  );
 }

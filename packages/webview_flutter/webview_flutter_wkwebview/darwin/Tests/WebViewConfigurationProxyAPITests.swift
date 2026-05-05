@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -122,5 +122,16 @@ class WebViewConfigurationProxyAPITests: XCTestCase {
       pigeonApi: api, pigeonInstance: instance, type: type)
 
     XCTAssertEqual(instance.mediaTypesRequiringUserActionForPlayback, [])
+  }
+
+  @MainActor func testGetDefaultWebpagePreferences() {
+    let registrar = TestProxyApiRegistrar()
+    let api = registrar.apiDelegate.pigeonApiWKWebViewConfiguration(registrar)
+
+    let instance = WKWebViewConfiguration()
+    let value = try? api.pigeonDelegate.getDefaultWebpagePreferences(
+      pigeonApi: api, pigeonInstance: instance)
+
+    XCTAssertEqual(value, instance.defaultWebpagePreferences)
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -16,24 +16,27 @@ import io.flutter.plugin.common.StandardMessageCodec
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
-private fun wrapResult(result: Any?): List<Any?> {
-  return listOf(result)
-}
+private object ProxyApiTestsPigeonUtils {
 
-private fun wrapError(exception: Throwable): List<Any?> {
-  return if (exception is ProxyApiTestsError) {
-    listOf(exception.code, exception.message, exception.details)
-  } else {
-    listOf(
-        exception.javaClass.simpleName,
-        exception.toString(),
-        "Cause: " + exception.cause + ", Stacktrace: " + Log.getStackTraceString(exception))
+  fun createConnectionError(channelName: String): ProxyApiTestsError {
+    return ProxyApiTestsError(
+        "channel-error", "Unable to establish connection on channel: '$channelName'.", "")
   }
-}
 
-private fun createConnectionError(channelName: String): ProxyApiTestsError {
-  return ProxyApiTestsError(
-      "channel-error", "Unable to establish connection on channel: '$channelName'.", "")
+  fun wrapResult(result: Any?): List<Any?> {
+    return listOf(result)
+  }
+
+  fun wrapError(exception: Throwable): List<Any?> {
+    return if (exception is ProxyApiTestsError) {
+      listOf(exception.code, exception.message, exception.details)
+    } else {
+      listOf(
+          exception.javaClass.simpleName,
+          exception.toString(),
+          "Cause: " + exception.cause + ", Stacktrace: " + Log.getStackTraceString(exception))
+    }
+  }
 }
 
 /**
@@ -47,7 +50,7 @@ class ProxyApiTestsError(
     val code: String,
     override val message: String? = null,
     val details: Any? = null
-) : Throwable()
+) : RuntimeException()
 /**
  * Maintains instances used to communicate with the corresponding objects in Dart.
  *
@@ -72,12 +75,43 @@ class ProxyApiTestsPigeonInstanceManager(
     fun onFinalize(identifier: Long)
   }
 
-  private val identifiers = java.util.WeakHashMap<Any, Long>()
-  private val weakInstances = HashMap<Long, java.lang.ref.WeakReference<Any>>()
+  // Extends WeakReference and overrides the `equals` and `hashCode` methods using identity rather
+  // than equality.
+  //
+  // Two `IdentityWeakReference`s are equal if either
+  // 1: `get()` returns the identical nonnull value for both references.
+  // 2: `get()` returns null for both references and the references are identical.
+  class IdentityWeakReference<T : Any> : java.lang.ref.WeakReference<T> {
+    private val savedHashCode: Int
+
+    constructor(instance: T) : this(instance, null)
+
+    constructor(instance: T, queue: java.lang.ref.ReferenceQueue<T>?) : super(instance, queue) {
+      savedHashCode = System.identityHashCode(instance)
+    }
+
+    override fun equals(other: Any?): Boolean {
+      val instance = get()
+      if (instance != null) {
+        return other is IdentityWeakReference<*> && other.get() === instance
+      }
+      return other === this
+    }
+
+    override fun hashCode(): Int {
+      return savedHashCode
+    }
+  }
+
+  private val identifiers = java.util.WeakHashMap<IdentityWeakReference<Any>, Long>()
+  private val weakInstances = HashMap<Long, IdentityWeakReference<Any>>()
   private val strongInstances = HashMap<Long, Any>()
   private val referenceQueue = java.lang.ref.ReferenceQueue<Any>()
-  private val weakReferencesToIdentifiers = HashMap<java.lang.ref.WeakReference<Any>, Long>()
+  private val weakReferencesToIdentifiers = HashMap<IdentityWeakReference<Any>, Long>()
   private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+  private val releaseAllFinalizedInstancesRunnable = Runnable {
+    this.releaseAllFinalizedInstances()
+  }
   private var nextIdentifier: Long = minHostCreatedIdentifier
   private var hasFinalizationListenerStopped = false
 
@@ -87,13 +121,13 @@ class ProxyApiTestsPigeonInstanceManager(
    */
   var clearFinalizedWeakReferencesInterval: Long = 3000
     set(value) {
-      handler.removeCallbacks { this.releaseAllFinalizedInstances() }
+      handler.removeCallbacks(releaseAllFinalizedInstancesRunnable)
       field = value
       releaseAllFinalizedInstances()
     }
 
   init {
-    handler.postDelayed({ releaseAllFinalizedInstances() }, clearFinalizedWeakReferencesInterval)
+    handler.postDelayed(releaseAllFinalizedInstancesRunnable, clearFinalizedWeakReferencesInterval)
   }
 
   companion object {
@@ -138,9 +172,12 @@ class ProxyApiTestsPigeonInstanceManager(
    */
   fun getIdentifierForStrongReference(instance: Any?): Long? {
     logWarningIfFinalizationListenerHasStopped()
-    val identifier = identifiers[instance]
+    if (instance == null) {
+      return null
+    }
+    val identifier = identifiers[IdentityWeakReference(instance)]
     if (identifier != null) {
-      strongInstances[identifier] = instance!!
+      strongInstances[identifier] = instance
     }
     return identifier
   }
@@ -162,7 +199,9 @@ class ProxyApiTestsPigeonInstanceManager(
   /**
    * Adds a new unique instance that was instantiated from the host platform.
    *
-   * [identifier] must be >= 0 and unique.
+   * If the manager contains [instance], this returns the corresponding identifier. If the manager
+   * does not contain [instance], this adds the instance and returns a unique identifier for that
+   * [instance].
    */
   fun addHostCreatedInstance(instance: Any): Long {
     logWarningIfFinalizationListenerHasStopped()
@@ -175,16 +214,16 @@ class ProxyApiTestsPigeonInstanceManager(
   }
 
   /** Retrieves the instance associated with identifier, if present, otherwise `null`. */
-  fun <T> getInstance(identifier: Long): T? {
+  fun <T : Any> getInstance(identifier: Long): T? {
     logWarningIfFinalizationListenerHasStopped()
-    val instance = weakInstances[identifier] as java.lang.ref.WeakReference<T>?
+    val instance = weakInstances[identifier] as IdentityWeakReference<T>?
     return instance?.get()
   }
 
   /** Returns whether this manager contains the given `instance`. */
   fun containsInstance(instance: Any?): Boolean {
     logWarningIfFinalizationListenerHasStopped()
-    return identifiers.containsKey(instance)
+    return instance != null && identifiers.containsKey(IdentityWeakReference(instance))
   }
 
   /**
@@ -195,7 +234,7 @@ class ProxyApiTestsPigeonInstanceManager(
    * longer be called and methods will log a warning.
    */
   fun stopFinalizationListener() {
-    handler.removeCallbacks { this.releaseAllFinalizedInstances() }
+    handler.removeCallbacks(releaseAllFinalizedInstancesRunnable)
     hasFinalizationListenerStopped = true
   }
 
@@ -225,9 +264,8 @@ class ProxyApiTestsPigeonInstanceManager(
     if (hasFinalizationListenerStopped()) {
       return
     }
-    var reference: java.lang.ref.WeakReference<Any>?
-    while ((referenceQueue.poll() as java.lang.ref.WeakReference<Any>?).also { reference = it } !=
-        null) {
+    var reference: IdentityWeakReference<Any>?
+    while ((referenceQueue.poll() as IdentityWeakReference<Any>?).also { reference = it } != null) {
       val identifier = weakReferencesToIdentifiers.remove(reference)
       if (identifier != null) {
         weakInstances.remove(identifier)
@@ -235,7 +273,7 @@ class ProxyApiTestsPigeonInstanceManager(
         finalizationListener.onFinalize(identifier)
       }
     }
-    handler.postDelayed({ releaseAllFinalizedInstances() }, clearFinalizedWeakReferencesInterval)
+    handler.postDelayed(releaseAllFinalizedInstancesRunnable, clearFinalizedWeakReferencesInterval)
   }
 
   private fun addInstance(instance: Any, identifier: Long) {
@@ -243,8 +281,8 @@ class ProxyApiTestsPigeonInstanceManager(
     require(!weakInstances.containsKey(identifier)) {
       "Identifier has already been added: $identifier"
     }
-    val weakReference = java.lang.ref.WeakReference(instance, referenceQueue)
-    identifiers[instance] = identifier
+    val weakReference = IdentityWeakReference(instance, referenceQueue)
+    identifiers[weakReference] = identifier
     weakInstances[identifier] = weakReference
     weakReferencesToIdentifiers[weakReference] = identifier
     strongInstances[identifier] = instance
@@ -288,7 +326,7 @@ private class ProxyApiTestsPigeonInstanceManagerApi(val binaryMessenger: BinaryM
                   instanceManager.remove<Any?>(identifierArg)
                   listOf(null)
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -309,7 +347,7 @@ private class ProxyApiTestsPigeonInstanceManagerApi(val binaryMessenger: BinaryM
                   instanceManager.clear()
                   listOf(null)
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -334,7 +372,7 @@ private class ProxyApiTestsPigeonInstanceManagerApi(val binaryMessenger: BinaryM
           callback(Result.success(Unit))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -422,7 +460,12 @@ private class ProxyApiTestsPigeonProxyApiBaseCodec(
   override fun readValueOfType(type: Byte, buffer: ByteBuffer): Any? {
     return when (type) {
       128.toByte() -> {
-        return registrar.instanceManager.getInstance(readValue(buffer) as Long)
+        val identifier: Long = readValue(buffer) as Long
+        val instance: Any? = registrar.instanceManager.getInstance(identifier)
+        if (instance == null) {
+          Log.e("PigeonProxyApiBaseCodec", "Failed to find instance with identifier: $identifier")
+        }
+        return instance
       }
       else -> super.readValueOfType(type, buffer)
     }
@@ -447,14 +490,36 @@ private class ProxyApiTestsPigeonProxyApiBaseCodec(
       return
     }
 
+    fun logNewInstanceFailure(apiName: String, value: Any, exception: Throwable?) {
+      Log.w(
+          "PigeonProxyApiBaseCodec",
+          "Failed to create new Dart proxy instance of $apiName: $value. $exception")
+    }
+
     if (value is ProxyApiTestClass) {
-      registrar.getPigeonApiProxyApiTestClass().pigeon_newInstance(value) {}
+      registrar.getPigeonApiProxyApiTestClass().pigeon_newInstance(value) {
+        if (it.isFailure) {
+          logNewInstanceFailure("ProxyApiTestClass", value, it.exceptionOrNull())
+        }
+      }
     } else if (value is com.example.test_plugin.ProxyApiSuperClass) {
-      registrar.getPigeonApiProxyApiSuperClass().pigeon_newInstance(value) {}
+      registrar.getPigeonApiProxyApiSuperClass().pigeon_newInstance(value) {
+        if (it.isFailure) {
+          logNewInstanceFailure("ProxyApiSuperClass", value, it.exceptionOrNull())
+        }
+      }
     } else if (value is ProxyApiInterface) {
-      registrar.getPigeonApiProxyApiInterface().pigeon_newInstance(value) {}
+      registrar.getPigeonApiProxyApiInterface().pigeon_newInstance(value) {
+        if (it.isFailure) {
+          logNewInstanceFailure("ProxyApiInterface", value, it.exceptionOrNull())
+        }
+      }
     } else if (android.os.Build.VERSION.SDK_INT >= 25 && value is ClassWithApiRequirement) {
-      registrar.getPigeonApiClassWithApiRequirement().pigeon_newInstance(value) {}
+      registrar.getPigeonApiClassWithApiRequirement().pigeon_newInstance(value) {
+        if (it.isFailure) {
+          logNewInstanceFailure("ClassWithApiRequirement", value, it.exceptionOrNull())
+        }
+      }
     }
 
     when {
@@ -495,7 +560,7 @@ private open class ProxyApiTestsPigeonCodec : StandardMessageCodec() {
     when (value) {
       is ProxyApiTestEnum -> {
         stream.write(129)
-        writeValue(stream, value.raw)
+        writeValue(stream, value.raw.toLong())
       }
       else -> super.writeValue(stream, value)
     }
@@ -575,46 +640,6 @@ abstract class PigeonApiProxyApiTestClass(
   ): com.example.test_plugin.ProxyApiSuperClass
 
   abstract fun staticAttachedField(): com.example.test_plugin.ProxyApiSuperClass
-
-  abstract fun aBool(pigeon_instance: ProxyApiTestClass): Boolean
-
-  abstract fun anInt(pigeon_instance: ProxyApiTestClass): Long
-
-  abstract fun aDouble(pigeon_instance: ProxyApiTestClass): Double
-
-  abstract fun aString(pigeon_instance: ProxyApiTestClass): String
-
-  abstract fun aUint8List(pigeon_instance: ProxyApiTestClass): ByteArray
-
-  abstract fun aList(pigeon_instance: ProxyApiTestClass): List<Any?>
-
-  abstract fun aMap(pigeon_instance: ProxyApiTestClass): Map<String?, Any?>
-
-  abstract fun anEnum(pigeon_instance: ProxyApiTestClass): ProxyApiTestEnum
-
-  abstract fun aProxyApi(
-      pigeon_instance: ProxyApiTestClass
-  ): com.example.test_plugin.ProxyApiSuperClass
-
-  abstract fun aNullableBool(pigeon_instance: ProxyApiTestClass): Boolean?
-
-  abstract fun aNullableInt(pigeon_instance: ProxyApiTestClass): Long?
-
-  abstract fun aNullableDouble(pigeon_instance: ProxyApiTestClass): Double?
-
-  abstract fun aNullableString(pigeon_instance: ProxyApiTestClass): String?
-
-  abstract fun aNullableUint8List(pigeon_instance: ProxyApiTestClass): ByteArray?
-
-  abstract fun aNullableList(pigeon_instance: ProxyApiTestClass): List<Any?>?
-
-  abstract fun aNullableMap(pigeon_instance: ProxyApiTestClass): Map<String?, Any?>?
-
-  abstract fun aNullableEnum(pigeon_instance: ProxyApiTestClass): ProxyApiTestEnum?
-
-  abstract fun aNullableProxyApi(
-      pigeon_instance: ProxyApiTestClass
-  ): com.example.test_plugin.ProxyApiSuperClass?
 
   /** A no-op function taking no arguments and returning no value, to sanity test basic calling. */
   abstract fun noop(pigeon_instance: ProxyApiTestClass)
@@ -1121,7 +1146,7 @@ abstract class PigeonApiProxyApiTestClass(
                       pigeon_identifierArg)
                   listOf(null)
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1182,7 +1207,7 @@ abstract class PigeonApiProxyApiTestClass(
                       pigeon_identifierArg)
                   listOf(null)
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1207,7 +1232,7 @@ abstract class PigeonApiProxyApiTestClass(
                       api.attachedField(pigeon_instanceArg), pigeon_identifierArg)
                   listOf(null)
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1231,7 +1256,7 @@ abstract class PigeonApiProxyApiTestClass(
                       api.staticAttachedField(), pigeon_identifierArg)
                   listOf(null)
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1254,7 +1279,7 @@ abstract class PigeonApiProxyApiTestClass(
                   api.noop(pigeon_instanceArg)
                   listOf(null)
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1276,7 +1301,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.throwError(pigeon_instanceArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1299,7 +1324,7 @@ abstract class PigeonApiProxyApiTestClass(
                   api.throwErrorFromVoid(pigeon_instanceArg)
                   listOf(null)
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1321,7 +1346,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.throwFlutterError(pigeon_instanceArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1344,7 +1369,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoInt(pigeon_instanceArg, anIntArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1367,7 +1392,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoDouble(pigeon_instanceArg, aDoubleArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1390,7 +1415,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoBool(pigeon_instanceArg, aBoolArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1413,7 +1438,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoString(pigeon_instanceArg, aStringArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1436,7 +1461,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoUint8List(pigeon_instanceArg, aUint8ListArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1459,7 +1484,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoObject(pigeon_instanceArg, anObjectArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1482,7 +1507,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoList(pigeon_instanceArg, aListArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1505,7 +1530,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoProxyApiList(pigeon_instanceArg, aListArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1528,7 +1553,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoMap(pigeon_instanceArg, aMapArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1551,7 +1576,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoProxyApiMap(pigeon_instanceArg, aMapArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1574,7 +1599,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoEnum(pigeon_instanceArg, anEnumArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1597,7 +1622,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoProxyApi(pigeon_instanceArg, aProxyApiArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1620,7 +1645,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoNullableInt(pigeon_instanceArg, aNullableIntArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1643,7 +1668,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoNullableDouble(pigeon_instanceArg, aNullableDoubleArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1666,7 +1691,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoNullableBool(pigeon_instanceArg, aNullableBoolArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1689,7 +1714,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoNullableString(pigeon_instanceArg, aNullableStringArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1712,7 +1737,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoNullableUint8List(pigeon_instanceArg, aNullableUint8ListArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1735,7 +1760,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoNullableObject(pigeon_instanceArg, aNullableObjectArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1758,7 +1783,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoNullableList(pigeon_instanceArg, aNullableListArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1781,7 +1806,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoNullableMap(pigeon_instanceArg, aNullableMapArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1804,7 +1829,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoNullableEnum(pigeon_instanceArg, aNullableEnumArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1827,7 +1852,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoNullableProxyApi(pigeon_instanceArg, aNullableProxyApiArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -1848,9 +1873,9 @@ abstract class PigeonApiProxyApiTestClass(
             api.noopAsync(pigeon_instanceArg) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
-                reply.reply(wrapResult(null))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(null))
               }
             }
           }
@@ -1872,10 +1897,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncInt(pigeon_instanceArg, anIntArg) { result: Result<Long> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -1897,10 +1922,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncDouble(pigeon_instanceArg, aDoubleArg) { result: Result<Double> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -1922,10 +1947,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncBool(pigeon_instanceArg, aBoolArg) { result: Result<Boolean> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -1947,10 +1972,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncString(pigeon_instanceArg, aStringArg) { result: Result<String> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -1972,10 +1997,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncUint8List(pigeon_instanceArg, aUint8ListArg) { result: Result<ByteArray> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -1997,10 +2022,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncObject(pigeon_instanceArg, anObjectArg) { result: Result<Any> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2022,10 +2047,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncList(pigeon_instanceArg, aListArg) { result: Result<List<Any?>> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2047,10 +2072,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncMap(pigeon_instanceArg, aMapArg) { result: Result<Map<String?, Any?>> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2072,10 +2097,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncEnum(pigeon_instanceArg, anEnumArg) { result: Result<ProxyApiTestEnum> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2096,10 +2121,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.throwAsyncError(pigeon_instanceArg) { result: Result<Any?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2120,9 +2145,9 @@ abstract class PigeonApiProxyApiTestClass(
             api.throwAsyncErrorFromVoid(pigeon_instanceArg) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
-                reply.reply(wrapResult(null))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(null))
               }
             }
           }
@@ -2143,10 +2168,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.throwAsyncFlutterError(pigeon_instanceArg) { result: Result<Any?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2168,10 +2193,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncNullableInt(pigeon_instanceArg, anIntArg) { result: Result<Long?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2193,10 +2218,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncNullableDouble(pigeon_instanceArg, aDoubleArg) { result: Result<Double?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2218,10 +2243,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncNullableBool(pigeon_instanceArg, aBoolArg) { result: Result<Boolean?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2243,10 +2268,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncNullableString(pigeon_instanceArg, aStringArg) { result: Result<String?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2269,10 +2294,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<ByteArray?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2294,10 +2319,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncNullableObject(pigeon_instanceArg, anObjectArg) { result: Result<Any?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2319,10 +2344,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.echoAsyncNullableList(pigeon_instanceArg, aListArg) { result: Result<List<Any?>?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2345,10 +2370,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<Map<String?, Any?>?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2371,10 +2396,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<ProxyApiTestEnum?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2395,7 +2420,7 @@ abstract class PigeonApiProxyApiTestClass(
                   api.staticNoop()
                   listOf(null)
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -2417,7 +2442,7 @@ abstract class PigeonApiProxyApiTestClass(
                 try {
                   listOf(api.echoStaticString(aStringArg))
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -2436,9 +2461,9 @@ abstract class PigeonApiProxyApiTestClass(
             api.staticAsyncNoop { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
-                reply.reply(wrapResult(null))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(null))
               }
             }
           }
@@ -2459,9 +2484,9 @@ abstract class PigeonApiProxyApiTestClass(
             api.callFlutterNoop(pigeon_instanceArg) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
-                reply.reply(wrapResult(null))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(null))
               }
             }
           }
@@ -2482,10 +2507,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.callFlutterThrowError(pigeon_instanceArg) { result: Result<Any?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2506,9 +2531,9 @@ abstract class PigeonApiProxyApiTestClass(
             api.callFlutterThrowErrorFromVoid(pigeon_instanceArg) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
-                reply.reply(wrapResult(null))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(null))
               }
             }
           }
@@ -2530,10 +2555,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.callFlutterEchoBool(pigeon_instanceArg, aBoolArg) { result: Result<Boolean> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2555,10 +2580,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.callFlutterEchoInt(pigeon_instanceArg, anIntArg) { result: Result<Long> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2580,10 +2605,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.callFlutterEchoDouble(pigeon_instanceArg, aDoubleArg) { result: Result<Double> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2605,10 +2630,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.callFlutterEchoString(pigeon_instanceArg, aStringArg) { result: Result<String> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2631,10 +2656,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<ByteArray> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2656,10 +2681,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.callFlutterEchoList(pigeon_instanceArg, aListArg) { result: Result<List<Any?>> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2682,10 +2707,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<List<ProxyApiTestClass?>> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2708,10 +2733,10 @@ abstract class PigeonApiProxyApiTestClass(
               ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2734,10 +2759,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<Map<String?, ProxyApiTestClass?>> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2760,10 +2785,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<ProxyApiTestEnum> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2786,10 +2811,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<com.example.test_plugin.ProxyApiSuperClass> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2812,10 +2837,10 @@ abstract class PigeonApiProxyApiTestClass(
               ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2837,10 +2862,10 @@ abstract class PigeonApiProxyApiTestClass(
             api.callFlutterEchoNullableInt(pigeon_instanceArg, anIntArg) { result: Result<Long?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2863,10 +2888,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<Double?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2889,10 +2914,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<String?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2915,10 +2940,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<ByteArray?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2941,10 +2966,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<List<Any?>?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2967,10 +2992,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<Map<String?, Any?>?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -2993,10 +3018,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<ProxyApiTestEnum?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -3019,10 +3044,10 @@ abstract class PigeonApiProxyApiTestClass(
                 result: Result<com.example.test_plugin.ProxyApiSuperClass?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -3043,9 +3068,9 @@ abstract class PigeonApiProxyApiTestClass(
             api.callFlutterNoopAsync(pigeon_instanceArg) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
-                reply.reply(wrapResult(null))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(null))
               }
             }
           }
@@ -3068,10 +3093,10 @@ abstract class PigeonApiProxyApiTestClass(
               ->
               val error = result.exceptionOrNull()
               if (error != null) {
-                reply.reply(wrapError(error))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
-                reply.reply(wrapResult(data))
+                reply.reply(ProxyApiTestsPigeonUtils.wrapResult(data))
               }
             }
           }
@@ -3089,70 +3114,16 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
-      return
+    } else if (pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(Result.success(Unit))
+    } else {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "new-instance-error",
+                  "Attempting to create a new Dart instance of ProxyApiTestClass, but the class has a nonnull callback method.",
+                  "")))
     }
-    if (pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
-      Result.success(Unit)
-      return
-    }
-    val pigeon_identifierArg =
-        pigeonRegistrar.instanceManager.addHostCreatedInstance(pigeon_instanceArg)
-    val aBoolArg = aBool(pigeon_instanceArg)
-    val anIntArg = anInt(pigeon_instanceArg)
-    val aDoubleArg = aDouble(pigeon_instanceArg)
-    val aStringArg = aString(pigeon_instanceArg)
-    val aUint8ListArg = aUint8List(pigeon_instanceArg)
-    val aListArg = aList(pigeon_instanceArg)
-    val aMapArg = aMap(pigeon_instanceArg)
-    val anEnumArg = anEnum(pigeon_instanceArg)
-    val aProxyApiArg = aProxyApi(pigeon_instanceArg)
-    val aNullableBoolArg = aNullableBool(pigeon_instanceArg)
-    val aNullableIntArg = aNullableInt(pigeon_instanceArg)
-    val aNullableDoubleArg = aNullableDouble(pigeon_instanceArg)
-    val aNullableStringArg = aNullableString(pigeon_instanceArg)
-    val aNullableUint8ListArg = aNullableUint8List(pigeon_instanceArg)
-    val aNullableListArg = aNullableList(pigeon_instanceArg)
-    val aNullableMapArg = aNullableMap(pigeon_instanceArg)
-    val aNullableEnumArg = aNullableEnum(pigeon_instanceArg)
-    val aNullableProxyApiArg = aNullableProxyApi(pigeon_instanceArg)
-    val binaryMessenger = pigeonRegistrar.binaryMessenger
-    val codec = pigeonRegistrar.codec
-    val channelName =
-        "dev.flutter.pigeon.pigeon_integration_tests.ProxyApiTestClass.pigeon_newInstance"
-    val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
-    channel.send(
-        listOf(
-            pigeon_identifierArg,
-            aBoolArg,
-            anIntArg,
-            aDoubleArg,
-            aStringArg,
-            aUint8ListArg,
-            aListArg,
-            aMapArg,
-            anEnumArg,
-            aProxyApiArg,
-            aNullableBoolArg,
-            aNullableIntArg,
-            aNullableDoubleArg,
-            aNullableStringArg,
-            aNullableUint8ListArg,
-            aNullableListArg,
-            aNullableMapArg,
-            aNullableEnumArg,
-            aNullableProxyApiArg)) {
-          if (it is List<*>) {
-            if (it.size > 1) {
-              callback(
-                  Result.failure(
-                      ProxyApiTestsError(it[0] as String, it[1] as String, it[2] as String?)))
-            } else {
-              callback(Result.success(Unit))
-            }
-          } else {
-            callback(Result.failure(createConnectionError(channelName)))
-          }
-        }
   }
 
   /** A no-op function taking no arguments and returning no value, to sanity test basic calling. */
@@ -3161,6 +3132,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterNoop` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3177,7 +3156,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(Unit))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3188,6 +3167,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterThrowError` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3206,7 +3193,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3220,6 +3207,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterThrowErrorFromVoid` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3237,7 +3232,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(Unit))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3252,6 +3247,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoBool` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3277,7 +3280,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3292,6 +3295,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoInt` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3316,7 +3327,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3331,6 +3342,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoDouble` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3356,7 +3375,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3371,6 +3390,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoString` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3396,7 +3423,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3411,6 +3438,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoUint8List` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3436,7 +3471,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3451,6 +3486,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoList` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3476,7 +3519,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3491,6 +3534,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoProxyApiList` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3516,7 +3567,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3531,6 +3582,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoMap` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3555,7 +3614,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3570,6 +3629,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoProxyApiMap` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3595,7 +3662,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3610,6 +3677,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoEnum` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3635,7 +3710,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3650,6 +3725,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoProxyApi` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3675,7 +3758,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3690,6 +3773,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoNullableBool` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3708,7 +3799,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3723,6 +3814,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoNullableInt` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3741,7 +3840,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3756,6 +3855,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoNullableDouble` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3774,7 +3881,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3789,6 +3896,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoNullableString` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3807,7 +3922,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3822,6 +3937,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoNullableUint8List` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3840,7 +3963,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3855,6 +3978,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoNullableList` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3873,7 +4004,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3888,6 +4019,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoNullableMap` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3906,7 +4045,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3921,6 +4060,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoNullableEnum` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3939,7 +4086,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3954,6 +4101,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoNullableProxyApi` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -3972,7 +4127,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -3986,6 +4141,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterNoopAsync` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -4003,7 +4166,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(Unit))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -4018,6 +4181,14 @@ abstract class PigeonApiProxyApiTestClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiTestClass.flutterEchoAsyncString` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -4043,7 +4214,7 @@ abstract class PigeonApiProxyApiTestClass(
           callback(Result.success(output))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -4089,7 +4260,7 @@ abstract class PigeonApiProxyApiSuperClass(
                       api.pigeon_defaultConstructor(), pigeon_identifierArg)
                   listOf(null)
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -4112,7 +4283,7 @@ abstract class PigeonApiProxyApiSuperClass(
                   api.aSuperMethod(pigeon_instanceArg)
                   listOf(null)
                 } catch (exception: Throwable) {
-                  wrapError(exception)
+                  ProxyApiTestsPigeonUtils.wrapError(exception)
                 }
             reply.reply(wrapped)
           }
@@ -4133,30 +4304,28 @@ abstract class PigeonApiProxyApiSuperClass(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
-      return
-    }
-    if (pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
-      Result.success(Unit)
-      return
-    }
-    val pigeon_identifierArg =
-        pigeonRegistrar.instanceManager.addHostCreatedInstance(pigeon_instanceArg)
-    val binaryMessenger = pigeonRegistrar.binaryMessenger
-    val codec = pigeonRegistrar.codec
-    val channelName =
-        "dev.flutter.pigeon.pigeon_integration_tests.ProxyApiSuperClass.pigeon_newInstance"
-    val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
-    channel.send(listOf(pigeon_identifierArg)) {
-      if (it is List<*>) {
-        if (it.size > 1) {
-          callback(
-              Result.failure(
-                  ProxyApiTestsError(it[0] as String, it[1] as String, it[2] as String?)))
+    } else if (pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(Result.success(Unit))
+    } else {
+      val pigeon_identifierArg =
+          pigeonRegistrar.instanceManager.addHostCreatedInstance(pigeon_instanceArg)
+      val binaryMessenger = pigeonRegistrar.binaryMessenger
+      val codec = pigeonRegistrar.codec
+      val channelName =
+          "dev.flutter.pigeon.pigeon_integration_tests.ProxyApiSuperClass.pigeon_newInstance"
+      val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
+      channel.send(listOf(pigeon_identifierArg)) {
+        if (it is List<*>) {
+          if (it.size > 1) {
+            callback(
+                Result.failure(
+                    ProxyApiTestsError(it[0] as String, it[1] as String, it[2] as String?)))
+          } else {
+            callback(Result.success(Unit))
+          }
         } else {
-          callback(Result.success(Unit))
+          callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
         }
-      } else {
-        callback(Result.failure(createConnectionError(channelName)))
       }
     }
   }
@@ -4173,30 +4342,28 @@ open class PigeonApiProxyApiInterface(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
-      return
-    }
-    if (pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
-      Result.success(Unit)
-      return
-    }
-    val pigeon_identifierArg =
-        pigeonRegistrar.instanceManager.addHostCreatedInstance(pigeon_instanceArg)
-    val binaryMessenger = pigeonRegistrar.binaryMessenger
-    val codec = pigeonRegistrar.codec
-    val channelName =
-        "dev.flutter.pigeon.pigeon_integration_tests.ProxyApiInterface.pigeon_newInstance"
-    val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
-    channel.send(listOf(pigeon_identifierArg)) {
-      if (it is List<*>) {
-        if (it.size > 1) {
-          callback(
-              Result.failure(
-                  ProxyApiTestsError(it[0] as String, it[1] as String, it[2] as String?)))
+    } else if (pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(Result.success(Unit))
+    } else {
+      val pigeon_identifierArg =
+          pigeonRegistrar.instanceManager.addHostCreatedInstance(pigeon_instanceArg)
+      val binaryMessenger = pigeonRegistrar.binaryMessenger
+      val codec = pigeonRegistrar.codec
+      val channelName =
+          "dev.flutter.pigeon.pigeon_integration_tests.ProxyApiInterface.pigeon_newInstance"
+      val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
+      channel.send(listOf(pigeon_identifierArg)) {
+        if (it is List<*>) {
+          if (it.size > 1) {
+            callback(
+                Result.failure(
+                    ProxyApiTestsError(it[0] as String, it[1] as String, it[2] as String?)))
+          } else {
+            callback(Result.success(Unit))
+          }
         } else {
-          callback(Result.success(Unit))
+          callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
         }
-      } else {
-        callback(Result.failure(createConnectionError(channelName)))
       }
     }
   }
@@ -4206,6 +4373,14 @@ open class PigeonApiProxyApiInterface(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    } else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              ProxyApiTestsError(
+                  "missing-instance-error",
+                  "Callback to `ProxyApiInterface.anInterfaceMethod` failed because native instance was not in the instance manager.",
+                  "")))
       return
     }
     val binaryMessenger = pigeonRegistrar.binaryMessenger
@@ -4223,7 +4398,7 @@ open class PigeonApiProxyApiInterface(
           callback(Result.success(Unit))
         }
       } else {
-        callback(Result.failure(createConnectionError(channelName)))
+        callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
       }
     }
   }
@@ -4263,7 +4438,7 @@ abstract class PigeonApiClassWithApiRequirement(
                         api.pigeon_defaultConstructor(), pigeon_identifierArg)
                     listOf(null)
                   } catch (exception: Throwable) {
-                    wrapError(exception)
+                    ProxyApiTestsPigeonUtils.wrapError(exception)
                   }
               reply.reply(wrapped)
             }
@@ -4280,7 +4455,7 @@ abstract class PigeonApiClassWithApiRequirement(
         if (api != null) {
           channel.setMessageHandler { _, reply ->
             reply.reply(
-                wrapError(
+                ProxyApiTestsPigeonUtils.wrapError(
                     UnsupportedOperationException(
                         "Call references class `ClassWithApiRequirement`, which requires api version 25.")))
           }
@@ -4304,7 +4479,7 @@ abstract class PigeonApiClassWithApiRequirement(
                     api.aMethod(pigeon_instanceArg)
                     listOf(null)
                   } catch (exception: Throwable) {
-                    wrapError(exception)
+                    ProxyApiTestsPigeonUtils.wrapError(exception)
                   }
               reply.reply(wrapped)
             }
@@ -4321,7 +4496,7 @@ abstract class PigeonApiClassWithApiRequirement(
         if (api != null) {
           channel.setMessageHandler { _, reply ->
             reply.reply(
-                wrapError(
+                ProxyApiTestsPigeonUtils.wrapError(
                     UnsupportedOperationException(
                         "Call references class `ClassWithApiRequirement`, which requires api version 25.")))
           }
@@ -4343,30 +4518,28 @@ abstract class PigeonApiClassWithApiRequirement(
       callback(
           Result.failure(
               ProxyApiTestsError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
-      return
-    }
-    if (pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
-      Result.success(Unit)
-      return
-    }
-    val pigeon_identifierArg =
-        pigeonRegistrar.instanceManager.addHostCreatedInstance(pigeon_instanceArg)
-    val binaryMessenger = pigeonRegistrar.binaryMessenger
-    val codec = pigeonRegistrar.codec
-    val channelName =
-        "dev.flutter.pigeon.pigeon_integration_tests.ClassWithApiRequirement.pigeon_newInstance"
-    val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
-    channel.send(listOf(pigeon_identifierArg)) {
-      if (it is List<*>) {
-        if (it.size > 1) {
-          callback(
-              Result.failure(
-                  ProxyApiTestsError(it[0] as String, it[1] as String, it[2] as String?)))
+    } else if (pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(Result.success(Unit))
+    } else {
+      val pigeon_identifierArg =
+          pigeonRegistrar.instanceManager.addHostCreatedInstance(pigeon_instanceArg)
+      val binaryMessenger = pigeonRegistrar.binaryMessenger
+      val codec = pigeonRegistrar.codec
+      val channelName =
+          "dev.flutter.pigeon.pigeon_integration_tests.ClassWithApiRequirement.pigeon_newInstance"
+      val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
+      channel.send(listOf(pigeon_identifierArg)) {
+        if (it is List<*>) {
+          if (it.size > 1) {
+            callback(
+                Result.failure(
+                    ProxyApiTestsError(it[0] as String, it[1] as String, it[2] as String?)))
+          } else {
+            callback(Result.success(Unit))
+          }
         } else {
-          callback(Result.success(Unit))
+          callback(Result.failure(ProxyApiTestsPigeonUtils.createConnectionError(channelName)))
         }
-      } else {
-        callback(Result.failure(createConnectionError(channelName)))
       }
     }
   }

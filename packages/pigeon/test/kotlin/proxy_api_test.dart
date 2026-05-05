@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,7 @@ const String DEFAULT_PACKAGE_NAME = 'test_package';
 void main() {
   group('ProxyApi', () {
     test('one api', () {
-      final Root root = Root(
+      final root = Root(
         apis: <Api>[
           AstProxyApi(
             name: 'Api',
@@ -35,11 +35,8 @@ void main() {
             fields: <ApiField>[
               ApiField(
                 name: 'someField',
-                type: const TypeDeclaration(
-                  baseName: 'int',
-                  isNullable: false,
-                ),
-              )
+                type: const TypeDeclaration(baseName: 'int', isNullable: false),
+              ),
             ],
             methods: <Method>[
               Method(
@@ -52,7 +49,7 @@ void main() {
                       isNullable: false,
                     ),
                     name: 'input',
-                  )
+                  ),
                 ],
                 returnType: const TypeDeclaration(
                   baseName: 'String',
@@ -78,20 +75,23 @@ void main() {
                 ),
               ),
             ],
-          )
+          ),
         ],
         classes: <Class>[],
         enums: <Enum>[],
       );
-      final StringBuffer sink = StringBuffer();
-      const KotlinGenerator generator = KotlinGenerator();
+      final sink = StringBuffer();
+      const generator = KotlinGenerator();
       generator.generate(
-        const KotlinOptions(fileSpecificClassNameComponent: 'MyFile'),
+        const InternalKotlinOptions(
+          fileSpecificClassNameComponent: 'MyFile',
+          kotlinOut: '',
+        ),
         root,
         sink,
         dartPackageName: DEFAULT_PACKAGE_NAME,
       );
-      final String code = sink.toString();
+      final code = sink.toString();
       final String collapsedCode = _collapseNewlineAndIndentation(code);
 
       // Instance Manager
@@ -108,9 +108,11 @@ void main() {
 
       // Codec
       expect(
-          code,
-          contains(
-              'private class MyFilePigeonProxyApiBaseCodec(val registrar: MyFilePigeonProxyApiRegistrar) : MyFilePigeonCodec()'));
+        code,
+        contains(
+          'private class MyFilePigeonProxyApiBaseCodec(val registrar: MyFilePigeonProxyApiRegistrar) : MyFilePigeonCodec()',
+        ),
+      );
 
       // Proxy API class
       expect(
@@ -123,9 +125,7 @@ void main() {
       // Constructors
       expect(
         collapsedCode,
-        contains(
-          r'abstract fun name(someField: Long, input: Input)',
-        ),
+        contains(r'abstract fun name(someField: Long, input: Input)'),
       );
       expect(
         collapsedCode,
@@ -165,35 +165,39 @@ void main() {
 
     group('inheritance', () {
       test('extends', () {
-        final AstProxyApi api2 = AstProxyApi(
+        final api2 = AstProxyApi(
           name: 'Api2',
           constructors: <Constructor>[],
           fields: <ApiField>[],
           methods: <Method>[],
         );
-        final Root root = Root(apis: <Api>[
-          AstProxyApi(
-            name: 'Api',
-            constructors: <Constructor>[],
-            fields: <ApiField>[],
-            methods: <Method>[],
-            superClass: TypeDeclaration(
-              baseName: api2.name,
-              isNullable: false,
-              associatedProxyApi: api2,
+        final root = Root(
+          apis: <Api>[
+            AstProxyApi(
+              name: 'Api',
+              constructors: <Constructor>[],
+              fields: <ApiField>[],
+              methods: <Method>[],
+              superClass: TypeDeclaration(
+                baseName: api2.name,
+                isNullable: false,
+                associatedProxyApi: api2,
+              ),
             ),
-          ),
-          api2,
-        ], classes: <Class>[], enums: <Enum>[]);
-        final StringBuffer sink = StringBuffer();
-        const KotlinGenerator generator = KotlinGenerator();
+            api2,
+          ],
+          classes: <Class>[],
+          enums: <Enum>[],
+        );
+        final sink = StringBuffer();
+        const generator = KotlinGenerator();
         generator.generate(
-          const KotlinOptions(),
+          const InternalKotlinOptions(kotlinOut: ''),
           root,
           sink,
           dartPackageName: DEFAULT_PACKAGE_NAME,
         );
-        final String code = sink.toString();
+        final code = sink.toString();
         final String collapsedCode = _collapseNewlineAndIndentation(code);
         expect(
           collapsedCode,
@@ -202,84 +206,92 @@ void main() {
       });
 
       test('implements', () {
-        final AstProxyApi api2 = AstProxyApi(
+        final api2 = AstProxyApi(
           name: 'Api2',
           constructors: <Constructor>[],
           fields: <ApiField>[],
           methods: <Method>[],
         );
-        final Root root = Root(apis: <Api>[
-          AstProxyApi(
-            name: 'Api',
-            constructors: <Constructor>[],
-            fields: <ApiField>[],
-            methods: <Method>[],
-            interfaces: <TypeDeclaration>{
-              TypeDeclaration(
-                baseName: api2.name,
-                isNullable: false,
-                associatedProxyApi: api2,
-              )
-            },
-          ),
-          api2,
-        ], classes: <Class>[], enums: <Enum>[]);
-        final StringBuffer sink = StringBuffer();
-        const KotlinGenerator generator = KotlinGenerator();
+        final root = Root(
+          apis: <Api>[
+            AstProxyApi(
+              name: 'Api',
+              constructors: <Constructor>[],
+              fields: <ApiField>[],
+              methods: <Method>[],
+              interfaces: <TypeDeclaration>{
+                TypeDeclaration(
+                  baseName: api2.name,
+                  isNullable: false,
+                  associatedProxyApi: api2,
+                ),
+              },
+            ),
+            api2,
+          ],
+          classes: <Class>[],
+          enums: <Enum>[],
+        );
+        final sink = StringBuffer();
+        const generator = KotlinGenerator();
         generator.generate(
-          const KotlinOptions(),
+          const InternalKotlinOptions(kotlinOut: ''),
           root,
           sink,
           dartPackageName: DEFAULT_PACKAGE_NAME,
         );
-        final String code = sink.toString();
+        final code = sink.toString();
         expect(code, contains('fun pigeon_getPigeonApiApi2(): PigeonApiApi2'));
       });
 
       test('implements 2 ProxyApis', () {
-        final AstProxyApi api2 = AstProxyApi(
+        final api2 = AstProxyApi(
           name: 'Api2',
           constructors: <Constructor>[],
           fields: <ApiField>[],
           methods: <Method>[],
         );
-        final AstProxyApi api3 = AstProxyApi(
+        final api3 = AstProxyApi(
           name: 'Api3',
           constructors: <Constructor>[],
           fields: <ApiField>[],
           methods: <Method>[],
         );
-        final Root root = Root(apis: <Api>[
-          AstProxyApi(
-            name: 'Api',
-            constructors: <Constructor>[],
-            fields: <ApiField>[],
-            methods: <Method>[],
-            interfaces: <TypeDeclaration>{
-              TypeDeclaration(
-                baseName: api2.name,
-                isNullable: false,
-                associatedProxyApi: api2,
-              ),
-              TypeDeclaration(
-                baseName: api3.name,
-                isNullable: false,
-                associatedProxyApi: api3,
-              ),
-            },
-          ),
-          api2,
-          api3,
-        ], classes: <Class>[], enums: <Enum>[]);
-        final StringBuffer sink = StringBuffer();
-        const KotlinGenerator generator = KotlinGenerator();
+        final root = Root(
+          apis: <Api>[
+            AstProxyApi(
+              name: 'Api',
+              constructors: <Constructor>[],
+              fields: <ApiField>[],
+              methods: <Method>[],
+              interfaces: <TypeDeclaration>{
+                TypeDeclaration(
+                  baseName: api2.name,
+                  isNullable: false,
+                  associatedProxyApi: api2,
+                ),
+                TypeDeclaration(
+                  baseName: api3.name,
+                  isNullable: false,
+                  associatedProxyApi: api3,
+                ),
+              },
+            ),
+            api2,
+            api3,
+          ],
+          classes: <Class>[],
+          enums: <Enum>[],
+        );
+        final sink = StringBuffer();
+        const generator = KotlinGenerator();
         generator.generate(
-          const KotlinOptions(),
+          const InternalKotlinOptions(kotlinOut: ''),
           root,
           sink,
           dartPackageName: DEFAULT_PACKAGE_NAME,
         );
-        final String code = sink.toString();
+        final code = sink.toString();
         expect(code, contains('fun pigeon_getPigeonApiApi2(): PigeonApiApi2'));
         expect(code, contains('fun pigeon_getPigeonApiApi3(): PigeonApiApi3'));
       });
@@ -287,27 +299,29 @@ void main() {
 
     group('Constructors', () {
       test('empty name and no params constructor', () {
-        final Root root = Root(
+        final root = Root(
           apis: <Api>[
-            AstProxyApi(name: 'Api', constructors: <Constructor>[
-              Constructor(
-                name: '',
-                parameters: <Parameter>[],
-              )
-            ], fields: <ApiField>[], methods: <Method>[]),
+            AstProxyApi(
+              name: 'Api',
+              constructors: <Constructor>[
+                Constructor(name: '', parameters: <Parameter>[]),
+              ],
+              fields: <ApiField>[],
+              methods: <Method>[],
+            ),
           ],
           classes: <Class>[],
           enums: <Enum>[],
         );
-        final StringBuffer sink = StringBuffer();
-        const KotlinGenerator generator = KotlinGenerator();
+        final sink = StringBuffer();
+        const generator = KotlinGenerator();
         generator.generate(
-          const KotlinOptions(),
+          const InternalKotlinOptions(kotlinOut: ''),
           root,
           sink,
           dartPackageName: DEFAULT_PACKAGE_NAME,
         );
-        final String code = sink.toString();
+        final code = sink.toString();
         final String collapsedCode = _collapseNewlineAndIndentation(code);
         expect(
           code,
@@ -334,63 +348,68 @@ void main() {
       });
 
       test('multiple params constructor', () {
-        final Enum anEnum = Enum(
+        final anEnum = Enum(
           name: 'AnEnum',
           members: <EnumMember>[EnumMember(name: 'one')],
         );
-        final Root root = Root(
+        final root = Root(
           apis: <Api>[
-            AstProxyApi(name: 'Api', constructors: <Constructor>[
-              Constructor(
-                name: 'name',
-                parameters: <Parameter>[
-                  Parameter(
-                    type: const TypeDeclaration(
-                      isNullable: false,
-                      baseName: 'int',
+            AstProxyApi(
+              name: 'Api',
+              constructors: <Constructor>[
+                Constructor(
+                  name: 'name',
+                  parameters: <Parameter>[
+                    Parameter(
+                      type: const TypeDeclaration(
+                        isNullable: false,
+                        baseName: 'int',
+                      ),
+                      name: 'validType',
                     ),
-                    name: 'validType',
-                  ),
-                  Parameter(
-                    type: TypeDeclaration(
-                      isNullable: false,
-                      baseName: 'AnEnum',
-                      associatedEnum: anEnum,
+                    Parameter(
+                      type: TypeDeclaration(
+                        isNullable: false,
+                        baseName: 'AnEnum',
+                        associatedEnum: anEnum,
+                      ),
+                      name: 'enumType',
                     ),
-                    name: 'enumType',
-                  ),
-                  Parameter(
-                    type: const TypeDeclaration(
-                      isNullable: false,
-                      baseName: 'Api2',
+                    Parameter(
+                      type: const TypeDeclaration(
+                        isNullable: false,
+                        baseName: 'Api2',
+                      ),
+                      name: 'proxyApiType',
                     ),
-                    name: 'proxyApiType',
-                  ),
-                  Parameter(
-                    type: const TypeDeclaration(
-                      isNullable: true,
-                      baseName: 'int',
+                    Parameter(
+                      type: const TypeDeclaration(
+                        isNullable: true,
+                        baseName: 'int',
+                      ),
+                      name: 'nullableValidType',
                     ),
-                    name: 'nullableValidType',
-                  ),
-                  Parameter(
-                    type: TypeDeclaration(
-                      isNullable: true,
-                      baseName: 'AnEnum',
-                      associatedEnum: anEnum,
+                    Parameter(
+                      type: TypeDeclaration(
+                        isNullable: true,
+                        baseName: 'AnEnum',
+                        associatedEnum: anEnum,
+                      ),
+                      name: 'nullableEnumType',
                     ),
-                    name: 'nullableEnumType',
-                  ),
-                  Parameter(
-                    type: const TypeDeclaration(
-                      isNullable: true,
-                      baseName: 'Api2',
+                    Parameter(
+                      type: const TypeDeclaration(
+                        isNullable: true,
+                        baseName: 'Api2',
+                      ),
+                      name: 'nullableProxyApiType',
                     ),
-                    name: 'nullableProxyApiType',
-                  ),
-                ],
-              )
-            ], fields: <ApiField>[], methods: <Method>[]),
+                  ],
+                ),
+              ],
+              fields: <ApiField>[],
+              methods: <Method>[],
+            ),
             AstProxyApi(
               name: 'Api2',
               constructors: <Constructor>[],
@@ -401,15 +420,15 @@ void main() {
           classes: <Class>[],
           enums: <Enum>[anEnum],
         );
-        final StringBuffer sink = StringBuffer();
-        const KotlinGenerator generator = KotlinGenerator();
+        final sink = StringBuffer();
+        const generator = KotlinGenerator();
         generator.generate(
-          const KotlinOptions(),
+          const InternalKotlinOptions(kotlinOut: ''),
           root,
           sink,
           dartPackageName: DEFAULT_PACKAGE_NAME,
         );
-        final String code = sink.toString();
+        final code = sink.toString();
         final String collapsedCode = _collapseNewlineAndIndentation(code);
         expect(
           code,
@@ -434,23 +453,105 @@ void main() {
           ),
         );
       });
+
+      test('host platform constructor callback method', () {
+        final root = Root(
+          apis: <Api>[
+            AstProxyApi(
+              name: 'Api',
+              constructors: <Constructor>[],
+              fields: <ApiField>[],
+              methods: <Method>[
+                Method(
+                  name: 'aCallbackMethod',
+                  returnType: const TypeDeclaration.voidDeclaration(),
+                  parameters: <Parameter>[],
+                  location: ApiLocation.flutter,
+                ),
+              ],
+            ),
+          ],
+          classes: <Class>[],
+          enums: <Enum>[],
+        );
+        final sink = StringBuffer();
+        const generator = KotlinGenerator();
+        generator.generate(
+          const InternalKotlinOptions(
+            errorClassName: 'TestError',
+            kotlinOut: '',
+          ),
+          root,
+          sink,
+          dartPackageName: DEFAULT_PACKAGE_NAME,
+        );
+        final code = sink.toString();
+        final String collapsedCode = _collapseNewlineAndIndentation(code);
+
+        expect(
+          collapsedCode,
+          contains(
+            'if (pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) { callback(Result.success(Unit))',
+          ),
+        );
+      });
+
+      test(
+        'host platform constructor calls new instance error for required callbacks',
+        () {
+          final root = Root(
+            apis: <Api>[
+              AstProxyApi(
+                name: 'Api',
+                constructors: <Constructor>[],
+                fields: <ApiField>[],
+                methods: <Method>[
+                  Method(
+                    name: 'aCallbackMethod',
+                    returnType: const TypeDeclaration.voidDeclaration(),
+                    parameters: <Parameter>[],
+                    location: ApiLocation.flutter,
+                  ),
+                ],
+              ),
+            ],
+            classes: <Class>[],
+            enums: <Enum>[],
+          );
+          final sink = StringBuffer();
+          const generator = KotlinGenerator();
+          generator.generate(
+            const InternalKotlinOptions(
+              errorClassName: 'TestError',
+              kotlinOut: '',
+            ),
+            root,
+            sink,
+            dartPackageName: DEFAULT_PACKAGE_NAME,
+          );
+          final code = sink.toString();
+          final String collapsedCode = _collapseNewlineAndIndentation(code);
+
+          expect(
+            collapsedCode,
+            contains(r'Result.failure( TestError("new-instance-error"'),
+          );
+        },
+      );
     });
 
     group('Fields', () {
       test('constructor with fields', () {
-        final Enum anEnum = Enum(
+        final anEnum = Enum(
           name: 'AnEnum',
           members: <EnumMember>[EnumMember(name: 'one')],
         );
-        final Root root = Root(
+        final root = Root(
           apis: <Api>[
             AstProxyApi(
               name: 'Api',
               constructors: <Constructor>[
-                Constructor(
-                  name: 'name',
-                  parameters: <Parameter>[],
-                )
+                Constructor(name: 'name', parameters: <Parameter>[]),
               ],
               fields: <ApiField>[
                 ApiField(
@@ -510,15 +611,15 @@ void main() {
           classes: <Class>[],
           enums: <Enum>[anEnum],
         );
-        final StringBuffer sink = StringBuffer();
-        const KotlinGenerator generator = KotlinGenerator();
+        final sink = StringBuffer();
+        const generator = KotlinGenerator();
         generator.generate(
-          const KotlinOptions(),
+          const InternalKotlinOptions(kotlinOut: ''),
           root,
           sink,
           dartPackageName: DEFAULT_PACKAGE_NAME,
         );
-        final String code = sink.toString();
+        final code = sink.toString();
         final String collapsedCode = _collapseNewlineAndIndentation(code);
         expect(
           collapsedCode,
@@ -577,13 +678,13 @@ void main() {
       });
 
       test('attached field', () {
-        final AstProxyApi api2 = AstProxyApi(
+        final api2 = AstProxyApi(
           name: 'Api2',
           constructors: <Constructor>[],
           fields: <ApiField>[],
           methods: <Method>[],
         );
-        final Root root = Root(
+        final root = Root(
           apis: <Api>[
             AstProxyApi(
               name: 'Api',
@@ -606,15 +707,15 @@ void main() {
           classes: <Class>[],
           enums: <Enum>[],
         );
-        final StringBuffer sink = StringBuffer();
-        const KotlinGenerator generator = KotlinGenerator();
+        final sink = StringBuffer();
+        const generator = KotlinGenerator();
         generator.generate(
-          const KotlinOptions(),
+          const InternalKotlinOptions(kotlinOut: ''),
           root,
           sink,
           dartPackageName: DEFAULT_PACKAGE_NAME,
         );
-        final String code = sink.toString();
+        final code = sink.toString();
         expect(
           code,
           contains(r'abstract fun aField(pigeon_instance: Api): Api2'),
@@ -628,13 +729,13 @@ void main() {
       });
 
       test('static attached field', () {
-        final AstProxyApi api2 = AstProxyApi(
+        final api2 = AstProxyApi(
           name: 'Api2',
           constructors: <Constructor>[],
           fields: <ApiField>[],
           methods: <Method>[],
         );
-        final Root root = Root(
+        final root = Root(
           apis: <Api>[
             AstProxyApi(
               name: 'Api',
@@ -658,19 +759,16 @@ void main() {
           classes: <Class>[],
           enums: <Enum>[],
         );
-        final StringBuffer sink = StringBuffer();
-        const KotlinGenerator generator = KotlinGenerator();
+        final sink = StringBuffer();
+        const generator = KotlinGenerator();
         generator.generate(
-          const KotlinOptions(),
+          const InternalKotlinOptions(kotlinOut: ''),
           root,
           sink,
           dartPackageName: DEFAULT_PACKAGE_NAME,
         );
-        final String code = sink.toString();
-        expect(
-          code,
-          contains(r'abstract fun aField(): Api2'),
-        );
+        final code = sink.toString();
+        expect(code, contains(r'abstract fun aField(): Api2'));
         expect(
           code,
           contains(
@@ -682,11 +780,11 @@ void main() {
 
     group('Host methods', () {
       test('multiple params method', () {
-        final Enum anEnum = Enum(
+        final anEnum = Enum(
           name: 'AnEnum',
           members: <EnumMember>[EnumMember(name: 'one')],
         );
-        final Root root = Root(
+        final root = Root(
           apis: <Api>[
             AstProxyApi(
               name: 'Api',
@@ -756,15 +854,15 @@ void main() {
           classes: <Class>[],
           enums: <Enum>[anEnum],
         );
-        final StringBuffer sink = StringBuffer();
-        const KotlinGenerator generator = KotlinGenerator();
+        final sink = StringBuffer();
+        const generator = KotlinGenerator();
         generator.generate(
-          const KotlinOptions(),
+          const InternalKotlinOptions(kotlinOut: ''),
           root,
           sink,
           dartPackageName: DEFAULT_PACKAGE_NAME,
         );
-        final String code = sink.toString();
+        final code = sink.toString();
         final String collapsedCode = _collapseNewlineAndIndentation(code);
         expect(
           collapsedCode,
@@ -785,7 +883,7 @@ void main() {
       });
 
       test('static method', () {
-        final Root root = Root(
+        final root = Root(
           apis: <Api>[
             AstProxyApi(
               name: 'Api',
@@ -805,15 +903,15 @@ void main() {
           classes: <Class>[],
           enums: <Enum>[],
         );
-        final StringBuffer sink = StringBuffer();
-        const KotlinGenerator generator = KotlinGenerator();
+        final sink = StringBuffer();
+        const generator = KotlinGenerator();
         generator.generate(
-          const KotlinOptions(),
+          const InternalKotlinOptions(kotlinOut: ''),
           root,
           sink,
           dartPackageName: DEFAULT_PACKAGE_NAME,
         );
-        final String code = sink.toString();
+        final code = sink.toString();
         final String collapsedCode = _collapseNewlineAndIndentation(code);
         expect(collapsedCode, contains('abstract fun doSomething()'));
         expect(collapsedCode, contains(r'api.doSomething()'));
@@ -822,12 +920,13 @@ void main() {
 
     group('Flutter methods', () {
       test('multiple params flutter method', () {
-        final Enum anEnum = Enum(
+        final anEnum = Enum(
           name: 'AnEnum',
           members: <EnumMember>[EnumMember(name: 'one')],
         );
-        final Root root = Root(apis: <Api>[
-          AstProxyApi(
+        final root = Root(
+          apis: <Api>[
+            AstProxyApi(
               name: 'Api',
               constructors: <Constructor>[],
               fields: <ApiField>[],
@@ -882,20 +981,22 @@ void main() {
                     ),
                   ],
                   returnType: const TypeDeclaration.voidDeclaration(),
-                )
-              ])
-        ], classes: <Class>[], enums: <Enum>[
-          anEnum
-        ]);
-        final StringBuffer sink = StringBuffer();
-        const KotlinGenerator generator = KotlinGenerator();
+                ),
+              ],
+            ),
+          ],
+          classes: <Class>[],
+          enums: <Enum>[anEnum],
+        );
+        final sink = StringBuffer();
+        const generator = KotlinGenerator();
         generator.generate(
-          const KotlinOptions(),
+          const InternalKotlinOptions(kotlinOut: ''),
           root,
           sink,
           dartPackageName: DEFAULT_PACKAGE_NAME,
         );
-        final String code = sink.toString();
+        final code = sink.toString();
         final String collapsedCode = _collapseNewlineAndIndentation(code);
         expect(
           collapsedCode,
@@ -913,6 +1014,90 @@ void main() {
             r'proxyApiTypeArg, nullableValidTypeArg, nullableEnumTypeArg, '
             r'nullableProxyApiTypeArg))',
           ),
+        );
+      });
+    });
+
+    group('InstanceManager', () {
+      test(
+        'InstanceManager passes runnable field and not a new runnable instance',
+        () {
+          final root = Root(
+            apis: <Api>[
+              AstProxyApi(
+                name: 'Api',
+                constructors: <Constructor>[],
+                fields: <ApiField>[],
+                methods: <Method>[],
+              ),
+            ],
+            classes: <Class>[],
+            enums: <Enum>[],
+          );
+          final sink = StringBuffer();
+          const generator = KotlinGenerator();
+          generator.generate(
+            const InternalKotlinOptions(kotlinOut: ''),
+            root,
+            sink,
+            dartPackageName: DEFAULT_PACKAGE_NAME,
+          );
+          final code = sink.toString();
+          final String collapsedCode = _collapseNewlineAndIndentation(code);
+
+          expect(
+            code,
+            contains(
+              'handler.removeCallbacks(releaseAllFinalizedInstancesRunnable)',
+            ),
+          );
+          expect(
+            code,
+            contains(
+              'handler.postDelayed(releaseAllFinalizedInstancesRunnable',
+            ),
+          );
+
+          expect(
+            collapsedCode,
+            contains(
+              'private val releaseAllFinalizedInstancesRunnable = Runnable { this.releaseAllFinalizedInstances() }',
+            ),
+          );
+          expect(
+            'this.releaseAllFinalizedInstances()'.allMatches(code).length,
+            1,
+          );
+        },
+      );
+
+      test('InstanceManager.getInstance specifies nonnull type', () {
+        final root = Root(
+          apis: <Api>[
+            AstProxyApi(
+              name: 'Api',
+              constructors: <Constructor>[],
+              fields: <ApiField>[],
+              methods: <Method>[],
+            ),
+          ],
+          classes: <Class>[],
+          enums: <Enum>[],
+        );
+        final sink = StringBuffer();
+        const generator = KotlinGenerator();
+        generator.generate(
+          const InternalKotlinOptions(kotlinOut: ''),
+          root,
+          sink,
+          dartPackageName: DEFAULT_PACKAGE_NAME,
+        );
+        final code = sink.toString();
+        final String collapsedCode = _collapseNewlineAndIndentation(code);
+
+        expect(
+          collapsedCode,
+          contains('fun <T : Any> getInstance(identifier: Long): T?'),
         );
       });
     });
@@ -936,7 +1121,7 @@ void main() {
 /// void method( int param1, int param2, )
 /// ```
 String _collapseNewlineAndIndentation(String string) {
-  final StringBuffer result = StringBuffer();
+  final result = StringBuffer();
   for (final String line in string.split('\n')) {
     result.write('${line.trimLeft()} ');
   }

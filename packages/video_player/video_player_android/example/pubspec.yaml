@@ -3,11 +3,13 @@ description: Demonstrates how to use the video_player plugin.
 publish_to: none
 
 environment:
-  sdk: ^3.5.0
-  flutter: ">=3.24.0"
+  sdk: ^3.9.0
+  flutter: ">=3.35.0"
 
 dependencies:
   flutter:
+    sdk: flutter
+  flutter_driver:
     sdk: flutter
   video_player_android:
     # When depending on this package from a real application you should use:
@@ -20,6 +22,7 @@ dependencies:
     path: ../../video_player_platform_interface
 
 dev_dependencies:
+  espresso: ^0.4.0
   flutter_test:
     sdk: flutter
   integration_test:

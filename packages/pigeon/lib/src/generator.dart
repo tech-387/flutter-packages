@@ -1,14 +1,20 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 import 'ast.dart';
 import 'generator_tools.dart';
 
+/// The internal options used by the generator.
+abstract class InternalOptions {
+  /// Constructor.
+  const InternalOptions();
+}
+
 /// An abstract base class of generators.
 ///
 /// This provides the structure that is common across generators for different languages.
-abstract class Generator<T> {
+abstract class Generator<T extends InternalOptions> {
   /// Constructor.
   const Generator();
 
@@ -22,7 +28,8 @@ abstract class Generator<T> {
 }
 
 /// An abstract base class that enforces code generation across platforms.
-abstract class StructuredGenerator<T> extends Generator<T> {
+abstract class StructuredGenerator<T extends InternalOptions>
+    extends Generator<T> {
   /// Constructor.
   const StructuredGenerator();
 
@@ -33,7 +40,7 @@ abstract class StructuredGenerator<T> extends Generator<T> {
     StringSink sink, {
     required String dartPackageName,
   }) {
-    final Indent indent = Indent(sink);
+    final indent = Indent();
 
     writeFilePrologue(
       generatorOptions,
@@ -102,12 +109,7 @@ abstract class StructuredGenerator<T> extends Generator<T> {
       dartPackageName: dartPackageName,
     );
 
-    writeApis(
-      generatorOptions,
-      root,
-      indent,
-      dartPackageName: dartPackageName,
-    );
+    writeApis(generatorOptions, root, indent, dartPackageName: dartPackageName);
 
     writeCloseNamespace(
       generatorOptions,
@@ -115,6 +117,8 @@ abstract class StructuredGenerator<T> extends Generator<T> {
       indent,
       dartPackageName: dartPackageName,
     );
+
+    sink.write(indent.toString());
   }
 
   /// Adds specified headers to [indent].
@@ -247,6 +251,15 @@ abstract class StructuredGenerator<T> extends Generator<T> {
     required String dartPackageName,
   }) {}
 
+  /// Writes a single class decode method to [indent].
+  void writeClassEquality(
+    T generatorOptions,
+    Root root,
+    Indent indent,
+    Class classDefinition, {
+    required String dartPackageName,
+  }) {}
+
   /// Writes all apis to [indent].
   ///
   /// Can be overridden to add extra code before/after classes.
@@ -329,21 +342,14 @@ abstract class StructuredGenerator<T> extends Generator<T> {
     required String dartPackageName,
   }) {}
 
-  /// Writes the base codec to be used by all ProxyApis.
+  /// Writes the base codec to be used by the Dart proxy class or the native
+  /// type API.
   ///
   /// This codec should use `128` as the identifier for objects that exist in
   /// an `InstanceManager`. The write implementation should convert an instance
   /// to an identifier. The read implementation should covert the identifier
   /// to an instance.
-  ///
-  /// This will serve as the default codec for all ProxyApis. If a ProxyApi
-  /// needs to create its own codec (it has methods/fields/constructor that use
-  /// a data class) it should extend this codec and not `StandardMessageCodec`.
-  void writeProxyApiBaseCodec(
-    T generatorOptions,
-    Root root,
-    Indent indent,
-  ) {}
+  void writeProxyApiBaseCodec(T generatorOptions, Root root, Indent indent) {}
 
   /// Writes a single Proxy Api to [indent].
   void writeProxyApi(

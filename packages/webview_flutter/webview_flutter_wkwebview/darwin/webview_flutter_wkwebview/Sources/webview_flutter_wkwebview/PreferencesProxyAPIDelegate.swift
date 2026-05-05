@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,6 +12,21 @@ class PreferencesProxyAPIDelegate: PigeonApiDelegateWKPreferences {
   func setJavaScriptEnabled(
     pigeonApi: PigeonApiWKPreferences, pigeonInstance: WKPreferences, enabled: Bool
   ) throws {
-    pigeonInstance.javaScriptEnabled = enabled
+    if #available(iOS 14.0, macOS 11.0, *) {
+      // On iOS 14 and macOS 11, WKWebpagePreferences.allowsContentJavaScript should be
+      // used instead.
+      throw (pigeonApi.pigeonRegistrar as! ProxyAPIRegistrar)
+        .createUnsupportedVersionError(
+          method: "WKPreferences.javaScriptEnabled",
+          versionRequirements: "< iOS 14.0, macOS 11.0")
+    } else {
+      pigeonInstance.javaScriptEnabled = enabled
+    }
+  }
+
+  func setJavaScriptCanOpenWindowsAutomatically(
+    pigeonApi: PigeonApiWKPreferences, pigeonInstance: WKPreferences, enabled: Bool
+  ) throws {
+    pigeonInstance.javaScriptCanOpenWindowsAutomatically = enabled
   }
 }

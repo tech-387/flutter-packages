@@ -8,9 +8,18 @@ A Flutter plugin that provides a [Google Maps](https://developers.google.com/map
 
 |             | Android | iOS     | Web                              |
 |-------------|---------|---------|----------------------------------|
-| **Support** | SDK 20+ | iOS 14+ | Same as [Flutter's][web-support] |
+| **Support** | SDK 24+ | iOS 14+ | Same as [Flutter's][web-support] |
 
 [web-support]: https://docs.flutter.dev/reference/supported-platforms
+
+**Important:** Not all functionality is supported on all platforms.
+To check details, please read the README files
+of the endorsed platform packages:
+
+* [`google_maps_flutter_android` README](https://pub.dev/packages/google_maps_flutter_android)
+* [`google_maps_flutter_ios` README](https://pub.dev/packages/google_maps_flutter_ios)
+* [`google_maps_flutter_web` README](https://pub.dev/packages/google_maps_flutter_web)
+
 
 ## Getting Started
 
@@ -30,86 +39,83 @@ For more details, see [Getting started with Google Maps Platform](https://develo
 
 ### Android
 
-1. Set the `minSdkVersion` in `android/app/build.gradle`:
+1. Specify your API key in the application manifest `android/app/src/main/AndroidManifest.xml`:
 
-```groovy
-android {
-    defaultConfig {
-        minSdkVersion 20
-    }
-}
-```
+   ```xml
+   <manifest ...
+     <application ...
+       <meta-data android:name="com.google.android.geo.API_KEY"
+                  android:value="YOUR KEY HERE"/>
+   ```
 
-This means that app will only be available for users that run Android SDK 20 or higher.
-
-2. Specify your API key in the application manifest `android/app/src/main/AndroidManifest.xml`:
-
-```xml
-<manifest ...
-  <application ...
-    <meta-data android:name="com.google.android.geo.API_KEY"
-               android:value="YOUR KEY HERE"/>
-```
-
-#### Display Mode
-
-The Android implementation supports multiple
-[platform view display modes](https://docs.flutter.dev/platform-integration/android/platform-views).
-For details, see [the Android README](https://pub.dev/packages/google_maps_flutter_android#display-mode).
-
-#### Cloud-based map styling
-
-Cloud-based map styling works on Android only if `AndroidMapRenderer.latest` map renderer has been initialized.
-For details, see [the Android README](https://pub.dev/packages/google_maps_flutter_android#map-renderer).
+2. Read about Android-specific features and limitations in the
+   [`google_maps_flutter_android` README](https://pub.dev/packages/google_maps_flutter_android).
 
 ### iOS
 
-To set up, specify your API key in the application delegate `ios/Runner/AppDelegate.m`:
+1. Specify your API key in the application delegate `ios/Runner/AppDelegate.swift`:
 
-```objectivec
-#include "AppDelegate.h"
-#include "GeneratedPluginRegistrant.h"
-#import "GoogleMaps/GoogleMaps.h"
+   ```swift
+   import UIKit
+   import Flutter
+   import GoogleMaps
 
-@implementation AppDelegate
+   @UIApplicationMain
+   @objc class AppDelegate: FlutterAppDelegate {
+     override func application(
+       _ application: UIApplication,
+       didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+     ) -> Bool {
+       GMSServices.provideAPIKey("YOUR KEY HERE")
+       GeneratedPluginRegistrant.register(with: self)
+       return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+     }
+   }
+   ```
 
-- (BOOL)application:(UIApplication *)application
-    didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-  [GMSServices provideAPIKey:@"YOUR KEY HERE"];
-  [GeneratedPluginRegistrant registerWithRegistry:self];
-  return [super application:application didFinishLaunchingWithOptions:launchOptions];
-}
-@end
-```
+2. Select an SDK version. The Google Maps SDK for iOS usually releases a new
+   major version once per year, dropping support for an older version of iOS
+   with each major release; see
+   [the SDK release notes](https://developers.google.com/maps/documentation/ios-sdk/releases)
+   for details of the minimum supported iOS version for each release. There is a
+   pub package for each SDK release.
+   - By default, this plugin uses [`google_maps_flutter_ios`](https://pub.dev/packages/google_maps_flutter_ios),
+     which will automatically select the latest SDK release that is compatible
+     with your project's minimum iOS version, up to version 10.x. This
+     functionality relies on CocoaPods, so this implementation is not compatible
+     with [Swift Package Manager](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers).
+     Because the Google Maps SDK [will not be releasing future versions via
+     CocoaPods](https://developers.google.com/maps/documentation/ios-sdk/release-notes#August_18_2025)
+     this implementation will not support SDK releases past 10.x.
+   - To use a specific SDK release, add a dependency on the corresponding
+     package to your `pubspec.yaml` file. All of the SDK-specific packages
+     support Swift Package Manager. In general, you should use the latest SDK
+     release that is compatible with your project's minimum iOS version:
+     - [`google_maps_flutter_ios_sdk9`](https://pub.dev/packages/google_maps_flutter_ios_sdk9)
+       requires iOS 15.0 or higher.
+     - [`google_maps_flutter_ios_sdk10`](https://pub.dev/packages/google_maps_flutter_ios_sdk10)
+       requires iOS 16.0 or higher.
+     - Future major SDK versions will be available as new packages.
 
-Or in your swift code, specify your API key in the application delegate `ios/Runner/AppDelegate.swift`:
+   **Important:** Package authors depending on `google_maps_flutter`
+   **should not** depend on a specific implementation package, as that will
+   prevent application developers from selecting the appropriate SDK version for
+   their project. Instead, just depend on `google_maps_flutter` as usual, and
+   leave the choice of SDK version to application developers.
 
-```swift
-import UIKit
-import Flutter
-import GoogleMaps
-
-@UIApplicationMain
-@objc class AppDelegate: FlutterAppDelegate {
-  override func application(
-    _ application: UIApplication,
-    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
-  ) -> Bool {
-    GMSServices.provideAPIKey("YOUR KEY HERE")
-    GeneratedPluginRegistrant.register(with: self)
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
-  }
-}
-```
+3. Read about iOS-specific features and limitations in the README for the
+   package you selected in step 2.
 
 ### Web
 
-You'll need to modify the `web/index.html` file of your Flutter Web application
-to include the Google Maps JS SDK.
+1. Add the following to the `<head>` section of `web/index.html`:
 
-Check [the `google_maps_flutter_web` README](https://pub.dev/packages/google_maps_flutter_web)
-for the latest information on how to prepare your App to use Google Maps on the
-web.
+   ```html
+   <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
+   ```
+
+2. Read about web-specific features and limitations in the
+   [`google_maps_flutter_web` README](https://pub.dev/packages/google_maps_flutter_web).
 
 ### All
 
@@ -120,6 +126,28 @@ the `GoogleMap`'s `onMapCreated` callback.
 
 The `GoogleMap` widget should be used within a widget with a bounded size. Using it
 in an unbounded widget will cause the application to throw a Flutter exception.
+
+### Advanced Markers
+
+[Advanced Markers](https://developers.google.com/maps/documentation/javascript/advanced-markers/overview) 
+are map markers that offer extra customization options. 
+[Map ID](https://developers.google.com/maps/documentation/get-map-id) is 
+required in order to use Advanced Markers:
+
+<?code-excerpt "readme_sample_advanced_markers.dart (AdvancedMarkersSample)"?>
+```dart
+body: GoogleMap(
+  // Set your Map ID.
+  mapId: 'my-map-id',
+  // Enable support for Advanced Markers.
+  markerType: GoogleMapMarkerType.advancedMarker,
+  initialCameraPosition: _kGooglePlex,
+),
+```
+
+**WARNING:** On iOS, using a PinConfig may result in the marker not showing. For details and updates, see
+[this issue](https://issuetracker.google.com/issues/370536110). If this issue has not been fixed in the version of the
+Google Maps SDK you are using, consider using an asset or bitmap for customization on iOS.
 
 ### Sample Usage
 
@@ -142,10 +170,11 @@ class MapSampleState extends State<MapSample> {
   );
 
   static const CameraPosition _kLake = CameraPosition(
-      bearing: 192.8334901395799,
-      target: LatLng(37.43296265331129, -122.08832357078792),
-      tilt: 59.440717697143555,
-      zoom: 19.151926040649414);
+    bearing: 192.8334901395799,
+    target: LatLng(37.43296265331129, -122.08832357078792),
+    tilt: 59.440717697143555,
+    zoom: 19.151926040649414,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -170,6 +199,7 @@ class MapSampleState extends State<MapSample> {
     await controller.animateCamera(CameraUpdate.newCameraPosition(_kLake));
   }
 }
+
 ```
 
 See the `example` directory for a complete sample app.

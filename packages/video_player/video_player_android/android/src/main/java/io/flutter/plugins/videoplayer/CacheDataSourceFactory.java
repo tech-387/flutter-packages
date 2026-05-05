@@ -120,6 +120,10 @@ public class CacheDataSourceFactory implements DataSource.Factory {
         return videoMetadataJson;
     }
 
+    @OptIn(markerClass = UnstableApi.class)
+    void setHeaders(Map<String, String> httpHeaders) {
+        defaultHttpDataSourceFactory.setDefaultRequestProperties(httpHeaders);
+    }
 
     @NonNull
     @OptIn(markerClass = UnstableApi.class)

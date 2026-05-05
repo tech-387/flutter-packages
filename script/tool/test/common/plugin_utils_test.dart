@@ -1,9 +1,8 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 import 'package:file/file.dart';
-import 'package:file/memory.dart';
 import 'package:flutter_plugin_tools/src/common/core.dart';
 import 'package:flutter_plugin_tools/src/common/plugin_utils.dart';
 import 'package:test/test.dart';
@@ -11,12 +10,11 @@ import 'package:test/test.dart';
 import '../util.dart';
 
 void main() {
-  late FileSystem fileSystem;
   late Directory packagesDir;
 
   setUp(() {
-    fileSystem = MemoryFileSystem();
-    packagesDir = createPackagesDirectory(fileSystem: fileSystem);
+    (:packagesDir, processRunner: _, gitProcessRunner: _, gitDir: _) =
+        configureBaseCommandMocks();
   });
 
   group('pluginSupportsPlatform', () {
@@ -32,15 +30,18 @@ void main() {
     });
 
     test('all platforms', () async {
-      final RepositoryPackage plugin = createFakePlugin('plugin', packagesDir,
-          platformSupport: <String, PlatformDetails>{
-            platformAndroid: const PlatformDetails(PlatformSupport.inline),
-            platformIOS: const PlatformDetails(PlatformSupport.inline),
-            platformLinux: const PlatformDetails(PlatformSupport.inline),
-            platformMacOS: const PlatformDetails(PlatformSupport.inline),
-            platformWeb: const PlatformDetails(PlatformSupport.inline),
-            platformWindows: const PlatformDetails(PlatformSupport.inline),
-          });
+      final RepositoryPackage plugin = createFakePlugin(
+        'plugin',
+        packagesDir,
+        platformSupport: <String, PlatformDetails>{
+          platformAndroid: const PlatformDetails(PlatformSupport.inline),
+          platformIOS: const PlatformDetails(PlatformSupport.inline),
+          platformLinux: const PlatformDetails(PlatformSupport.inline),
+          platformMacOS: const PlatformDetails(PlatformSupport.inline),
+          platformWeb: const PlatformDetails(PlatformSupport.inline),
+          platformWindows: const PlatformDetails(PlatformSupport.inline),
+        },
+      );
 
       expect(pluginSupportsPlatform(platformAndroid, plugin), isTrue);
       expect(pluginSupportsPlatform(platformIOS, plugin), isTrue);
@@ -51,12 +52,15 @@ void main() {
     });
 
     test('some platforms', () async {
-      final RepositoryPackage plugin = createFakePlugin('plugin', packagesDir,
-          platformSupport: <String, PlatformDetails>{
-            platformAndroid: const PlatformDetails(PlatformSupport.inline),
-            platformLinux: const PlatformDetails(PlatformSupport.inline),
-            platformWeb: const PlatformDetails(PlatformSupport.inline),
-          });
+      final RepositoryPackage plugin = createFakePlugin(
+        'plugin',
+        packagesDir,
+        platformSupport: <String, PlatformDetails>{
+          platformAndroid: const PlatformDetails(PlatformSupport.inline),
+          platformLinux: const PlatformDetails(PlatformSupport.inline),
+          platformWeb: const PlatformDetails(PlatformSupport.inline),
+        },
+      );
 
       expect(pluginSupportsPlatform(platformAndroid, plugin), isTrue);
       expect(pluginSupportsPlatform(platformIOS, plugin), isFalse);
@@ -67,125 +71,227 @@ void main() {
     });
 
     test('inline plugins are only detected as inline', () async {
-      final RepositoryPackage plugin = createFakePlugin('plugin', packagesDir,
-          platformSupport: <String, PlatformDetails>{
-            platformAndroid: const PlatformDetails(PlatformSupport.inline),
-            platformIOS: const PlatformDetails(PlatformSupport.inline),
-            platformLinux: const PlatformDetails(PlatformSupport.inline),
-            platformMacOS: const PlatformDetails(PlatformSupport.inline),
-            platformWeb: const PlatformDetails(PlatformSupport.inline),
-            platformWindows: const PlatformDetails(PlatformSupport.inline),
-          });
+      final RepositoryPackage plugin = createFakePlugin(
+        'plugin',
+        packagesDir,
+        platformSupport: <String, PlatformDetails>{
+          platformAndroid: const PlatformDetails(PlatformSupport.inline),
+          platformIOS: const PlatformDetails(PlatformSupport.inline),
+          platformLinux: const PlatformDetails(PlatformSupport.inline),
+          platformMacOS: const PlatformDetails(PlatformSupport.inline),
+          platformWeb: const PlatformDetails(PlatformSupport.inline),
+          platformWindows: const PlatformDetails(PlatformSupport.inline),
+        },
+      );
 
       expect(
-          pluginSupportsPlatform(platformAndroid, plugin,
-              requiredMode: PlatformSupport.inline),
-          isTrue);
+        pluginSupportsPlatform(
+          platformAndroid,
+          plugin,
+          requiredMode: PlatformSupport.inline,
+        ),
+        isTrue,
+      );
       expect(
-          pluginSupportsPlatform(platformAndroid, plugin,
-              requiredMode: PlatformSupport.federated),
-          isFalse);
+        pluginSupportsPlatform(
+          platformAndroid,
+          plugin,
+          requiredMode: PlatformSupport.federated,
+        ),
+        isFalse,
+      );
       expect(
-          pluginSupportsPlatform(platformIOS, plugin,
-              requiredMode: PlatformSupport.inline),
-          isTrue);
+        pluginSupportsPlatform(
+          platformIOS,
+          plugin,
+          requiredMode: PlatformSupport.inline,
+        ),
+        isTrue,
+      );
       expect(
-          pluginSupportsPlatform(platformIOS, plugin,
-              requiredMode: PlatformSupport.federated),
-          isFalse);
+        pluginSupportsPlatform(
+          platformIOS,
+          plugin,
+          requiredMode: PlatformSupport.federated,
+        ),
+        isFalse,
+      );
       expect(
-          pluginSupportsPlatform(platformLinux, plugin,
-              requiredMode: PlatformSupport.inline),
-          isTrue);
+        pluginSupportsPlatform(
+          platformLinux,
+          plugin,
+          requiredMode: PlatformSupport.inline,
+        ),
+        isTrue,
+      );
       expect(
-          pluginSupportsPlatform(platformLinux, plugin,
-              requiredMode: PlatformSupport.federated),
-          isFalse);
+        pluginSupportsPlatform(
+          platformLinux,
+          plugin,
+          requiredMode: PlatformSupport.federated,
+        ),
+        isFalse,
+      );
       expect(
-          pluginSupportsPlatform(platformMacOS, plugin,
-              requiredMode: PlatformSupport.inline),
-          isTrue);
+        pluginSupportsPlatform(
+          platformMacOS,
+          plugin,
+          requiredMode: PlatformSupport.inline,
+        ),
+        isTrue,
+      );
       expect(
-          pluginSupportsPlatform(platformMacOS, plugin,
-              requiredMode: PlatformSupport.federated),
-          isFalse);
+        pluginSupportsPlatform(
+          platformMacOS,
+          plugin,
+          requiredMode: PlatformSupport.federated,
+        ),
+        isFalse,
+      );
       expect(
-          pluginSupportsPlatform(platformWeb, plugin,
-              requiredMode: PlatformSupport.inline),
-          isTrue);
+        pluginSupportsPlatform(
+          platformWeb,
+          plugin,
+          requiredMode: PlatformSupport.inline,
+        ),
+        isTrue,
+      );
       expect(
-          pluginSupportsPlatform(platformWeb, plugin,
-              requiredMode: PlatformSupport.federated),
-          isFalse);
+        pluginSupportsPlatform(
+          platformWeb,
+          plugin,
+          requiredMode: PlatformSupport.federated,
+        ),
+        isFalse,
+      );
       expect(
-          pluginSupportsPlatform(platformWindows, plugin,
-              requiredMode: PlatformSupport.inline),
-          isTrue);
+        pluginSupportsPlatform(
+          platformWindows,
+          plugin,
+          requiredMode: PlatformSupport.inline,
+        ),
+        isTrue,
+      );
       expect(
-          pluginSupportsPlatform(platformWindows, plugin,
-              requiredMode: PlatformSupport.federated),
-          isFalse);
+        pluginSupportsPlatform(
+          platformWindows,
+          plugin,
+          requiredMode: PlatformSupport.federated,
+        ),
+        isFalse,
+      );
     });
 
     test('federated plugins are only detected as federated', () async {
-      final RepositoryPackage plugin = createFakePlugin('plugin', packagesDir,
-          platformSupport: <String, PlatformDetails>{
-            platformAndroid: const PlatformDetails(PlatformSupport.federated),
-            platformIOS: const PlatformDetails(PlatformSupport.federated),
-            platformLinux: const PlatformDetails(PlatformSupport.federated),
-            platformMacOS: const PlatformDetails(PlatformSupport.federated),
-            platformWeb: const PlatformDetails(PlatformSupport.federated),
-            platformWindows: const PlatformDetails(PlatformSupport.federated),
-          });
+      final RepositoryPackage plugin = createFakePlugin(
+        'plugin',
+        packagesDir,
+        platformSupport: <String, PlatformDetails>{
+          platformAndroid: const PlatformDetails(PlatformSupport.federated),
+          platformIOS: const PlatformDetails(PlatformSupport.federated),
+          platformLinux: const PlatformDetails(PlatformSupport.federated),
+          platformMacOS: const PlatformDetails(PlatformSupport.federated),
+          platformWeb: const PlatformDetails(PlatformSupport.federated),
+          platformWindows: const PlatformDetails(PlatformSupport.federated),
+        },
+      );
 
       expect(
-          pluginSupportsPlatform(platformAndroid, plugin,
-              requiredMode: PlatformSupport.federated),
-          isTrue);
+        pluginSupportsPlatform(
+          platformAndroid,
+          plugin,
+          requiredMode: PlatformSupport.federated,
+        ),
+        isTrue,
+      );
       expect(
-          pluginSupportsPlatform(platformAndroid, plugin,
-              requiredMode: PlatformSupport.inline),
-          isFalse);
+        pluginSupportsPlatform(
+          platformAndroid,
+          plugin,
+          requiredMode: PlatformSupport.inline,
+        ),
+        isFalse,
+      );
       expect(
-          pluginSupportsPlatform(platformIOS, plugin,
-              requiredMode: PlatformSupport.federated),
-          isTrue);
+        pluginSupportsPlatform(
+          platformIOS,
+          plugin,
+          requiredMode: PlatformSupport.federated,
+        ),
+        isTrue,
+      );
       expect(
-          pluginSupportsPlatform(platformIOS, plugin,
-              requiredMode: PlatformSupport.inline),
-          isFalse);
+        pluginSupportsPlatform(
+          platformIOS,
+          plugin,
+          requiredMode: PlatformSupport.inline,
+        ),
+        isFalse,
+      );
       expect(
-          pluginSupportsPlatform(platformLinux, plugin,
-              requiredMode: PlatformSupport.federated),
-          isTrue);
+        pluginSupportsPlatform(
+          platformLinux,
+          plugin,
+          requiredMode: PlatformSupport.federated,
+        ),
+        isTrue,
+      );
       expect(
-          pluginSupportsPlatform(platformLinux, plugin,
-              requiredMode: PlatformSupport.inline),
-          isFalse);
+        pluginSupportsPlatform(
+          platformLinux,
+          plugin,
+          requiredMode: PlatformSupport.inline,
+        ),
+        isFalse,
+      );
       expect(
-          pluginSupportsPlatform(platformMacOS, plugin,
-              requiredMode: PlatformSupport.federated),
-          isTrue);
+        pluginSupportsPlatform(
+          platformMacOS,
+          plugin,
+          requiredMode: PlatformSupport.federated,
+        ),
+        isTrue,
+      );
       expect(
-          pluginSupportsPlatform(platformMacOS, plugin,
-              requiredMode: PlatformSupport.inline),
-          isFalse);
+        pluginSupportsPlatform(
+          platformMacOS,
+          plugin,
+          requiredMode: PlatformSupport.inline,
+        ),
+        isFalse,
+      );
       expect(
-          pluginSupportsPlatform(platformWeb, plugin,
-              requiredMode: PlatformSupport.federated),
-          isTrue);
+        pluginSupportsPlatform(
+          platformWeb,
+          plugin,
+          requiredMode: PlatformSupport.federated,
+        ),
+        isTrue,
+      );
       expect(
-          pluginSupportsPlatform(platformWeb, plugin,
-              requiredMode: PlatformSupport.inline),
-          isFalse);
+        pluginSupportsPlatform(
+          platformWeb,
+          plugin,
+          requiredMode: PlatformSupport.inline,
+        ),
+        isFalse,
+      );
       expect(
-          pluginSupportsPlatform(platformWindows, plugin,
-              requiredMode: PlatformSupport.federated),
-          isTrue);
+        pluginSupportsPlatform(
+          platformWindows,
+          plugin,
+          requiredMode: PlatformSupport.federated,
+        ),
+        isTrue,
+      );
       expect(
-          pluginSupportsPlatform(platformWindows, plugin,
-              requiredMode: PlatformSupport.inline),
-          isFalse);
+        pluginSupportsPlatform(
+          platformWindows,
+          plugin,
+          requiredMode: PlatformSupport.inline,
+        ),
+        isFalse,
+      );
     });
   });
 
@@ -223,12 +329,18 @@ void main() {
         'plugin',
         packagesDir,
         platformSupport: <String, PlatformDetails>{
-          platformLinux:
-              const PlatformDetails(PlatformSupport.inline, hasDartCode: true),
-          platformMacOS:
-              const PlatformDetails(PlatformSupport.inline, hasDartCode: true),
-          platformWindows:
-              const PlatformDetails(PlatformSupport.inline, hasDartCode: true),
+          platformLinux: const PlatformDetails(
+            PlatformSupport.inline,
+            hasDartCode: true,
+          ),
+          platformMacOS: const PlatformDetails(
+            PlatformSupport.inline,
+            hasDartCode: true,
+          ),
+          platformWindows: const PlatformDetails(
+            PlatformSupport.inline,
+            hasDartCode: true,
+          ),
         },
       );
 
@@ -242,12 +354,21 @@ void main() {
         'plugin',
         packagesDir,
         platformSupport: <String, PlatformDetails>{
-          platformLinux: const PlatformDetails(PlatformSupport.inline,
-              hasNativeCode: false, hasDartCode: true),
-          platformMacOS: const PlatformDetails(PlatformSupport.inline,
-              hasNativeCode: false, hasDartCode: true),
-          platformWindows: const PlatformDetails(PlatformSupport.inline,
-              hasNativeCode: false, hasDartCode: true),
+          platformLinux: const PlatformDetails(
+            PlatformSupport.inline,
+            hasNativeCode: false,
+            hasDartCode: true,
+          ),
+          platformMacOS: const PlatformDetails(
+            PlatformSupport.inline,
+            hasNativeCode: false,
+            hasDartCode: true,
+          ),
+          platformWindows: const PlatformDetails(
+            PlatformSupport.inline,
+            hasNativeCode: false,
+            hasDartCode: true,
+          ),
         },
       );
 

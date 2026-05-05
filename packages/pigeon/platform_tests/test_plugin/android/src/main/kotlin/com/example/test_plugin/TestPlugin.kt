@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -51,6 +51,20 @@ class TestPlugin : FlutterPlugin, HostIntegrationCoreApi {
 
   override fun echoAllNullableTypes(everything: AllNullableTypes?): AllNullableTypes? {
     return everything
+  }
+
+  override fun areAllNullableTypesEqual(a: AllNullableTypes, b: AllNullableTypes): Boolean {
+    return a == b
+  }
+
+  override fun getAllNullableTypesHash(value: AllNullableTypes): Long {
+    return value.hashCode().toLong()
+  }
+
+  override fun getAllNullableTypesWithoutRecursionHash(
+      value: AllNullableTypesWithoutRecursion
+  ): Long {
+    return value.hashCode().toLong()
   }
 
   override fun echoAllNullableTypesWithoutRecursion(
@@ -524,6 +538,14 @@ class TestPlugin : FlutterPlugin, HostIntegrationCoreApi {
       callback: (Result<AnotherEnum?>) -> Unit
   ) {
     callback(Result.success(anotherEnum))
+  }
+
+  override fun defaultIsMainThread(): Boolean {
+    return Thread.currentThread() == Looper.getMainLooper().getThread()
+  }
+
+  override fun taskQueueIsBackgroundThread(): Boolean {
+    return Thread.currentThread() != Looper.getMainLooper().getThread()
   }
 
   override fun callFlutterNoop(callback: (Result<Unit>) -> Unit) {

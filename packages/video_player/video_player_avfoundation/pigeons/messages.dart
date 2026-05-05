@@ -1,43 +1,33 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 import 'package:pigeon/pigeon.dart';
 
-@ConfigurePigeon(PigeonOptions(
-  dartOut: 'lib/src/messages.g.dart',
-  dartTestOut: 'test/test_api.g.dart',
-  objcHeaderOut:
-      'darwin/video_player_avfoundation/Sources/video_player_avfoundation/include/video_player_avfoundation/messages.g.h',
-  objcSourceOut:
-      'darwin/video_player_avfoundation/Sources/video_player_avfoundation/messages.g.m',
-  objcOptions: ObjcOptions(
-    prefix: 'FVP',
-    headerIncludePath: './include/video_player_avfoundation/messages.g.h',
+@ConfigurePigeon(
+  PigeonOptions(
+    dartOut: 'lib/src/messages.g.dart',
+    objcHeaderOut:
+        'darwin/video_player_avfoundation/Sources/video_player_avfoundation/include/video_player_avfoundation/messages.g.h',
+    objcSourceOut:
+        'darwin/video_player_avfoundation/Sources/video_player_avfoundation/messages.g.m',
+    objcOptions: ObjcOptions(
+      prefix: 'FVP',
+      headerIncludePath: './include/video_player_avfoundation/messages.g.h',
+    ),
+    copyrightHeader: 'pigeons/copyright.txt',
   ),
-  copyrightHeader: 'pigeons/copyright.txt',
-))
-
-/// Pigeon equivalent of VideoViewType.
-enum PlatformVideoViewType {
-  textureView,
-  platformView,
-}
-
+)
 /// Information passed to the platform view creation.
 class PlatformVideoViewCreationParams {
-  const PlatformVideoViewCreationParams({
-    required this.playerId,
-  });
+  const PlatformVideoViewCreationParams({required this.playerId});
 
   final int playerId;
 }
 
 class CreationOptions {
-  CreationOptions({
-    required this.httpHeaders,
-    required this.viewType,
-  });
+  CreationOptions({required this.httpHeaders});
+
   String? asset;
   String? uri;
   String? packageName;
@@ -45,8 +35,6 @@ class CreationOptions {
   Map<String?, String?> httpHeaders;
   BufferOptionsMessage? bufferOptions;
   LoggerOptionsMessage? loggerOptions;
-
-  PlatformVideoViewType viewType;
 }
 
 class CacheOptionsMessage {
@@ -86,32 +74,67 @@ class LoggerOptionsMessage {
   final bool enableCacheDataSourceLogs;
 }
 
-@HostApi(dartHostTestHandler: 'TestHostVideoPlayerApi')
+class TexturePlayerIds {
+  TexturePlayerIds({required this.playerId, required this.textureId});
+
+  final int playerId;
+  final int textureId;
+}
+
+/// Raw audio track data from AVMediaSelectionOption (for HLS streams).
+class MediaSelectionAudioTrackData {
+  MediaSelectionAudioTrackData({
+    required this.index,
+    this.displayName,
+    this.languageCode,
+    required this.isSelected,
+    this.commonMetadataTitle,
+  });
+
+  int index;
+  String? displayName;
+  String? languageCode;
+  bool isSelected;
+  String? commonMetadataTitle;
+}
+
+@HostApi()
 abstract class AVFoundationVideoPlayerApi {
   @ObjCSelector('initialize')
   void initialize();
-  @ObjCSelector('createWithOptions:')
-  // Creates a new player and returns its ID.
-  int create(CreationOptions creationOptions);
-  @ObjCSelector('disposePlayer:')
-  void dispose(int textureId);
-  @ObjCSelector('setLooping:forPlayer:')
-  void setLooping(bool isLooping, int textureId);
-  @ObjCSelector('setVolume:forPlayer:')
-  void setVolume(double volume, int textureId);
-  @ObjCSelector('setPlaybackSpeed:forPlayer:')
-  void setPlaybackSpeed(double speed, int textureId);
-  @ObjCSelector('playPlayer:')
-  void play(int textureId);
-  @ObjCSelector('positionForPlayer:')
-  int getPosition(int textureId);
-  @async
-  @ObjCSelector('seekTo:forPlayer:')
-  void seekTo(int position, int textureId);
-  @ObjCSelector('pausePlayer:')
-  void pause(int textureId);
+  // Creates a new player using a platform view for rendering and returns its
+  // ID.
+  @ObjCSelector('createPlatformViewPlayerWithOptions:')
+  int createForPlatformView(CreationOptions params);
+  // Creates a new player using a texture for rendering and returns its IDs.
+  @ObjCSelector('createTexturePlayerWithOptions:')
+  TexturePlayerIds createForTextureView(CreationOptions creationOptions);
   @ObjCSelector('setMixWithOthers:')
   void setMixWithOthers(bool mixWithOthers);
   @ObjCSelector('setCacheOptions:')
   void setCacheOptions(CacheOptionsMessage msg);
+  @ObjCSelector('fileURLForAssetWithName:package:')
+  String? getAssetUrl(String asset, String? package);
+}
+
+@HostApi()
+abstract class VideoPlayerInstanceApi {
+  @ObjCSelector('setLooping:')
+  void setLooping(bool looping);
+  @ObjCSelector('setVolume:')
+  void setVolume(double volume);
+  @ObjCSelector('setPlaybackSpeed:')
+  void setPlaybackSpeed(double speed);
+  void play();
+  @ObjCSelector('position')
+  int getPosition();
+  @async
+  @ObjCSelector('seekTo:')
+  void seekTo(int position);
+  void pause();
+  void dispose();
+  @ObjCSelector('getAudioTracks')
+  List<MediaSelectionAudioTrackData> getAudioTracks();
+  @ObjCSelector('selectAudioTrackAtIndex:')
+  void selectAudioTrack(int trackIndex);
 }

@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -42,61 +42,54 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('simple', () async {
-    final MessageNestedApi api = MessageNestedApi();
-    final MockNested mock = MockNested();
+    final api = MessageNestedApi();
+    final mock = MockNested();
     TestNestedApi.setUp(mock);
-    final MessageSearchReply reply =
-        await api.search(MessageNested()..request = null);
+    final MessageSearchReply reply = await api.search(
+      MessageNested()..request = null,
+    );
     expect(mock.didCall, true);
     expect(reply.result, null);
   });
 
   test('nested', () async {
-    final MessageApi api = MessageApi();
-    final Mock mock = Mock();
+    final api = MessageApi();
+    final mock = Mock();
     TestHostApi.setUp(mock);
-    final MessageSearchReply reply =
-        await api.search(MessageSearchRequest()..query = 'foo');
+    final MessageSearchReply reply = await api.search(
+      MessageSearchRequest()..query = 'foo',
+    );
     expect(mock.log, <String>['search']);
     expect(reply.result, 'foo');
   });
 
   test('no-arg calls', () async {
-    final MessageApi api = MessageApi();
-    final Mock mock = Mock();
+    final api = MessageApi();
+    final mock = Mock();
     TestHostApi.setUp(mock);
     await api.initialize();
     expect(mock.log, <String>['initialize']);
   });
 
-  test(
-    'calling methods with null',
-    () async {
-      final Mock mock = Mock();
-      TestHostApi.setUp(mock);
-      expect(
-        await const BasicMessageChannel<Object?>(
-          'dev.flutter.pigeon.pigeon_integration_tests.MessageApi.initialize',
-          StandardMessageCodec(),
-        ).send(<Object?>[null]),
-        isEmpty,
-      );
-      try {
-        await const BasicMessageChannel<Object?>(
-          'dev.flutter.pigeon.pigeon_integration_tests.MessageApi.search',
-          StandardMessageCodec(),
-        ).send(<Object?>[null]) as List<Object?>?;
-        expect(true, isFalse); // should not reach here
-      } catch (error) {
-        expect(error, isAssertionError);
-        expect(
-          error.toString(),
-          contains(
-            'Argument for dev.flutter.pigeon.pigeon_integration_tests.MessageApi.search was null, expected non-null MessageSearchRequest.',
-          ),
-        );
-      }
-      expect(mock.log, <String>['initialize']);
-    },
-  );
+  test('calling methods with null', () async {
+    final mock = Mock();
+    TestHostApi.setUp(mock);
+    expect(
+      await const BasicMessageChannel<Object?>(
+        'dev.flutter.pigeon.pigeon_integration_tests.MessageApi.initialize',
+        StandardMessageCodec(),
+      ).send(<Object?>[null]),
+      isEmpty,
+    );
+    expect(
+      () async =>
+          await const BasicMessageChannel<Object?>(
+                'dev.flutter.pigeon.pigeon_integration_tests.MessageApi.search',
+                StandardMessageCodec(),
+              ).send(<Object?>[null])
+              as List<Object?>?,
+      throwsA(isA<TypeError>()),
+    );
+    expect(mock.log, <String>['initialize']);
+  });
 }

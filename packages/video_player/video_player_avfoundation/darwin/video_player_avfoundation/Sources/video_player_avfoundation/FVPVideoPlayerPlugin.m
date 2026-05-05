@@ -1,38 +1,71 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
-#import "FVPVideoPlayerPlugin.h"
-#import "FVPVideoPlayerPlugin_Test.h"
 
 #import "./include/video_player_avfoundation/FVPVideoPlayerPlugin.h"
 #import "./include/video_player_avfoundation/FVPVideoPlayerPlugin_Test.h"
 
-#import <AVFoundation/AVFoundation.h>
+@import AVFoundation;
 
 #import "./include/video_player_avfoundation/FVPAVFactory.h"
+#import "./include/video_player_avfoundation/FVPAssetProvider.h"
 #import "./include/video_player_avfoundation/FVPDisplayLink.h"
+#import "./include/video_player_avfoundation/FVPEventBridge.h"
 #import "./include/video_player_avfoundation/FVPFrameUpdater.h"
+#import "./include/video_player_avfoundation/FVPNativeVideoViewFactory.h"
+#import "./include/video_player_avfoundation/FVPTextureBasedVideoPlayer.h"
 #import "./include/video_player_avfoundation/FVPVideoPlayer.h"
+// Relative path is needed for messages.g.h. See
+// https://github.com/flutter/packages/pull/6675/#discussion_r1591210702
 #import "./include/video_player_avfoundation/messages.g.h"
 
 #import <SJMediaCacheServer/SJMediaCacheServer.h>
-
-#import "FVPVideoPlayerOptions.h"
-#import "FVPVideoPlayerBufferOptions.h"
-
-#if !__has_feature(objc_arc)
-#error Code Requires ARC.
-#endif
 
 /// Non-test implementation of the diplay link factory.
 @interface FVPDefaultDisplayLinkFactory : NSObject <FVPDisplayLinkFactory>
 @end
 
 @implementation FVPDefaultDisplayLinkFactory
-- (FVPDisplayLink *)displayLinkWithRegistrar:(id<FlutterPluginRegistrar>)registrar
-                                    callback:(void (^)(void))callback {
-  return [[FVPDisplayLink alloc] initWithRegistrar:registrar callback:callback];
+- (NSObject<FVPDisplayLink> *)displayLinkWithViewProvider:(NSObject<FVPViewProvider> *)viewProvider
+                                                 callback:(void (^)(void))callback {
+#if TARGET_OS_IOS
+  return [[FVPCADisplayLink alloc] initWithViewProvider:viewProvider callback:callback];
+#else
+  if (@available(macOS 14.0, *)) {
+    return [[FVPCADisplayLink alloc] initWithViewProvider:viewProvider callback:callback];
+  }
+  return [[FVPCoreVideoDisplayLink alloc] initWithViewProvider:viewProvider callback:callback];
+#endif
+}
+
+@end
+
+#pragma mark -
+
+/// Non-test implementation of FVPAssetProvider, wrapping a Flutter plugin
+/// registrar.
+@interface FVPDefaultAssetProvider : NSObject <FVPAssetProvider>
+@property(weak, nonatomic) NSObject<FlutterPluginRegistrar> *registrar;
+
+- (instancetype)initWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar;
+@end
+
+@implementation FVPDefaultAssetProvider
+
+- (instancetype)initWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
+  self = [super init];
+  if (self) {
+    _registrar = registrar;
+  }
+  return self;
+}
+
+- (NSString *)lookupKeyForAsset:(NSString *)asset {
+  return [self.registrar lookupKeyForAsset:asset];
+}
+
+- (NSString *)lookupKeyForAsset:(NSString *)asset fromPackage:(NSString *)package {
+  return [self.registrar lookupKeyForAsset:asset fromPackage:package];
 }
 
 @end
@@ -40,65 +73,96 @@
 #pragma mark -
 
 @interface FVPVideoPlayerPlugin ()
-@property(readonly, weak, nonatomic) NSObject<FlutterTextureRegistry> *registry;
-@property(readonly, weak, nonatomic) NSObject<FlutterBinaryMessenger> *messenger;
-@property(readonly, strong, nonatomic) NSObject<FlutterPluginRegistrar> *registrar;
+@property(nonatomic, strong) NSObject<FlutterBinaryMessenger> *binaryMessenger;
+@property(nonatomic, strong) NSObject<FlutterTextureRegistry> *textureRegistry;
 @property(nonatomic, strong) id<FVPDisplayLinkFactory> displayLinkFactory;
 @property(nonatomic, strong) id<FVPAVFactory> avFactory;
-@property(nonatomic, strong) FVPVideoPlayerOptions *videoPlayerOptions;
+@property(nonatomic, strong) NSObject<FVPViewProvider> *viewProvider;
+@property(nonatomic, strong) NSObject<FVPAssetProvider> *assetProvider;
+@property(nonatomic, assign) int64_t nextPlayerIdentifier;
 @end
 
 @implementation FVPVideoPlayerPlugin
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
   FVPVideoPlayerPlugin *instance = [[FVPVideoPlayerPlugin alloc] initWithRegistrar:registrar];
+  // Publish the instance so that it receives detachFromEngineForRegistrar:.
   [registrar publish:instance];
+  FVPNativeVideoViewFactory *factory = [[FVPNativeVideoViewFactory alloc]
+               initWithMessenger:registrar.messenger
+      playerByIdentifierProvider:^FVPVideoPlayer *(NSNumber *playerIdentifier) {
+        return instance->_playersByIdentifier[playerIdentifier];
+      }];
+  [registrar registerViewFactory:factory withId:@"plugins.flutter.dev/video_player_ios"];
   SetUpFVPAVFoundationVideoPlayerApi(registrar.messenger, instance);
 }
 
 - (instancetype)initWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
   return [self initWithAVFactory:[[FVPDefaultAVFactory alloc] init]
               displayLinkFactory:[[FVPDefaultDisplayLinkFactory alloc] init]
-                       registrar:registrar];
+                 binaryMessenger:registrar.messenger
+                 textureRegistry:registrar.textures
+                    viewProvider:[[FVPDefaultViewProvider alloc] initWithRegistrar:registrar]
+                   assetProvider:[[FVPDefaultAssetProvider alloc] initWithRegistrar:registrar]];
 }
 
 - (instancetype)initWithAVFactory:(id<FVPAVFactory>)avFactory
                displayLinkFactory:(id<FVPDisplayLinkFactory>)displayLinkFactory
-                        registrar:(NSObject<FlutterPluginRegistrar> *)registrar {
+                  binaryMessenger:(NSObject<FlutterBinaryMessenger> *)binaryMessenger
+                  textureRegistry:(NSObject<FlutterTextureRegistry> *)textureRegistry
+                     viewProvider:(NSObject<FVPViewProvider> *)viewProvider
+                    assetProvider:(NSObject<FVPAssetProvider> *)assetProvider {
   self = [super init];
   NSAssert(self, @"super init cannot be nil");
   [SJMediaCacheServer.shared setEnabledConsoleLog:true];
-  _registry = [registrar textures];
-  _messenger = [registrar messenger];
-  _registrar = registrar;
+  _binaryMessenger = binaryMessenger;
+  _textureRegistry = textureRegistry;
+  _assetProvider = assetProvider;
+  _viewProvider = viewProvider;
   _displayLinkFactory = displayLinkFactory ?: [[FVPDefaultDisplayLinkFactory alloc] init];
   _avFactory = avFactory ?: [[FVPDefaultAVFactory alloc] init];
-  _videoPlayerOptions = [[FVPVideoPlayerOptions alloc] init];
-  _playersByTextureId = [NSMutableDictionary dictionaryWithCapacity:1];
+  _playersByIdentifier = [NSMutableDictionary dictionaryWithCapacity:1];
+  _nextPlayerIdentifier = 1;
   return self;
 }
 
 - (void)detachFromEngineForRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
-  [self.playersByTextureId.allValues makeObjectsPerformSelector:@selector(disposeSansEventChannel)];
-  [self.playersByTextureId removeAllObjects];
+  FlutterError *error;
+  for (FVPVideoPlayer *player in self.playersByIdentifier.allValues) {
+    // Remove the channel and texture cleanup, and the event listener, to ensure that the player
+    // doesn't message the engine that is no longer connected.
+    player.onDisposed = nil;
+    player.eventListener = nil;
+    [player disposeWithError:&error];
+  }
+  [self.playersByIdentifier removeAllObjects];
   SetUpFVPAVFoundationVideoPlayerApi(registrar.messenger, nil);
 }
 
-- (int64_t)onPlayerSetup:(FVPVideoPlayer *)player frameUpdater:(FVPFrameUpdater *)frameUpdater {
-  int64_t textureId = [self.registry registerTexture:player];
-  frameUpdater.textureId = textureId;
-  FlutterEventChannel *eventChannel = [FlutterEventChannel
-      eventChannelWithName:[NSString stringWithFormat:@"flutter.io/videoPlayer/videoEvents%lld",
-                                                      textureId]
-           binaryMessenger:_messenger];
-  [eventChannel setStreamHandler:player];
-  player.eventChannel = eventChannel;
-  self.playersByTextureId[@(textureId)] = player;
+- (int64_t)configurePlayer:(FVPVideoPlayer *)player
+    withExtraDisposeHandler:(nullable void (^)(void))extraDisposeHandler {
+  int64_t playerIdentifier = self.nextPlayerIdentifier++;
+  self.playersByIdentifier[@(playerIdentifier)] = player;
 
-  // Ensure that the first frame is drawn once available, even if the video isn't played, since
-  // the engine is now expecting the texture to be populated.
-  [player expectFrame];
+  NSObject<FlutterBinaryMessenger> *messenger = self.binaryMessenger;
+  NSString *channelSuffix = [NSString stringWithFormat:@"%lld", playerIdentifier];
+  // Set up the player-specific API handler, and its onDispose unregistration.
+  SetUpFVPVideoPlayerInstanceApiWithSuffix(messenger, player, channelSuffix);
+  __weak typeof(self) weakSelf = self;
+  player.onDisposed = ^() {
+    SetUpFVPVideoPlayerInstanceApiWithSuffix(messenger, nil, channelSuffix);
+    if (extraDisposeHandler) {
+      extraDisposeHandler();
+    }
+    [weakSelf.playersByIdentifier removeObjectForKey:@(playerIdentifier)];
+  };
+  // Set up the event channel.
+  FVPEventBridge *eventBridge = [[FVPEventBridge alloc]
+      initWithMessenger:messenger
+            channelName:[NSString stringWithFormat:@"flutter.dev/videoPlayer/videoEvents%@",
+                                                   channelSuffix]];
+  player.eventListener = eventBridge;
 
-  return textureId;
+  return playerIdentifier;
 }
 
 // This function, although slightly modified, is also in camera_avfoundation.
@@ -110,15 +174,15 @@
 // that could affect other plugins which depend on this global state. Only change
 // category or options if there is change to prevent unnecessary lags and silence.
 #if TARGET_OS_IOS
-static void upgradeAudioSessionCategory(AVAudioSessionCategory requestedCategory,
+static void upgradeAudioSessionCategory(NSObject<FVPAVAudioSession> *session,
+                                        AVAudioSessionCategory requestedCategory,
                                         AVAudioSessionCategoryOptions options,
                                         AVAudioSessionCategoryOptions clearOptions) {
   NSSet *playCategories = [NSSet
       setWithObjects:AVAudioSessionCategoryPlayback, AVAudioSessionCategoryPlayAndRecord, nil];
   NSSet *recordCategories =
       [NSSet setWithObjects:AVAudioSessionCategoryRecord, AVAudioSessionCategoryPlayAndRecord, nil];
-  NSSet *requiredCategories =
-      [NSSet setWithObjects:requestedCategory, AVAudioSession.sharedInstance.category, nil];
+  NSSet *requiredCategories = [NSSet setWithObjects:requestedCategory, session.category, nil];
   BOOL requiresPlay = [requiredCategories intersectsSet:playCategories];
   BOOL requiresRecord = [requiredCategories intersectsSet:recordCategories];
   if (requiresPlay && requiresRecord) {
@@ -128,153 +192,79 @@ static void upgradeAudioSessionCategory(AVAudioSessionCategory requestedCategory
   } else if (requiresRecord) {
     requestedCategory = AVAudioSessionCategoryRecord;
   }
-  options = (AVAudioSession.sharedInstance.categoryOptions & ~clearOptions) | options;
-  if ([requestedCategory isEqualToString:AVAudioSession.sharedInstance.category] &&
-      options == AVAudioSession.sharedInstance.categoryOptions) {
+  options = (session.categoryOptions & ~clearOptions) | options;
+  if ([requestedCategory isEqualToString:session.category] && options == session.categoryOptions) {
     return;
   }
-  [AVAudioSession.sharedInstance setCategory:requestedCategory withOptions:options error:nil];
+  [session setCategory:requestedCategory withOptions:options error:nil];
 }
 #endif
 
 - (void)initialize:(FlutterError *__autoreleasing *)error {
 #if TARGET_OS_IOS
   // Allow audio playback when the Ring/Silent switch is set to silent
-  upgradeAudioSessionCategory(AVAudioSessionCategoryPlayback, 0, 0);
+  upgradeAudioSessionCategory(self.avFactory.sharedAudioSession, AVAudioSessionCategoryPlayback,
+                              /* options */ 0,
+                              /* clearOptions */ 0);
 #endif
 
-  [self.playersByTextureId
-      enumerateKeysAndObjectsUsingBlock:^(NSNumber *textureId, FVPVideoPlayer *player, BOOL *stop) {
-        [self.registry unregisterTexture:textureId.unsignedIntegerValue];
-        [player dispose];
-      }];
-  [self.playersByTextureId removeAllObjects];
+  FlutterError *disposeError;
+  // Disposing a player removes it from the dictionary, so iterate over a copy.
+  NSArray<FVPVideoPlayer *> *players = [self.playersByIdentifier.allValues copy];
+  for (FVPVideoPlayer *player in players) {
+    [player disposeWithError:&disposeError];
+  }
+  [self.playersByIdentifier removeAllObjects];
 }
 
-- (nullable NSNumber *)createWithOptions:(nonnull FVPCreationOptions *)options
-                                   error:(FlutterError **)error {
-  FVPFrameUpdater *frameUpdater = [[FVPFrameUpdater alloc] initWithRegistry:_registry];
-  FVPDisplayLink *displayLink =
-      [self.displayLinkFactory displayLinkWithRegistrar:_registrar
-                                               callback:^() {
-                                                 [frameUpdater displayLinkFired];
-                                               }];
+- (nullable NSNumber *)createPlatformViewPlayerWithOptions:(nonnull FVPCreationOptions *)options
+                                                     error:(FlutterError **)error {
+  @try {
+    NSObject<FVPAVPlayerItem> *item = [self playerItemWithCreationOptions:options];
 
-    FVPVideoPlayerBufferOptions *videoPlayerBufferOptions = [[FVPVideoPlayerBufferOptions alloc] initWithPreferredForwardBufferDuration: options.bufferOptions.preferredForwardBufferDuration  canUseNetworkResourcesForLiveStreamingWhilePaused:options.bufferOptions.canUseNetworkResourcesForLiveStreamingWhilePaused automaticallyWaitsToMinimizeStalling:options.bufferOptions.automaticallyWaitsToMinimizeStalling];
-  FVPVideoPlayer *player;
-  if (options.asset) {
-    NSString *assetPath;
-    if (options.packageName) {
-      assetPath = [_registrar lookupKeyForAsset:options.asset fromPackage:options.packageName];
-    } else {
-      assetPath = [_registrar lookupKeyForAsset:options.asset];
-    }
-    @try {
-      player = [[FVPVideoPlayer alloc] initWithAsset:assetPath
-                                        frameUpdater:frameUpdater
-                                         displayLink:displayLink
-                                           avFactory:_avFactory
-                                           videoPlayerOptions:_videoPlayerOptions
-                            videoPlayerBufferOptions: videoPlayerBufferOptions
-                                           registrar:self.registrar];
-      return @([self onPlayerSetup:player frameUpdater:frameUpdater]);
-    } @catch (NSException *exception) {
-      *error = [FlutterError errorWithCode:@"video_player" message:exception.reason details:nil];
-      return nil;
-    }
-  } else if (options.uri) {
-      
-      if (_videoPlayerOptions.enableCache) {
-          NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
-                    
-          // Sets additional headers, if provided in input.
-          config.HTTPAdditionalHeaders = options.httpHeaders;
-            
-          [SJMediaCacheServer.shared setActive:YES];
-            
-          [SJMediaCacheServer.shared setCacheMaxDiskSize:_videoPlayerOptions.maxCacheBytes];
-          
-          NSURL *originalURL = [NSURL URLWithString:options.uri];
-          NSURL *proxyURL = [SJMediaCacheServer.shared proxyURLFromURL:originalURL];
-          player = [[FVPVideoPlayer alloc] initWithURL:proxyURL
-                                          frameUpdater:frameUpdater
-                                           displayLink:displayLink
-                                           httpHeaders:options.httpHeaders
-                                             avFactory:_avFactory
-                                            videoPlayerOptions: _videoPlayerOptions
-                              videoPlayerBufferOptions: videoPlayerBufferOptions
-                                             registrar:self.registrar];
-            
-          return @([self onPlayerSetup:player frameUpdater:frameUpdater]);
-      } else {
-          player = [[FVPVideoPlayer alloc] initWithURL:[NSURL URLWithString:options.uri]
-                                          frameUpdater:frameUpdater
-                                           displayLink:displayLink
-                                           httpHeaders:options.httpHeaders
-                                             avFactory:_avFactory
-                                    videoPlayerOptions: _videoPlayerOptions
-                      videoPlayerBufferOptions: videoPlayerBufferOptions
-                                             registrar:self.registrar];
-          return @([self onPlayerSetup:player frameUpdater:frameUpdater]);
-      }
-  } else {
-    *error = [FlutterError errorWithCode:@"video_player" message:@"not implemented" details:nil];
+    // FVPVideoPlayer contains all required logic for platform views.
+    FVPVideoPlayer *player = [[FVPVideoPlayer alloc] initWithPlayerItem:item
+                                                              avFactory:self.avFactory
+                                                           viewProvider:self.viewProvider];
+
+    return @([self configurePlayer:player withExtraDisposeHandler:nil]);
+  } @catch (NSException *exception) {
+    *error = [FlutterError errorWithCode:@"video_player" message:exception.reason details:nil];
     return nil;
   }
 }
 
-- (void)disposePlayer:(NSInteger)textureId error:(FlutterError **)error {
-  NSNumber *playerKey = @(textureId);
-  FVPVideoPlayer *player = self.playersByTextureId[playerKey];
-  [self.registry unregisterTexture:textureId];
-  [self.playersByTextureId removeObjectForKey:playerKey];
-  if (!player.disposed) {
-    [player dispose];
+- (nullable FVPTexturePlayerIds *)createTexturePlayerWithOptions:
+                                      (nonnull FVPCreationOptions *)options
+                                                           error:(FlutterError **)error {
+  @try {
+    NSObject<FVPAVPlayerItem> *item = [self playerItemWithCreationOptions:options];
+    FVPFrameUpdater *frameUpdater = [[FVPFrameUpdater alloc] initWithRegistry:self.textureRegistry];
+    NSObject<FVPDisplayLink> *displayLink =
+        [self.displayLinkFactory displayLinkWithViewProvider:self.viewProvider
+                                                    callback:^() {
+                                                      [frameUpdater displayLinkFired];
+                                                    }];
+
+    FVPTextureBasedVideoPlayer *player =
+        [[FVPTextureBasedVideoPlayer alloc] initWithPlayerItem:item
+                                                  frameUpdater:frameUpdater
+                                                   displayLink:displayLink
+                                                     avFactory:self.avFactory
+                                                  viewProvider:self.viewProvider];
+
+    int64_t textureIdentifier = [self.textureRegistry registerTexture:player];
+    [player setTextureIdentifier:textureIdentifier];
+    __weak typeof(self) weakSelf = self;
+    int64_t playerIdentifier = [self configurePlayer:player
+                             withExtraDisposeHandler:^() {
+                               [weakSelf.textureRegistry unregisterTexture:textureIdentifier];
+                             }];
+    return [FVPTexturePlayerIds makeWithPlayerId:playerIdentifier textureId:textureIdentifier];
+  } @catch (NSException *exception) {
+    *error = [FlutterError errorWithCode:@"video_player" message:exception.reason details:nil];
+    return nil;
   }
-}
-
-- (void)setLooping:(BOOL)isLooping forPlayer:(NSInteger)textureId error:(FlutterError **)error {
-  FVPVideoPlayer *player = self.playersByTextureId[@(textureId)];
-  player.isLooping = isLooping;
-}
-
-- (void)setVolume:(double)volume forPlayer:(NSInteger)textureId error:(FlutterError **)error {
-  FVPVideoPlayer *player = self.playersByTextureId[@(textureId)];
-  [player setVolume:volume];
-}
-
-- (void)setPlaybackSpeed:(double)speed forPlayer:(NSInteger)textureId error:(FlutterError **)error {
-  FVPVideoPlayer *player = self.playersByTextureId[@(textureId)];
-  [player setPlaybackSpeed:speed];
-}
-
-- (void)playPlayer:(NSInteger)textureId error:(FlutterError **)error {
-  [SJMediaCacheServer.shared setActive:YES];
-  FVPVideoPlayer *player = self.playersByTextureId[@(textureId)];
-  [player play];
-}
-
-- (nullable NSNumber *)positionForPlayer:(NSInteger)textureId error:(FlutterError **)error {
-  FVPVideoPlayer *player = self.playersByTextureId[@(textureId)];
-  return @([player position]);
-}
-
-- (void)seekTo:(NSInteger)position
-     forPlayer:(NSInteger)textureId
-    completion:(nonnull void (^)(FlutterError *_Nullable))completion {
-  [SJMediaCacheServer.shared setActive:YES];
-  FVPVideoPlayer *player = self.playersByTextureId[@(textureId)];
-  [player seekTo:position
-      completionHandler:^(BOOL finished) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-          completion(nil);
-        });
-      }];
-}
-
-- (void)pausePlayer:(NSInteger)textureId error:(FlutterError **)error {
-  FVPVideoPlayer *player = self.playersByTextureId[@(textureId)];
-  [player pause];
 }
 
 - (void)setMixWithOthers:(BOOL)mixWithOthers
@@ -282,21 +272,49 @@ static void upgradeAudioSessionCategory(AVAudioSessionCategory requestedCategory
 #if TARGET_OS_OSX
   // AVAudioSession doesn't exist on macOS, and audio always mixes, so just no-op.
 #else
+  NSObject<FVPAVAudioSession> *session = self.avFactory.sharedAudioSession;
   if (mixWithOthers) {
-    upgradeAudioSessionCategory(AVAudioSession.sharedInstance.category,
-                                AVAudioSessionCategoryOptionMixWithOthers, 0);
+    upgradeAudioSessionCategory(session, session.category,
+                                /* options */ AVAudioSessionCategoryOptionMixWithOthers,
+                                /* clearOptions */ 0);
   } else {
-    upgradeAudioSessionCategory(AVAudioSession.sharedInstance.category, 0,
-                                AVAudioSessionCategoryOptionMixWithOthers);
+    upgradeAudioSessionCategory(session, session.category, /* options */ 0,
+                                /* clearOptions */ AVAudioSessionCategoryOptionMixWithOthers);
   }
 #endif
 }
 
-- (void)setCacheOptions:(FVPCacheOptionsMessage *)msg error:(FlutterError * _Nullable __autoreleasing *)error {
-    _videoPlayerOptions.cacheDirectory = msg.cacheDirectory;
-    _videoPlayerOptions.enableCache = msg.enableCache;
-    _videoPlayerOptions.maxCacheBytes = msg.maxCacheBytes;
-    _videoPlayerOptions.maxFileBytes = msg.maxFileBytes;
+- (nullable NSString *)fileURLForAssetWithName:(NSString *)asset
+                                       package:(nullable NSString *)package
+                                         error:(FlutterError *_Nullable *_Nonnull)error {
+  NSString *resource = package == nil
+                           ? [self.assetProvider lookupKeyForAsset:asset]
+                           : [self.assetProvider lookupKeyForAsset:asset fromPackage:package];
+
+  NSString *path = [[NSBundle mainBundle] pathForResource:resource ofType:nil];
+#if TARGET_OS_OSX
+  // See https://github.com/flutter/flutter/issues/135302
+  // TODO(stuartmorgan): Remove this if the asset APIs are adjusted to work better for macOS.
+  if (!path) {
+    path = [NSURL URLWithString:resource relativeToURL:NSBundle.mainBundle.bundleURL].path;
+  }
+#endif
+
+  if (!path) {
+    return nil;
+  }
+  return [NSURL fileURLWithPath:path].absoluteString;
+}
+
+/// Returns the AVPlayerItem corresponding to the given player creation options.
+- (nonnull NSObject<FVPAVPlayerItem> *)playerItemWithCreationOptions:
+    (nonnull FVPCreationOptions *)options {
+  NSDictionary<NSString *, NSString *> *headers = options.httpHeaders;
+  NSDictionary<NSString *, id> *itemOptions =
+      headers.count == 0 ? nil : @{@"AVURLAssetHTTPHeaderFieldsKey" : headers};
+  NSObject<FVPAVAsset> *asset = [self.avFactory URLAssetWithURL:[NSURL URLWithString:options.uri]
+                                                        options:itemOptions];
+  return [self.avFactory playerItemWithAsset:asset];
 }
 
 @end

@@ -43,14 +43,15 @@ class VideoPlayerValue {
 
   /// Returns an instance for a video that hasn't been loaded.
   const VideoPlayerValue.uninitialized()
-      : this(duration: Duration.zero, isInitialized: false);
+    : this(duration: Duration.zero, isInitialized: false);
 
   /// Returns an instance with the given [errorDescription].
   const VideoPlayerValue.erroneous(String errorDescription)
-      : this(
-            duration: Duration.zero,
-            isInitialized: false,
-            errorDescription: errorDescription);
+    : this(
+        duration: Duration.zero,
+        isInitialized: false,
+        errorDescription: errorDescription,
+      );
 
   /// The total duration of the video.
   ///
@@ -147,16 +148,16 @@ class VideoPlayerValue {
 
   @override
   int get hashCode => Object.hash(
-        duration,
-        position,
-        buffered,
-        isPlaying,
-        isBuffering,
-        playbackSpeed,
-        errorDescription,
-        size,
-        isInitialized,
-      );
+    duration,
+    position,
+    buffered,
+    isPlaying,
+    isBuffering,
+    playbackSpeed,
+    errorDescription,
+    size,
+    isInitialized,
+  );
 }
 
 /// A very minimal version of `VideoPlayerController` for running the example
@@ -168,25 +169,22 @@ class MiniController extends ValueNotifier<VideoPlayerValue> {
   /// null. The [package] argument must be non-null when the asset comes from a
   /// package and null otherwise.
   MiniController.asset(this.dataSource, {this.package})
-      : dataSourceType = DataSourceType.asset,
-        videoPlayerBufferOptions = null,
-        super(const VideoPlayerValue(duration: Duration.zero));
+    : dataSourceType = DataSourceType.asset,
+      super(const VideoPlayerValue(duration: Duration.zero));
 
   /// Constructs a [MiniController] playing a video from obtained from
   /// the network.
-  MiniController.network(this.dataSource,
-      {required this.videoPlayerBufferOptions})
-      : dataSourceType = DataSourceType.network,
-        package = null,
-        super(const VideoPlayerValue(duration: Duration.zero));
+  MiniController.network(this.dataSource)
+    : dataSourceType = DataSourceType.network,
+      package = null,
+      super(const VideoPlayerValue(duration: Duration.zero));
 
   /// Constructs a [MiniController] playing a video from obtained from a file.
   MiniController.file(File file)
-      : dataSource = Uri.file(file.absolute.path).toString(),
-        dataSourceType = DataSourceType.file,
-        package = null,
-        videoPlayerBufferOptions = null,
-        super(const VideoPlayerValue(duration: Duration.zero));
+    : dataSource = Uri.file(file.absolute.path).toString(),
+      dataSourceType = DataSourceType.file,
+      package = null,
+      super(const VideoPlayerValue(duration: Duration.zero));
 
   /// The URI to the video file. This will be in different formats depending on
   /// the [DataSourceType] of the original video.
@@ -195,8 +193,6 @@ class MiniController extends ValueNotifier<VideoPlayerValue> {
   /// Describes the type of data source this [MiniController]
   /// is constructed with.
   final DataSourceType dataSourceType;
-
-  final VideoPlayerBufferOptions? videoPlayerBufferOptions;
 
   /// Only set for [asset] videos. The package that the asset was loaded from.
   final String? package;
@@ -229,9 +225,9 @@ class MiniController extends ValueNotifier<VideoPlayerValue> {
         );
       case DataSourceType.network:
         dataSourceDescription = DataSource(
-            sourceType: DataSourceType.network,
-            uri: dataSource,
-            formatHint: VideoFormat.hls);
+          sourceType: DataSourceType.network,
+          uri: dataSource,
+        );
       case DataSourceType.file:
         dataSourceDescription = DataSource(
           sourceType: DataSourceType.file,
@@ -244,15 +240,11 @@ class MiniController extends ValueNotifier<VideoPlayerValue> {
         );
     }
 
-    _textureId = (await _platform.create(dataSourceDescription,
-            videoPlayerBufferOptions:
-                videoPlayerBufferOptions ?? const VideoPlayerBufferOptions(),
-            videoPlayerLoggerOptions: const VideoPlayerLoggerOptions(
-              enableCacheDataSourceLogs: false,
-            ))) ??
+    _textureId =
+        (await _platform.create(dataSourceDescription)) ??
         kUninitializedTextureId;
     _creatingCompleter!.complete(null);
-    final Completer<void> initializingCompleter = Completer<void>();
+    final initializingCompleter = Completer<void>();
 
     void eventListener(VideoEvent event) {
       switch (event.eventType) {
@@ -282,7 +274,7 @@ class MiniController extends ValueNotifier<VideoPlayerValue> {
     }
 
     void errorListener(Object obj) {
-      final PlatformException e = obj as PlatformException;
+      final e = obj as PlatformException;
       value = VideoPlayerValue.erroneous(e.message!);
       _timer?.cancel();
       if (!initializingCompleter.isCompleted) {
@@ -324,16 +316,15 @@ class MiniController extends ValueNotifier<VideoPlayerValue> {
     if (value.isPlaying) {
       await _platform.play(_textureId);
 
-      _timer = Timer.periodic(
-        const Duration(milliseconds: 500),
-        (Timer timer) async {
-          final Duration? newPosition = await position;
-          if (newPosition == null) {
-            return;
-          }
-          _updatePosition(newPosition);
-        },
-      );
+      _timer = Timer.periodic(const Duration(milliseconds: 500), (
+        Timer timer,
+      ) async {
+        final Duration? newPosition = await position;
+        if (newPosition == null) {
+          return;
+        }
+        _updatePosition(newPosition);
+      });
       await _applyPlaybackSpeed();
     } else {
       await _platform.pause(_textureId);
@@ -342,10 +333,7 @@ class MiniController extends ValueNotifier<VideoPlayerValue> {
 
   Future<void> _applyPlaybackSpeed() async {
     if (value.isPlaying) {
-      await _platform.setPlaybackSpeed(
-        _textureId,
-        value.playbackSpeed,
-      );
+      await _platform.setPlaybackSpeed(_textureId, value.playbackSpeed);
     }
   }
 
@@ -437,10 +425,7 @@ class _VideoPlayerState extends State<VideoPlayer> {
 }
 
 class _VideoScrubber extends StatefulWidget {
-  const _VideoScrubber({
-    required this.child,
-    required this.controller,
-  });
+  const _VideoScrubber({required this.child, required this.controller});
 
   final Widget child;
   final MiniController controller;
@@ -455,7 +440,7 @@ class _VideoScrubberState extends State<_VideoScrubber> {
   @override
   Widget build(BuildContext context) {
     void seekToRelativePosition(Offset globalPosition) {
-      final RenderBox box = context.findRenderObject()! as RenderBox;
+      final box = context.findRenderObject()! as RenderBox;
       final Offset tapPos = box.globalToLocal(globalPosition);
       final double relative = tapPos.dx / box.size.width;
       final Duration position = controller.value.duration * relative;
@@ -515,16 +500,16 @@ class _VideoProgressIndicatorState extends State<VideoProgressIndicator> {
 
   @override
   Widget build(BuildContext context) {
-    const Color playedColor = Color.fromRGBO(255, 0, 0, 0.7);
-    const Color bufferedColor = Colors.green;
-    const Color backgroundColor = Color.fromRGBO(200, 200, 200, 0.5);
+    const playedColor = Color.fromRGBO(255, 0, 0, 0.7);
+    const bufferedColor = Color.fromRGBO(50, 50, 200, 0.2);
+    const backgroundColor = Color.fromRGBO(200, 200, 200, 0.5);
 
     Widget progressIndicator;
     if (controller.value.isInitialized) {
       final int duration = controller.value.duration.inMilliseconds;
       final int position = controller.value.position.inMilliseconds;
 
-      int maxBuffering = 0;
+      var maxBuffering = 0;
       for (final DurationRange range in controller.value.buffered) {
         final int end = range.end.inMilliseconds;
         if (end > maxBuffering) {

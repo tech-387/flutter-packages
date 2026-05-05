@@ -6,30 +6,36 @@
 
 import 'dart:developer';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 import 'mini_controller.dart';
 import 'package:collection/collection.dart';
 
 void main() {
-  runApp(
-    MaterialApp(
-      home: _App(),
-    ),
-  );
+  runApp(MaterialApp(home: _App()));
 }
 
 class _App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: const ValueKey<String>('home_page'),
-      appBar: AppBar(
-        title: const Text('Video player example'),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        key: const ValueKey<String>('home_page'),
+        appBar: AppBar(
+          title: const Text('Video player example'),
+          bottom: const TabBar(
+            isScrollable: true,
+            tabs: <Widget>[
+              Tab(icon: Icon(Icons.cloud), text: 'Remote'),
+              Tab(icon: Icon(Icons.insert_drive_file), text: 'Asset'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: <Widget>[_BumbleBeeRemoteVideo(), _ButterFlyAssetVideo()],
+        ),
       ),
-      body: _BumbleBeeRemoteVideo(),
     );
   }
 }
@@ -50,7 +56,8 @@ class _ButterFlyAssetVideoState extends State<_ButterFlyAssetVideo> {
     _controller.addListener(() {
       setState(() {});
     });
-    _controller.initialize().then((_) => _controller.play());
+    _controller.initialize().then((_) => setState(() {}));
+    _controller.play();
   }
 
   @override
@@ -64,9 +71,7 @@ class _ButterFlyAssetVideoState extends State<_ButterFlyAssetVideo> {
     return SingleChildScrollView(
       child: Column(
         children: <Widget>[
-          Container(
-            padding: const EdgeInsets.only(top: 20.0),
-          ),
+          Container(padding: const EdgeInsets.only(top: 20.0)),
           const Text('With assets mp4'),
           Container(
             padding: const EdgeInsets.all(20),
@@ -95,133 +100,35 @@ class _BumbleBeeRemoteVideo extends StatefulWidget {
 
 class _BumbleBeeRemoteVideoState extends State<_BumbleBeeRemoteVideo> {
   final List<MiniController> controllers = <MiniController>[
-    // 0.5 fmp4 segments, 720p, 18 seconds video
-    // MiniController.network(
-    //     'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/output_fmp4_500ms/output.m3u8'),
-
-    // 0.5s and 8s fmp4 segments, 720p, 18 seconds video
-    // MiniController.network(
-    //     'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/output_fmp4/output.m3u8'),
-
-    // 1s fmp4 segments, 720p, 18 seconds video
-    // MiniController.network(
-    //     'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/output_fmp4_1s/output.m3u8'),
-
-    // // 0.5 and 8s segments, 720p, 18 seconds video
-    // MiniController.network(
-    //     'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/output_half_second/output.m3u8',
-    //     videoPlayerBufferOptions: const VideoPlayerBufferOptions(
-    //       maxBufferMs: 2400,
-    //       minBufferMs: 2400,
-    //       bufferForPlaybackMs: 500,
-    //       bufferForPlaybackAfterRebufferMs: 500,
-    //     )),
-
-    // // All variants, 18 seconds video
-    // MiniController.network(
-    //   'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/d45945d3-d43c-4dd7-bb8c-6f0f9f8b4c5c/d45945d3-d43c-4dd7-bb8c-6f0f9f8b4c5c.m3u8',
-    //   videoPlayerBufferOptions: const VideoPlayerBufferOptions(
-    //     maxBufferMs: 3600,
-    //     minBufferMs: 3600,
-    //     bufferForPlaybackMs: 500,
-    //     bufferForPlaybackAfterRebufferMs: 500,
-    //   ),
-    // ),
-
-    // All variants, 7 seconds video
-    // MiniController.network(
-    //   'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/cdee0496-ea71-4979-bc43-18dcb4bf1436/cdee0496-ea71-4979-bc43-18dcb4bf1436.m3u8',
-    //   videoPlayerBufferOptions: const VideoPlayerBufferOptions(
-    //     maxBufferMs: 2500,
-    //     minBufferMs: 2500,
-    //     bufferForPlaybackMs: 500,
-    //     bufferForPlaybackAfterRebufferMs: 500,
-    //   ),
-    // ),
-
-    // All variants, 30 seconds video, crf 24
-    // MiniController.network(
-    //   'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/7fb8504e-e90c-4d96-988a-2d47e3f11710/7fb8504e-e90c-4d96-988a-2d47e3f11710.m3u8',
-    //   videoPlayerBufferOptions: const VideoPlayerBufferOptions(
-    //     maxBufferMs: 2500,
-    //     minBufferMs: 2500,
-    //     bufferForPlaybackMs: 500,
-    //     bufferForPlaybackAfterRebufferMs: 500,
-    //   ),
-    // ),
-
-    // All variants, 30 seconds video, crf 32
     MiniController.network(
-      'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/b47ddcd1-9f67-4087-9991-8ee946016284/b47ddcd1-9f67-4087-9991-8ee946016284.m3u8',
-      videoPlayerBufferOptions: const VideoPlayerBufferOptions(
-        maxBufferMs: 2500,
-        minBufferMs: 2500,
-        bufferForPlaybackMs: 500,
-        bufferForPlaybackAfterRebufferMs: 500,
-      ),
+      'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/75654d70-9d85-4f02-8a64-72043cc36010/75654d70-9d85-4f02-8a64-72043cc36010.m3u8',
     ),
-
-    // // // All variants 2, 18 seconds video
-    // MiniController.network(
-    //   'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/8330a7dc-4e1b-48e2-bfb3-e6dad49bf3e9/8330a7dc-4e1b-48e2-bfb3-e6dad49bf3e9.m3u8',
-    //   videoPlayerBufferOptions: const VideoPlayerBufferOptions(
-    //     maxBufferMs: 2400,
-    //     minBufferMs: 2400,
-    //     bufferForPlaybackMs: 500,
-    //     bufferForPlaybackAfterRebufferMs: 500,
-    //   ),
-    // ),
-
-    // // All variants 3,  18 seconds video
-    // MiniController.network(
-    //   'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/85bad694-53b6-4d64-8cc4-bf2c5acf80f9/85bad694-53b6-4d64-8cc4-bf2c5acf80f9.m3u8',
-    //   videoPlayerBufferOptions: const VideoPlayerBufferOptions(
-    //     maxBufferMs: 2400,
-    //     minBufferMs: 2400,
-    //     bufferForPlaybackMs: 500,
-    //     bufferForPlaybackAfterRebufferMs: 500,
-    //   ),
-    // ),
-
-    // 720p, 18 seconds video
-    // MiniController.network(
-    //   'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/43bade14-28b8-4d19-8fbf-551464604de9/43bade14-28b8-4d19-8fbf-551464604de9.m3u8',
-    // ),
-
-    // // 540p, 18 seconds video
-    // MiniController.network(
-    //   'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/e9bda753-ac6b-4c1d-a7d6-32e4da27b9c0/e9bda753-ac6b-4c1d-a7d6-32e4da27b9c0.m3u8',
-    // ),
-
-    // // 360p, 18 seconds video
-    // MiniController.network(
-    //   'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/caf76025-9975-4594-ae9b-982b47a12779/caf76025-9975-4594-ae9b-982b47a12779.m3u8',
-    // ),
+    MiniController.network(
+      'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/156a998f-e4c6-4625-ac68-8fe53ad8744f/156a998f-e4c6-4625-ac68-8fe53ad8744f.m3u8',
+    ),
+    MiniController.network(
+      'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/bfb536ce-27bd-48e1-9fa1-9b9723bb01b0/bfb536ce-27bd-48e1-9fa1-9b9723bb01b0.m3u8',
+    ),
+    MiniController.network(
+      'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/42b041c4-c116-4f97-955f-3e47f329872f/42b041c4-c116-4f97-955f-3e47f329872f.m3u8',
+    ),
+    MiniController.network(
+      'https://d2a3buv484g5ek.cloudfront.net/private/users/e899488b-4bac-48c0-9333-ea7bacc6f56a/clips/cb420205-6ec8-4119-9346-465d84bed9ee/cb420205-6ec8-4119-9346-465d84bed9ee.m3u8',
+    ),
   ];
 
   @override
   void initState() {
     super.initState();
 
-    // controllers.take(1).forEachIndexed((int index, MiniController controller) {
-    //   controller.addListener(() {
-    //     setState(() {});
-    //   });
-    //   final Stopwatch stopwatch = Stopwatch()..start();
-    //   controller.initialize().then((value) {
-    //     log('Controller $index initialized after ${stopwatch.elapsedMilliseconds}ms ✅');
-    //   });
-    // });
-  }
-
-  void onPageChanged(int index) {
-    log('Page changed to $index');
-    final MiniController? controller = controllers.elementAtOrNull(index);
-    if (controller != null && controller.value.isInitialized) {
-      log('Controller $index is already initialized');
-      return;
-    }
-    controllers.elementAtOrNull(index)?.initialize();
+    controllers.take(3).forEachIndexed((int index, MiniController controller) {
+      controller.addListener(() {
+        setState(() {});
+      });
+      controller.initialize().then((value) {
+        log('Controller $index initialized ✅');
+      });
+    });
   }
 
   @override
@@ -234,103 +141,24 @@ class _BumbleBeeRemoteVideoState extends State<_BumbleBeeRemoteVideo> {
 
   @override
   Widget build(BuildContext context) {
-    // return PageView.builder(
-    //   scrollDirection: Axis.vertical,
-    //   onPageChanged: onPageChanged,
-    //   itemBuilder: (BuildContext context, int index) {
-    //     return Container(
-    //       padding: const EdgeInsets.all(20),
-    //       child: AspectRatio(
-    //         aspectRatio: controllers[index].value.aspectRatio,
-    //         child: Stack(
-    //           alignment: Alignment.bottomCenter,
-    //           children: <Widget>[
-    //             VideoPlayer(controllers[index]),
-    //             _ControlsOverlay(controller: controllers[index]),
-    //             VideoProgressIndicator(controllers[index]),
-    //           ],
-    //         ),
-    //       ),
-    //     );
-    //   },
-    //   itemCount: controllers.length,
-    // );
-    return Scaffold(
-      floatingActionButton: FloatingActionButton(onPressed: () {
-        Navigator.of(context)
-            .push(CupertinoPageRoute(builder: (BuildContext context) {
-          return const VideoPage(
-              videoUrl:
-                  'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/b47ddcd1-9f67-4087-9991-8ee946016284/b47ddcd1-9f67-4087-9991-8ee946016284.m3u8');
-        }));
-      }),
-    );
-  }
-}
-
-class _RtspRemoteVideo extends StatefulWidget {
-  @override
-  _RtspRemoteVideoState createState() => _RtspRemoteVideoState();
-}
-
-class _RtspRemoteVideoState extends State<_RtspRemoteVideo> {
-  MiniController? _controller;
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
-
-  String? _validateRtspUrl(String? value) {
-    if (value == null || !value.startsWith('rtsp://')) {
-      return 'Enter a valid RTSP URL';
-    }
-    return null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        children: <Widget>[
-          Container(padding: const EdgeInsets.only(top: 20.0)),
-          const Text('With RTSP streaming'),
-          Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: TextFormField(
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              decoration: const InputDecoration(label: Text('RTSP URL')),
-              validator: _validateRtspUrl,
-              textInputAction: TextInputAction.done,
-              onFieldSubmitted: (String value) {
-                if (_validateRtspUrl(value) == null) {
-                } else {
-                  setState(() {
-                    _controller?.dispose();
-                    _controller = null;
-                  });
-                }
-              },
+    return PageView.builder(
+      itemBuilder: (BuildContext context, int index) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: AspectRatio(
+            aspectRatio: controllers[index].value.aspectRatio,
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              children: <Widget>[
+                VideoPlayer(controllers[index]),
+                _ControlsOverlay(controller: controllers[index]),
+                VideoProgressIndicator(controllers[index]),
+              ],
             ),
           ),
-          if (_controller != null)
-            Container(
-              padding: const EdgeInsets.all(20),
-              child: AspectRatio(
-                aspectRatio: _controller!.value.aspectRatio,
-                child: Stack(
-                  alignment: Alignment.bottomCenter,
-                  children: <Widget>[
-                    VideoPlayer(_controller!),
-                    _ControlsOverlay(controller: _controller!),
-                    VideoProgressIndicator(_controller!),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
+        );
+      },
+      itemCount: controllers.length,
     );
   }
 }
@@ -388,10 +216,7 @@ class _ControlsOverlay extends StatelessWidget {
             itemBuilder: (BuildContext context) {
               return <PopupMenuItem<double>>[
                 for (final double speed in _examplePlaybackRates)
-                  PopupMenuItem<double>(
-                    value: speed,
-                    child: Text('${speed}x'),
-                  )
+                  PopupMenuItem<double>(value: speed, child: Text('${speed}x')),
               ];
             },
             child: Padding(
@@ -408,46 +233,5 @@ class _ControlsOverlay extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class VideoPage extends StatefulWidget {
-  const VideoPage({super.key, required this.videoUrl});
-  final String videoUrl;
-
-  @override
-  State<VideoPage> createState() => _VideoPageState();
-}
-
-class _VideoPageState extends State<VideoPage> {
-  late MiniController controller;
-
-  @override
-  void initState() {
-    super.initState();
-    controller = MiniController.network(
-      'https://d27yc5cqcdhniy.cloudfront.net/private/users/54388498-0061-7014-c547-0365916f14c4/clips/b47ddcd1-9f67-4087-9991-8ee946016284/b47ddcd1-9f67-4087-9991-8ee946016284.m3u8',
-      videoPlayerBufferOptions: const VideoPlayerBufferOptions(
-        maxBufferMs: 2500,
-        minBufferMs: 2500,
-        bufferForPlaybackMs: 500,
-        bufferForPlaybackAfterRebufferMs: 500,
-      ),
-    );
-    controller.initialize().then((value) {
-      log('Controller initialized ✅');
-      controller.play();
-    });
-  }
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return VideoPlayer(controller);
   }
 }

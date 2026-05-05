@@ -1,3 +1,24 @@
+## 2.5.5
+
+* Fixes dartdoc comments that accidentally used HTML.
+
+## 2.5.4
+
+* Updates dependencies for the `shared_preferences_tool` DevTools extension and fixes related deprecations.
+* Updates minimum supported SDK version to Flutter 3.35/Dart 3.9.
+* Updates README to reflect currently supported OS versions for the latest
+  versions of the endorsed platform implementations.
+  * Applications built with older versions of Flutter will continue to
+    use compatible versions of the platform implementations.
+
+## 2.5.3
+
+* Fixes a bug in the example app.
+
+## 2.5.2
+
+* Fixes `setState` returning `Future` on `example/main.dart` error in example code.
+
 ## 2.5.1
 
 * Exposes `SharedPreferencesOptions`.

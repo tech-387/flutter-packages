@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,15 +10,19 @@ import 'dart:mirrors';
 import 'package:yaml/yaml.dart' as yaml;
 
 import 'ast.dart';
+import 'generator.dart';
 
 /// The current version of pigeon.
 ///
 /// This must match the version in pubspec.yaml.
-const String pigeonVersion = '24.1.0';
+const String pigeonVersion = '26.3.4';
+
+/// Default plugin package name.
+const String defaultPluginPackageName = 'dev.flutter.pigeon';
 
 /// Read all the content from [stdin] to a String.
 String readStdin() {
-  final List<int> bytes = <int>[];
+  final bytes = <int>[];
   int byte = stdin.readByteSync();
   while (byte >= 0) {
     bytes.add(byte);
@@ -30,13 +34,13 @@ String readStdin() {
 /// True if the generator line number should be printed out at the end of newlines.
 bool debugGenerators = false;
 
-/// A helper class for managing indentation, wrapping a [StringSink].
+/// A helper class for managing indentation, wrapping a [StringBuffer].
 class Indent {
-  /// Constructor which takes a [StringSink] [Indent] will wrap.
-  Indent(this._sink);
-
   int _count = 0;
-  final StringSink _sink;
+  final StringBuffer _buffer = StringBuffer();
+
+  @override
+  String toString() => _buffer.toString();
 
   /// String used for newlines (ex "\n").
   String get newline {
@@ -63,17 +67,19 @@ class Indent {
 
   /// Returns the String representing the current indentation.
   String str() {
-    String result = '';
-    for (int i = 0; i < _count; i++) {
+    var result = '';
+    for (var i = 0; i < _count; i++) {
       result += tab;
     }
     return result;
   }
 
-  /// Replaces the newlines and tabs of input and adds it to the stream.
+  /// Replaces the newlines and tabs of [input] and adds the result to the
+  /// stream.
   ///
-  /// [trimIndentation] flag finds the line with the fewest leading empty
-  /// spaces and trims the beginning of all lines by this number.
+  /// If the [trimIndentation] parameter is true, this function also finds the
+  /// smallest leading space count and trims the beginning of all lines by this
+  /// number.
   void format(
     String input, {
     bool leadingSpace = true,
@@ -85,11 +91,11 @@ class Indent {
     final int indentationToRemove = !trimIndentation
         ? 0
         : lines
-            .where((String line) => line.trim().isNotEmpty)
-            .map((String line) => line.length - line.trimLeft().length)
-            .reduce(min);
+              .where((String line) => line.trim().isNotEmpty)
+              .map((String line) => line.length - line.trimLeft().length)
+              .reduce(min);
 
-    for (int i = 0; i < lines.length; ++i) {
+    for (var i = 0; i < lines.length; ++i) {
       final String line = lines[i].length >= indentationToRemove
           ? lines[i].substring(indentationToRemove)
           : lines[i];
@@ -111,70 +117,76 @@ class Indent {
   void addScoped(
     String? begin,
     String? end,
-    Function func, {
+    void Function() func, {
     bool addTrailingNewline = true,
     int nestCount = 1,
   }) {
     if (begin != null) {
-      _sink.write(begin + newline);
+      _buffer.write(begin + newline);
     }
     nest(nestCount, func);
-    if (end != null) {
-      _sink.write(str() + end);
+    if (end != null && end.isNotEmpty) {
+      _buffer.write(str() + end);
       if (addTrailingNewline) {
-        _sink.write(newline);
+        _buffer.write(newline);
       }
     }
   }
 
-  /// Like `addScoped` but writes the current indentation level.
+  /// Like [addScoped] but writes the current indentation.
   void writeScoped(
     String? begin,
-    String end,
-    Function func, {
+    String? end,
+    void Function() func, {
+    int nestCount = 1,
     bool addTrailingNewline = true,
   }) {
-    addScoped(str() + (begin ?? ''), end, func,
-        addTrailingNewline: addTrailingNewline);
+    addScoped(
+      str() + (begin ?? ''),
+      end,
+      func,
+      nestCount: nestCount,
+      addTrailingNewline: addTrailingNewline,
+    );
   }
 
   /// Scoped increase of the indent level.
   ///
   /// For the execution of [func] the indentation will be incremented by the given amount.
-  void nest(int count, Function func) {
+  void nest(int count, void Function() func) {
     inc(count);
-    func(); // ignore: avoid_dynamic_calls
+    func();
     dec(count);
   }
 
   /// Add [text] with indentation and a newline.
   void writeln(String text) {
     if (text.isEmpty) {
-      _sink.write(newline);
+      _buffer.write(newline);
     } else {
-      _sink.write(str() + text + newline);
+      _buffer.write(str() + text + newline);
     }
   }
 
   /// Add [text] with indentation.
   void write(String text) {
-    _sink.write(str() + text);
+    _buffer.write(str() + text);
   }
 
   /// Add [text] with a newline.
   void addln(String text) {
-    _sink.write(text + newline);
+    _buffer.write(text + newline);
   }
 
   /// Just adds [text].
   void add(String text) {
-    _sink.write(text);
+    _buffer.write(text);
   }
 
   /// Adds [lines] number of newlines.
   void newln([int lines = 1]) {
     for (; lines > 0; lines--) {
-      _sink.write(newline);
+      _buffer.write(newline);
     }
   }
 }
@@ -230,10 +242,16 @@ class HostDatatype {
 ///
 /// [customResolver] can modify the datatype of custom types.
 HostDatatype getFieldHostDatatype(
-    NamedType field, String? Function(TypeDeclaration) builtinResolver,
-    {String Function(String)? customResolver}) {
-  return _getHostDatatype(field.type, builtinResolver,
-      customResolver: customResolver, fieldName: field.name);
+  NamedType field,
+  String? Function(TypeDeclaration) builtinResolver, {
+  String Function(String)? customResolver,
+}) {
+  return _getHostDatatype(
+    field.type,
+    builtinResolver,
+    customResolver: customResolver,
+    fieldName: field.name,
+  );
 }
 
 /// Calculates the [HostDatatype] for the provided [TypeDeclaration].
@@ -244,15 +262,23 @@ HostDatatype getFieldHostDatatype(
 ///
 /// [customResolver] can modify the datatype of custom types.
 HostDatatype getHostDatatype(
-    TypeDeclaration type, String? Function(TypeDeclaration) builtinResolver,
-    {String Function(String)? customResolver}) {
-  return _getHostDatatype(type, builtinResolver,
-      customResolver: customResolver);
+  TypeDeclaration type,
+  String? Function(TypeDeclaration) builtinResolver, {
+  String Function(String)? customResolver,
+}) {
+  return _getHostDatatype(
+    type,
+    builtinResolver,
+    customResolver: customResolver,
+  );
 }
 
 HostDatatype _getHostDatatype(
-    TypeDeclaration type, String? Function(TypeDeclaration) builtinResolver,
-    {String Function(String)? customResolver, String? fieldName}) {
+  TypeDeclaration type,
+  String? Function(TypeDeclaration) builtinResolver, {
+  String Function(String)? customResolver,
+  String? fieldName,
+}) {
   final String? datatype = builtinResolver(type);
   if (datatype == null) {
     if (type.isClass) {
@@ -277,7 +303,8 @@ HostDatatype _getHostDatatype(
       );
     } else {
       throw Exception(
-          'unrecognized datatype ${fieldName == null ? '' : 'for field:"$fieldName" '}of type:"${type.baseName}"');
+        'unrecognized datatype ${fieldName == null ? '' : 'for field:"$fieldName" '}of type:"${type.baseName}"',
+      );
     }
   } else {
     return HostDatatype(
@@ -302,8 +329,9 @@ const String generatedCodeWarning =
 
 /// Warning printed at the top of all generated code.
 String getGeneratedCodeWarning() {
-  final String versionString =
-      includeVersionInGeneratedWarning ? ' (v$pigeonVersion)' : '';
+  final versionString = includeVersionInGeneratedWarning
+      ? ' (v$pigeonVersion)'
+      : '';
   return 'Autogenerated from Pigeon$versionString, do not edit directly.';
 }
 
@@ -316,16 +344,13 @@ const String seeAlsoWarning = 'See also: https://pub.dev/packages/pigeon';
 /// parameters.
 const String classNamePrefix = 'PigeonInternal';
 
-/// Prefix for classes generated to use with ProxyApis.
+/// Prefix for utility classes generated to be used with ProxyAPIs.
 ///
 /// This lowers the chances of variable name collisions with user defined
 /// parameters.
 const String proxyApiClassNamePrefix = 'Pigeon';
 
-/// Prefix for APIs generated for ProxyApi.
-///
-/// Since ProxyApis are intended to wrap a class and will often share the name
-/// of said class, host APIs should prefix the API with this protected name.
+/// Prefix for the name of generated native type APIs of ProxyAPIs.
 const String hostProxyApiPrefix = '${proxyApiClassNamePrefix}Api';
 
 /// Prefix for class member names not defined by the user.
@@ -347,7 +372,7 @@ const List<String> disallowedPrefixes = <String>[
   hostProxyApiPrefix,
   proxyApiClassNamePrefix,
   varNamePrefix,
-  'pigeonChannelCodec'
+  'pigeonChannelCodec',
 ];
 
 /// Collection of keys used in dictionaries across generators.
@@ -376,7 +401,7 @@ bool isVoid(TypeMirror type) {
 /// Adds the [lines] to [indent].
 void addLines(Indent indent, Iterable<String> lines, {String? linePrefix}) {
   final String prefix = linePrefix ?? '';
-  for (final String line in lines) {
+  for (final line in lines) {
     indent.writeln(line.isNotEmpty ? '$prefix$line' : prefix.trimRight());
   }
 }
@@ -389,14 +414,16 @@ Map<String, Object> mergeMaps(
   Map<String, Object> base,
   Map<String, Object> modification,
 ) {
-  final Map<String, Object> result = <String, Object>{};
+  final result = <String, Object>{};
   for (final MapEntry<String, Object> entry in modification.entries) {
     if (base.containsKey(entry.key)) {
       final Object entryValue = entry.value;
       if (entryValue is Map<String, Object>) {
         assert(base[entry.key] is Map<String, Object>);
-        result[entry.key] =
-            mergeMaps((base[entry.key] as Map<String, Object>?)!, entryValue);
+        result[entry.key] = mergeMaps(
+          (base[entry.key] as Map<String, Object>?)!,
+          entryValue,
+        );
       } else {
         result[entry.key] = entry.value;
       }
@@ -415,8 +442,13 @@ Map<String, Object> mergeMaps(
 /// A type name that is enumerated.
 class EnumeratedType {
   /// Constructor.
-  EnumeratedType(this.name, this.enumeration, this.type,
-      {this.associatedClass, this.associatedEnum});
+  EnumeratedType(
+    this.name,
+    this.enumeration,
+    this.type, {
+    this.associatedClass,
+    this.associatedEnum,
+  });
 
   /// The name of the type.
   final String name;
@@ -452,7 +484,8 @@ const List<String> validTypes = <String>[
   'Object',
 ];
 
-/// The dedicated key for accessing an InstanceManager in ProxyApi base codecs.
+/// The dedicated key for the base codecs used to access references in the
+/// InstanceManager.
 ///
 /// Generated codecs override the `StandardMessageCodec` which reserves the byte
 /// keys of 0-127, so this value is chosen because it is the lowest available
@@ -481,7 +514,9 @@ Iterable<TypeDeclaration> _getTypeArguments(TypeDeclaration type) sync* {
 }
 
 bool _isUnseenCustomType(
-    TypeDeclaration type, Set<String> referencedTypeNames) {
+  TypeDeclaration type,
+  Set<String> referencedTypeNames,
+) {
   return !referencedTypeNames.contains(type.baseName) &&
       !validTypes.contains(type.baseName);
 }
@@ -499,7 +534,7 @@ class _Bag<Key, Value> {
   }
 
   void addMany(Iterable<Key> keys, Value? value) {
-    for (final Key key in keys) {
+    for (final key in keys) {
       add(key, value);
     }
   }
@@ -508,9 +543,11 @@ class _Bag<Key, Value> {
 /// Recurses into a list of [Api]s and produces a list of all referenced types
 /// and an associated [List] of the offsets where they are found.
 Map<TypeDeclaration, List<int>> getReferencedTypes(
-    List<Api> apis, List<Class> classes) {
-  final _Bag<TypeDeclaration, int> references = _Bag<TypeDeclaration, int>();
-  for (final Api api in apis) {
+  List<Api> apis,
+  List<Class> classes,
+) {
+  final references = _Bag<TypeDeclaration, int>();
+  for (final api in apis) {
     for (final Method method in api.methods) {
       for (final NamedType field in method.parameters) {
         references.addMany(_getTypeArguments(field.type), field.offset);
@@ -532,13 +569,16 @@ Map<TypeDeclaration, List<int>> getReferencedTypes(
     }
   }
 
-  final Set<String> referencedTypeNames =
-      references.map.keys.map((TypeDeclaration e) => e.baseName).toSet();
-  final List<String> classesToCheck = List<String>.from(referencedTypeNames);
+  final Set<String> referencedTypeNames = references.map.keys
+      .map((TypeDeclaration e) => e.baseName)
+      .toSet();
+  final classesToCheck = List<String>.from(referencedTypeNames);
   while (classesToCheck.isNotEmpty) {
     final String next = classesToCheck.removeLast();
-    final Class aClass = classes.firstWhere((Class x) => x.name == next,
-        orElse: () => Class(name: '', fields: <NamedType>[]));
+    final Class aClass = classes.firstWhere(
+      (Class x) => x.name == next,
+      orElse: () => Class(name: '', fields: <NamedType>[]),
+    );
     for (final NamedType field in aClass.fields) {
       if (_isUnseenCustomType(field.type, referencedTypeNames)) {
         references.add(field.type, field.offset);
@@ -561,7 +601,7 @@ Map<TypeDeclaration, List<int>> getReferencedTypes(
 /// [T] depends on the language. For example, Android uses an int while iOS uses
 /// semantic versioning.
 ({TypeDeclaration type, T version})?
-    findHighestApiRequirement<T extends Object>(
+findHighestApiRequirement<T extends Object>(
   Iterable<TypeDeclaration> types, {
   required T? Function(TypeDeclaration) onGetApiRequirement,
   required Comparator<T> onCompare,
@@ -583,13 +623,14 @@ Map<TypeDeclaration, List<int>> getReferencedTypes(
     return null;
   }
 
-  final TypeDeclaration typeWithHighestRequirement = allReferencedTypes.reduce(
-    (TypeDeclaration one, TypeDeclaration two) {
-      return onCompare(onGetApiRequirement(one)!, onGetApiRequirement(two)!) > 0
-          ? one
-          : two;
-    },
-  );
+  final TypeDeclaration typeWithHighestRequirement = allReferencedTypes.reduce((
+    TypeDeclaration one,
+    TypeDeclaration two,
+  ) {
+    return onCompare(onGetApiRequirement(one)!, onGetApiRequirement(two)!) > 0
+        ? one
+        : two;
+  });
 
   return (
     type: typeWithHighestRequirement,
@@ -612,7 +653,7 @@ Iterable<EnumeratedType> getEnumeratedTypes(
   Root root, {
   bool excludeSealedClasses = false,
 }) sync* {
-  int index = 0;
+  var index = 0;
 
   for (final Enum customEnum in root.enums) {
     yield EnumeratedType(
@@ -690,7 +731,7 @@ Iterable<String> asDocumentationComments(
   DocumentCommentSpecification commentSpec, {
   List<String> generatorComments = const <String>[],
 }) sync* {
-  final List<String> allComments = <String>[
+  final allComments = <String>[
     ...comments,
     if (comments.isNotEmpty && generatorComments.isNotEmpty) '',
     ...generatorComments,
@@ -701,7 +742,7 @@ Iterable<String> asDocumentationComments(
       yield commentSpec.openCommentToken;
       currentLineOpenToken = commentSpec.blockContinuationToken;
     }
-    for (String line in allComments) {
+    for (var line in allComments) {
       if (line.isNotEmpty && line[0] != ' ') {
         line = ' $line';
       }
@@ -788,7 +829,7 @@ enum FileType {
 /// Options for [Generator]s that have multiple output file types.
 ///
 /// Specifies which file to write as well as wraps all language options.
-class OutputFileOptions<T> {
+class OutputFileOptions<T extends InternalOptions> extends InternalOptions {
   /// Constructor.
   OutputFileOptions({required this.fileType, required this.languageOptions});
 
@@ -801,7 +842,7 @@ class OutputFileOptions<T> {
 
 /// Converts strings to Upper Camel Case.
 String toUpperCamelCase(String text) {
-  final RegExp separatorPattern = RegExp(r'[ _-]');
+  final separatorPattern = RegExp(r'[ _-]');
   return text.split(separatorPattern).map((String word) {
     return word.isEmpty
         ? ''
@@ -811,8 +852,8 @@ String toUpperCamelCase(String text) {
 
 /// Converts strings to Lower Camel Case.
 String toLowerCamelCase(String text) {
-  final RegExp separatorPattern = RegExp(r'[ _-]');
-  bool firstWord = true;
+  final separatorPattern = RegExp(r'[ _-]');
+  var firstWord = true;
   return text.split(separatorPattern).map((String word) {
     if (word.isEmpty) {
       return '';
@@ -829,7 +870,9 @@ String toLowerCamelCase(String text) {
 String toScreamingSnakeCase(String string) {
   return string
       .replaceAllMapped(
-          RegExp(r'(?<=[a-z])[A-Z]'), (Match m) => '_${m.group(0)}')
+        RegExp(r'(?<=[a-z])[A-Z]'),
+        (Match m) => '_${m.group(0)}',
+      )
       .toUpperCase();
 }
 
@@ -854,4 +897,12 @@ String makeClearChannelName(String dartPackageName) {
     methodName: 'clear',
     dartPackageName: dartPackageName,
   );
+}
+
+/// Whether the type is a collection.
+bool isCollectionType(TypeDeclaration type) {
+  return !type.isClass &&
+      !type.isEnum &&
+      !type.isProxyApi &&
+      (type.baseName.contains('List') || type.baseName == 'Map');
 }

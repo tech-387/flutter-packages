@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,10 +16,9 @@ import 'webview_controller_test.mocks.dart';
 @GenerateMocks(<Type>[PlatformWebViewController, PlatformNavigationDelegate])
 void main() {
   test('loadFile', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -28,10 +27,9 @@ void main() {
   });
 
   test('loadFlutterAsset', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -40,25 +38,22 @@ void main() {
   });
 
   test('loadHtmlString', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
     await webViewController.loadHtmlString('html', baseUrl: 'baseUrl');
-    verify(mockPlatformWebViewController.loadHtmlString(
-      'html',
-      baseUrl: 'baseUrl',
-    ));
+    verify(
+      mockPlatformWebViewController.loadHtmlString('html', baseUrl: 'baseUrl'),
+    );
   });
 
   test('loadRequest', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -69,9 +64,11 @@ void main() {
       body: Uint8List(0),
     );
 
-    final LoadRequestParams params =
-        verify(mockPlatformWebViewController.loadRequest(captureAny))
-            .captured[0] as LoadRequestParams;
+    final params =
+        verify(
+              mockPlatformWebViewController.loadRequest(captureAny),
+            ).captured[0]
+            as LoadRequestParams;
     expect(params.uri, Uri(scheme: 'https', host: 'dart.dev'));
     expect(params.method, LoadRequestMethod.post);
     expect(params.headers, <String, String>{'a': 'header'});
@@ -79,13 +76,12 @@ void main() {
   });
 
   test('currentUrl', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
-    when(mockPlatformWebViewController.currentUrl()).thenAnswer(
-      (_) => Future<String>.value('https://dart.dev'),
-    );
+    final mockPlatformWebViewController = MockPlatformWebViewController();
+    when(
+      mockPlatformWebViewController.currentUrl(),
+    ).thenAnswer((_) => Future<String>.value('https://dart.dev'));
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -96,13 +92,12 @@ void main() {
   });
 
   test('canGoBack', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
-    when(mockPlatformWebViewController.canGoBack()).thenAnswer(
-      (_) => Future<bool>.value(false),
-    );
+    final mockPlatformWebViewController = MockPlatformWebViewController();
+    when(
+      mockPlatformWebViewController.canGoBack(),
+    ).thenAnswer((_) => Future<bool>.value(false));
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -110,13 +105,12 @@ void main() {
   });
 
   test('canGoForward', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
-    when(mockPlatformWebViewController.canGoForward()).thenAnswer(
-      (_) => Future<bool>.value(true),
-    );
+    final mockPlatformWebViewController = MockPlatformWebViewController();
+    when(
+      mockPlatformWebViewController.canGoForward(),
+    ).thenAnswer((_) => Future<bool>.value(true));
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -124,10 +118,9 @@ void main() {
   });
 
   test('goBack', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -136,10 +129,9 @@ void main() {
   });
 
   test('goForward', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -148,10 +140,9 @@ void main() {
   });
 
   test('reload', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -160,10 +151,9 @@ void main() {
   });
 
   test('clearCache', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -172,10 +162,9 @@ void main() {
   });
 
   test('clearLocalStorage', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -184,10 +173,9 @@ void main() {
   });
 
   test('runJavaScript', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -196,12 +184,12 @@ void main() {
   });
 
   test('runJavaScriptReturningResult', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
-    when(mockPlatformWebViewController.runJavaScriptReturningResult('1 + 1'))
-        .thenAnswer((_) => Future<String>.value('2'));
+    final mockPlatformWebViewController = MockPlatformWebViewController();
+    when(
+      mockPlatformWebViewController.runJavaScriptReturningResult('1 + 1'),
+    ).thenAnswer((_) => Future<String>.value('2'));
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -212,10 +200,9 @@ void main() {
   });
 
   test('addJavaScriptChannel', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -225,18 +212,19 @@ void main() {
       onMessageReceived: onMessageReceived,
     );
 
-    final JavaScriptChannelParams params =
-        verify(mockPlatformWebViewController.addJavaScriptChannel(captureAny))
-            .captured[0] as JavaScriptChannelParams;
+    final params =
+        verify(
+              mockPlatformWebViewController.addJavaScriptChannel(captureAny),
+            ).captured[0]
+            as JavaScriptChannelParams;
     expect(params.name, 'name');
     expect(params.onMessageReceived, onMessageReceived);
   });
 
   test('removeJavaScriptChannel', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -245,12 +233,12 @@ void main() {
   });
 
   test('getTitle', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
-    when(mockPlatformWebViewController.getTitle())
-        .thenAnswer((_) => Future<String>.value('myTitle'));
+    final mockPlatformWebViewController = MockPlatformWebViewController();
+    when(
+      mockPlatformWebViewController.getTitle(),
+    ).thenAnswer((_) => Future<String>.value('myTitle'));
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -258,10 +246,9 @@ void main() {
   });
 
   test('scrollTo', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -270,10 +257,9 @@ void main() {
   });
 
   test('scrollBy', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -281,14 +267,49 @@ void main() {
     verify(mockPlatformWebViewController.scrollBy(2, 3));
   });
 
-  test('getScrollPosition', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
-    when(mockPlatformWebViewController.getScrollPosition()).thenAnswer(
-      (_) => Future<Offset>.value(const Offset(2, 3)),
+  test('setVerticalScrollBarEnabled', () async {
+    final mockPlatformWebViewController = MockPlatformWebViewController();
+
+    final webViewController = WebViewController.fromPlatform(
+      mockPlatformWebViewController,
     );
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    await webViewController.setVerticalScrollBarEnabled(true);
+    verify(mockPlatformWebViewController.setVerticalScrollBarEnabled(true));
+  });
+
+  test('setHorizontalScrollBarEnabled', () async {
+    final mockPlatformWebViewController = MockPlatformWebViewController();
+
+    final webViewController = WebViewController.fromPlatform(
+      mockPlatformWebViewController,
+    );
+
+    await webViewController.setHorizontalScrollBarEnabled(false);
+    verify(mockPlatformWebViewController.setHorizontalScrollBarEnabled(false));
+  });
+
+  test('supportsSetScrollBarsEnabled', () async {
+    final mockPlatformWebViewController = MockPlatformWebViewController();
+    when(
+      mockPlatformWebViewController.supportsSetScrollBarsEnabled(),
+    ).thenReturn(true);
+
+    final webViewController = WebViewController.fromPlatform(
+      mockPlatformWebViewController,
+    );
+
+    expect(await webViewController.supportsSetScrollBarsEnabled(), true);
+    verify(mockPlatformWebViewController.supportsSetScrollBarsEnabled());
+  });
+
+  test('getScrollPosition', () async {
+    final mockPlatformWebViewController = MockPlatformWebViewController();
+    when(
+      mockPlatformWebViewController.getScrollPosition(),
+    ).thenAnswer((_) => Future<Offset>.value(const Offset(2, 3)));
+
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -299,10 +320,9 @@ void main() {
   });
 
   test('enableZoom', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -311,10 +331,9 @@ void main() {
   });
 
   test('setBackgroundColor', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -323,10 +342,9 @@ void main() {
   });
 
   test('setJavaScriptMode', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -337,10 +355,9 @@ void main() {
   });
 
   test('setUserAgent', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -349,28 +366,28 @@ void main() {
   });
 
   test('setNavigationDelegate', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final mockPlatformWebViewController = MockPlatformWebViewController();
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
-    final MockPlatformNavigationDelegate mockPlatformNavigationDelegate =
-        MockPlatformNavigationDelegate();
-    final NavigationDelegate navigationDelegate =
-        NavigationDelegate.fromPlatform(mockPlatformNavigationDelegate);
+    final mockPlatformNavigationDelegate = MockPlatformNavigationDelegate();
+    final navigationDelegate = NavigationDelegate.fromPlatform(
+      mockPlatformNavigationDelegate,
+    );
 
     await webViewController.setNavigationDelegate(navigationDelegate);
-    verify(mockPlatformWebViewController.setPlatformNavigationDelegate(
-      mockPlatformNavigationDelegate,
-    ));
+    verify(
+      mockPlatformWebViewController.setPlatformNavigationDelegate(
+        mockPlatformNavigationDelegate,
+      ),
+    );
   });
 
   test('onPermissionRequest', () async {
-    bool permissionRequestCallbackCalled = false;
+    var permissionRequestCallbackCalled = false;
 
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
     WebViewController.fromPlatform(
       mockPlatformWebViewController,
       onPermissionRequest: (WebViewPermissionRequest request) {
@@ -378,21 +395,22 @@ void main() {
       },
     );
 
-    final void Function(PlatformWebViewPermissionRequest request)
-        requestCallback = verify(mockPlatformWebViewController
-                .setOnPlatformPermissionRequest(captureAny))
-            .captured
-            .single as void Function(PlatformWebViewPermissionRequest request);
+    final requestCallback =
+        verify(
+              mockPlatformWebViewController.setOnPlatformPermissionRequest(
+                captureAny,
+              ),
+            ).captured.single
+            as void Function(PlatformWebViewPermissionRequest request);
 
     requestCallback(const TestPlatformWebViewPermissionRequest());
     expect(permissionRequestCallbackCalled, isTrue);
   });
 
   test('setConsoleLogCallback', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -404,82 +422,91 @@ void main() {
   });
 
   test('setOnJavaScriptAlertDialog', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
     Future<void> onJavaScriptAlertDialog(
-        JavaScriptAlertDialogRequest request) async {
+      JavaScriptAlertDialogRequest request,
+    ) async {
       return;
     }
 
     await webViewController.setOnJavaScriptAlertDialog(onJavaScriptAlertDialog);
-    verify(mockPlatformWebViewController
-        .setOnJavaScriptAlertDialog(onJavaScriptAlertDialog));
+    verify(
+      mockPlatformWebViewController.setOnJavaScriptAlertDialog(
+        onJavaScriptAlertDialog,
+      ),
+    );
   });
 
   test('setOnJavaScriptConfirmDialog', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
     Future<bool> onJavaScriptConfirmDialog(
-        JavaScriptConfirmDialogRequest request) async {
+      JavaScriptConfirmDialogRequest request,
+    ) async {
       return true;
     }
 
-    await webViewController
-        .setOnJavaScriptConfirmDialog(onJavaScriptConfirmDialog);
-    verify(mockPlatformWebViewController
-        .setOnJavaScriptConfirmDialog(onJavaScriptConfirmDialog));
+    await webViewController.setOnJavaScriptConfirmDialog(
+      onJavaScriptConfirmDialog,
+    );
+    verify(
+      mockPlatformWebViewController.setOnJavaScriptConfirmDialog(
+        onJavaScriptConfirmDialog,
+      ),
+    );
   });
 
   test('setOnJavaScriptTextInputDialog', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
     Future<String> onJavaScriptTextInputDialog(
-        JavaScriptTextInputDialogRequest request) async {
+      JavaScriptTextInputDialogRequest request,
+    ) async {
       return 'text';
     }
 
-    await webViewController
-        .setOnJavaScriptTextInputDialog(onJavaScriptTextInputDialog);
-    verify(mockPlatformWebViewController
-        .setOnJavaScriptTextInputDialog(onJavaScriptTextInputDialog));
+    await webViewController.setOnJavaScriptTextInputDialog(
+      onJavaScriptTextInputDialog,
+    );
+    verify(
+      mockPlatformWebViewController.setOnJavaScriptTextInputDialog(
+        onJavaScriptTextInputDialog,
+      ),
+    );
   });
 
   test('getUserAgent', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    const String userAgent = 'str';
+    const userAgent = 'str';
 
-    when(mockPlatformWebViewController.getUserAgent()).thenAnswer(
-      (_) => Future<String?>.value(userAgent),
-    );
+    when(
+      mockPlatformWebViewController.getUserAgent(),
+    ).thenAnswer((_) => Future<String?>.value(userAgent));
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
     await expectLater(webViewController.getUserAgent(), completion(userAgent));
   });
 
   test('setOnScrollPositionChange', () async {
-    final MockPlatformWebViewController mockPlatformWebViewController =
-        MockPlatformWebViewController();
+    final mockPlatformWebViewController = MockPlatformWebViewController();
 
-    final WebViewController webViewController = WebViewController.fromPlatform(
+    final webViewController = WebViewController.fromPlatform(
       mockPlatformWebViewController,
     );
 
@@ -488,8 +515,24 @@ void main() {
     await webViewController.setOnScrollPositionChange(onScrollPositionChange);
 
     verify(
-      mockPlatformWebViewController
-          .setOnScrollPositionChange(onScrollPositionChange),
+      mockPlatformWebViewController.setOnScrollPositionChange(
+        onScrollPositionChange,
+      ),
+    );
+  });
+
+  test('setOverScrollMode', () async {
+    final mockPlatformWebViewController = MockPlatformWebViewController();
+
+    final webViewController = WebViewController.fromPlatform(
+      mockPlatformWebViewController,
+    );
+
+    await webViewController.setOverScrollMode(WebViewOverScrollMode.never);
+    verify(
+      mockPlatformWebViewController.setOverScrollMode(
+        WebViewOverScrollMode.never,
+      ),
     );
   });
 }
@@ -497,7 +540,7 @@ void main() {
 class TestPlatformWebViewPermissionRequest
     extends PlatformWebViewPermissionRequest {
   const TestPlatformWebViewPermissionRequest()
-      : super(types: const <WebViewPermissionResourceType>{});
+    : super(types: const <WebViewPermissionResourceType>{});
 
   @override
   Future<void> grant() async {}

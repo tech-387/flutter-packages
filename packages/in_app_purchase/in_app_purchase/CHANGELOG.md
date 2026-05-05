@@ -1,3 +1,19 @@
+## NEXT
+
+* Updates minimum supported SDK version to Flutter 3.35/Dart 3.9.
+* Updates README to reflect currently supported OS versions for the latest
+  versions of the endorsed platform implementations.
+  * Applications built with older versions of Flutter will continue to
+    use compatible versions of the platform implementations.
+
+## 3.2.3
+* Updates minimum `in_app_purchase_storekit` version to 0.4.0.
+
+## 3.2.2
+
+* Updates README with Storekit 2 examples.
+* Updates README to indicate that Andoid SDK <21 is no longer supported.
+
 ## 3.2.1
 
 * Updates minimum supported SDK version to Flutter 3.24/Dart 3.5.
