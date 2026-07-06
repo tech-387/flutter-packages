@@ -341,17 +341,14 @@ static BOOL FVPURLIsCacheableRemoteResource(NSURL *url) {
 
   NSURL *assetURL = [NSURL URLWithString:options.uri];
   if (self.videoPlayerOptions.enableCache && FVPURLIsCacheableRemoteResource(assetURL)) {
-    if (headers.count > 0) {
-      NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
-      config.HTTPAdditionalHeaders = headers;
-      SJMediaCacheServer.shared.sessionConfiguration = config;
-    }
     SJMediaCacheServer.shared.cacheMaxDiskSize = self.videoPlayerOptions.maxCacheBytes;
     NSURL *proxyURL = [SJMediaCacheServer.shared proxyURLFromURL:assetURL];
     if (proxyURL) {
       assetURL = proxyURL;
     }
   }
+  NSLog(@"[FVP CACHE DEBUG] enableCache=%d originalURI=%@ headers=%lu finalURL=%@",
+        self.videoPlayerOptions.enableCache, options.uri, (unsigned long)headers.count, assetURL);
 
   NSObject<FVPAVAsset> *asset = [self.avFactory URLAssetWithURL:assetURL options:itemOptions];
   return [self.avFactory playerItemWithAsset:asset];
