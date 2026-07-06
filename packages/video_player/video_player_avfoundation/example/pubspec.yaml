@@ -33,3 +33,8 @@ flutter:
   assets:
     - assets/flutter-mark-square-64.png
     - assets/Butterfly-209.mp4
+  config:
+    # SJMediaCacheServer is a CocoaPods-only dependency (no Swift Package Manager
+    # support), so plugin resolution must stay on CocoaPods for this example to
+    # link it in; see darwin/video_player_avfoundation.podspec.
+    enable-swift-package-manager: false

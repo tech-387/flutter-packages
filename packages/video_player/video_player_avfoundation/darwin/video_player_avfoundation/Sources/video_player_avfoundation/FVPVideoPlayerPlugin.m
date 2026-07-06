@@ -15,6 +15,7 @@
 #import "./include/video_player_avfoundation/FVPNativeVideoViewFactory.h"
 #import "./include/video_player_avfoundation/FVPTextureBasedVideoPlayer.h"
 #import "./include/video_player_avfoundation/FVPVideoPlayer.h"
+#import "./include/video_player_avfoundation/FVPVideoPlayerOptions.h"
 // Relative path is needed for messages.g.h. See
 // https://github.com/flutter/packages/pull/6675/#discussion_r1591210702
 #import "./include/video_player_avfoundation/messages.g.h"
@@ -80,6 +81,7 @@
 @property(nonatomic, strong) NSObject<FVPViewProvider> *viewProvider;
 @property(nonatomic, strong) NSObject<FVPAssetProvider> *assetProvider;
 @property(nonatomic, assign) int64_t nextPlayerIdentifier;
+@property(nonatomic, strong) FVPVideoPlayerOptions *videoPlayerOptions;
 @end
 
 @implementation FVPVideoPlayerPlugin
@@ -114,12 +116,21 @@
   self = [super init];
   NSAssert(self, @"super init cannot be nil");
   [SJMediaCacheServer.shared setEnabledConsoleLog:true];
+  // SJMediaCacheServer 2.1.x defaults to binding its local proxy server to the
+  // device's real LAN IP (instead of localhost) so AirPlay receivers can reach
+  // it, and it periodically self-checks that address. On networks where a
+  // device can't reach its own LAN IP (client isolation, VPNs, no LAN at all),
+  // that self-check times out repeatedly and the proxy keeps restarting. This
+  // plugin doesn't need AirPlay-cast support for the cache proxy, so opt out
+  // and keep the proxy on localhost.
+  SJMediaCacheServer.shared.enableAirPlaySupport = NO;
   _binaryMessenger = binaryMessenger;
   _textureRegistry = textureRegistry;
   _assetProvider = assetProvider;
   _viewProvider = viewProvider;
   _displayLinkFactory = displayLinkFactory ?: [[FVPDefaultDisplayLinkFactory alloc] init];
   _avFactory = avFactory ?: [[FVPDefaultAVFactory alloc] init];
+  _videoPlayerOptions = [[FVPVideoPlayerOptions alloc] init];
   _playersByIdentifier = [NSMutableDictionary dictionaryWithCapacity:1];
   _nextPlayerIdentifier = 1;
   return self;
@@ -284,6 +295,13 @@ static void upgradeAudioSessionCategory(NSObject<FVPAVAudioSession> *session,
 #endif
 }
 
+- (void)setCacheOptions:(FVPCacheOptionsMessage *)msg error:(FlutterError **)error {
+  self.videoPlayerOptions.enableCache = msg.enableCache;
+  self.videoPlayerOptions.cacheDirectory = msg.cacheDirectory;
+  self.videoPlayerOptions.maxCacheBytes = msg.maxCacheBytes;
+  self.videoPlayerOptions.maxFileBytes = msg.maxFileBytes;
+}
+
 - (nullable NSString *)fileURLForAssetWithName:(NSString *)asset
                                        package:(nullable NSString *)package
                                          error:(FlutterError *_Nullable *_Nonnull)error {
@@ -306,14 +324,36 @@ static void upgradeAudioSessionCategory(NSObject<FVPAVAudioSession> *session,
   return [NSURL fileURLWithPath:path].absoluteString;
 }
 
+// SJMediaCacheServer proxies remote HTTP(S) media (including HLS) through a local
+// server so segments are cached to disk; it isn't meant to intercept local file
+// URLs (e.g. bundled assets), so those are left untouched.
+static BOOL FVPURLIsCacheableRemoteResource(NSURL *url) {
+  NSString *scheme = url.scheme.lowercaseString;
+  return [scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"];
+}
+
 /// Returns the AVPlayerItem corresponding to the given player creation options.
 - (nonnull NSObject<FVPAVPlayerItem> *)playerItemWithCreationOptions:
     (nonnull FVPCreationOptions *)options {
   NSDictionary<NSString *, NSString *> *headers = options.httpHeaders;
   NSDictionary<NSString *, id> *itemOptions =
       headers.count == 0 ? nil : @{@"AVURLAssetHTTPHeaderFieldsKey" : headers};
-  NSObject<FVPAVAsset> *asset = [self.avFactory URLAssetWithURL:[NSURL URLWithString:options.uri]
-                                                        options:itemOptions];
+
+  NSURL *assetURL = [NSURL URLWithString:options.uri];
+  if (self.videoPlayerOptions.enableCache && FVPURLIsCacheableRemoteResource(assetURL)) {
+    if (headers.count > 0) {
+      NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
+      config.HTTPAdditionalHeaders = headers;
+      SJMediaCacheServer.shared.sessionConfiguration = config;
+    }
+    SJMediaCacheServer.shared.cacheMaxDiskSize = self.videoPlayerOptions.maxCacheBytes;
+    NSURL *proxyURL = [SJMediaCacheServer.shared proxyURLFromURL:assetURL];
+    if (proxyURL) {
+      assetURL = proxyURL;
+    }
+  }
+
+  NSObject<FVPAVAsset> *asset = [self.avFactory URLAssetWithURL:assetURL options:itemOptions];
   return [self.avFactory playerItemWithAsset:asset];
 }
 

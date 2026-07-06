@@ -11,7 +11,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface FVPVideoPlayerOptions : NSObject
 
-@property(nonatomic, assign) NSString* cacheDirectory;
+@property(nonatomic, copy) NSString* cacheDirectory;
 @property(nonatomic, assign) NSInteger maxCacheBytes;
 @property(nonatomic, assign) NSInteger maxFileBytes;
 @property(nonatomic, assign) BOOL enableCache;
