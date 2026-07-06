@@ -116,14 +116,14 @@
   self = [super init];
   NSAssert(self, @"super init cannot be nil");
   [SJMediaCacheServer.shared setEnabledConsoleLog:true];
-  // SJMediaCacheServer 2.1.x defaults to binding its local proxy server to the
-  // device's real LAN IP (instead of localhost) so AirPlay receivers can reach
-  // it, and it periodically self-checks that address. On networks where a
-  // device can't reach its own LAN IP (client isolation, VPNs, no LAN at all),
-  // that self-check times out repeatedly and the proxy keeps restarting. This
-  // plugin doesn't need AirPlay-cast support for the cache proxy, so opt out
-  // and keep the proxy on localhost.
-  SJMediaCacheServer.shared.enableAirPlaySupport = NO;
+  // Leave enableAirPlaySupport at its library default (YES, i.e. proxy served
+  // from the device's real LAN IP rather than localhost). HLSAssetParser's
+  // hls_restoreOriginalUrl: (used to resolve variant/nested playlist URLs back
+  // out of an already-proxied HLS playlist) only recognizes the literal string
+  // "localhost" or the actual resolved LAN IP as proxy host prefixes -- it has
+  // no case for the literal "127.0.0.1" that SJMediaCacheServer.m falls back to
+  // when AirPlay support is disabled. Forcing localhost-only here breaks HLS
+  // (m3u8) caching, even though simple FILE-asset caching still works.
   _binaryMessenger = binaryMessenger;
   _textureRegistry = textureRegistry;
   _assetProvider = assetProvider;
