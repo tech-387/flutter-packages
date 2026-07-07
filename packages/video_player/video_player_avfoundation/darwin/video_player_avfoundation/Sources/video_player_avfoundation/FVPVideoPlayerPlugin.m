@@ -116,6 +116,10 @@
   self = [super init];
   NSAssert(self, @"super init cannot be nil");
   [SJMediaCacheServer.shared setEnabledConsoleLog:true];
+  // TEMP diagnostics: verbose logging to help verify disk cache hit/miss
+  // behavior (see [FVP CACHE DEBUG] logs in playerItemWithCreationOptions:).
+  SJMediaCacheServer.shared.logOptions = MCSLogOptionAll;
+  SJMediaCacheServer.shared.logLevel = MCSLogLevelDebug;
   // Leave enableAirPlaySupport at its library default (YES, i.e. proxy served
   // from the device's real LAN IP rather than localhost). HLSAssetParser's
   // hls_restoreOriginalUrl: (used to resolve variant/nested playlist URLs back
@@ -340,15 +344,19 @@ static BOOL FVPURLIsCacheableRemoteResource(NSURL *url) {
       headers.count == 0 ? nil : @{@"AVURLAssetHTTPHeaderFieldsKey" : headers};
 
   NSURL *assetURL = [NSURL URLWithString:options.uri];
+  BOOL isFullyStoredBeforePlay = NO;
   if (self.videoPlayerOptions.enableCache && FVPURLIsCacheableRemoteResource(assetURL)) {
+    isFullyStoredBeforePlay = [SJMediaCacheServer.shared isFullyStoredAssetForURL:assetURL];
     SJMediaCacheServer.shared.cacheMaxDiskSize = self.videoPlayerOptions.maxCacheBytes;
     NSURL *proxyURL = [SJMediaCacheServer.shared proxyURLFromURL:assetURL];
     if (proxyURL) {
       assetURL = proxyURL;
     }
   }
-  NSLog(@"[FVP CACHE DEBUG] enableCache=%d originalURI=%@ headers=%lu finalURL=%@",
-        self.videoPlayerOptions.enableCache, options.uri, (unsigned long)headers.count, assetURL);
+  NSLog(@"[FVP CACHE DEBUG] enableCache=%d isFullyStoredBeforePlay=%d originalURI=%@ headers=%lu "
+        @"finalURL=%@",
+        self.videoPlayerOptions.enableCache, isFullyStoredBeforePlay, options.uri,
+        (unsigned long)headers.count, assetURL);
 
   NSObject<FVPAVAsset> *asset = [self.avFactory URLAssetWithURL:assetURL options:itemOptions];
   return [self.avFactory playerItemWithAsset:asset];
