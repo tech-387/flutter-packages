@@ -98,12 +98,17 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
 
     HttpVideoAsset httpVideoAsset = asset instanceof HttpVideoAsset ? (HttpVideoAsset) asset : null;
     DataSource.Factory dataSourceFactory = null;
+    // Retained (when caching is enabled) so the track selector below can be made cache-aware:
+    // without it, ABR falls back to bandwidth-only selection, which after a fresh app start
+    // (bandwidth estimate reset) can pick a variant whose segments were never cached, breaking
+    // offline playback even though a cached variant is available.
+    CacheDataSourceFactory cacheDataSourceFactory = null;
 
     if (httpVideoAsset != null) {
       buildHttpDataSourceFactory(httpVideoAsset.httpHeaders);
 
       if (isHTTP(uri) && options.enableCache) {
-        CacheDataSourceFactory cacheDataSourceFactory =
+        cacheDataSourceFactory =
                 new CacheDataSourceFactory(
                         context,
                         options.maxCacheBytes,
@@ -119,10 +124,15 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
       mediaSourceFactory.setDataSourceFactory(dataSourceFactory);
     }
 
+    DefaultTrackSelector trackSelector = new DefaultTrackSelector(
+            context,
+            new CustomAdaptiveTrackSelectionFactory(
+                    asset.assetUrl, cacheDataSourceFactory, loggerOptions, videoPlayerBufferOptions));
+
     ExoPlayer exoPlayer = new ExoPlayer.Builder(context,
             new DefaultRenderersFactory(context),
             mediaSourceFactory,
-            new DefaultTrackSelector(context),
+            trackSelector,
             loadControl,
             DefaultBandwidthMeter.getSingletonInstance(context),
             new DefaultAnalyticsCollector(Clock.DEFAULT)
