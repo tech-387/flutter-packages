@@ -87,22 +87,21 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
 
     Log.i("Cache", "enableCache="+options.enableCache+ ",cacheDirectory="+options.cacheDirectory + ",maxCacheBytes="+options.maxCacheBytes + ",maxFileBytes="+options.maxFileBytes);
 
-    ExoPlayer exoPlayer = new ExoPlayer.Builder(context,
-            new DefaultRenderersFactory(context),
-            new DefaultMediaSourceFactory(context, new DefaultExtractorsFactory()),
-            new DefaultTrackSelector(context),
-            loadControl,
-            DefaultBandwidthMeter.getSingletonInstance(context),
-            new DefaultAnalyticsCollector(Clock.DEFAULT)
-    ).build();
-
     Uri uri = Uri.parse(asset.assetUrl);
 
-    if(asset instanceof HttpVideoAsset) {
-      HttpVideoAsset httpVideoAsset = (HttpVideoAsset) asset;
+    // The ExoPlayer instance is always driven by exoPlayer.setMediaItem(...)/prepare() (see the
+    // VideoPlayer constructor), which internally builds its MediaSource via this factory. Any
+    // cache wiring therefore has to live here, not in a one-off exoPlayer.setMediaSource(...)
+    // call, since such a call would immediately be overwritten by the subsequent setMediaItem().
+    DefaultMediaSourceFactory mediaSourceFactory =
+            new DefaultMediaSourceFactory(context, new DefaultExtractorsFactory());
+
+    HttpVideoAsset httpVideoAsset = asset instanceof HttpVideoAsset ? (HttpVideoAsset) asset : null;
+    DataSource.Factory dataSourceFactory = null;
+
+    if (httpVideoAsset != null) {
       buildHttpDataSourceFactory(httpVideoAsset.httpHeaders);
 
-      DataSource.Factory dataSourceFactory;
       if (isHTTP(uri) && options.enableCache) {
         CacheDataSourceFactory cacheDataSourceFactory =
                 new CacheDataSourceFactory(
@@ -117,6 +116,19 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
         dataSourceFactory = new DefaultDataSource.Factory(context);
       }
 
+      mediaSourceFactory.setDataSourceFactory(dataSourceFactory);
+    }
+
+    ExoPlayer exoPlayer = new ExoPlayer.Builder(context,
+            new DefaultRenderersFactory(context),
+            mediaSourceFactory,
+            new DefaultTrackSelector(context),
+            loadControl,
+            DefaultBandwidthMeter.getSingletonInstance(context),
+            new DefaultAnalyticsCollector(Clock.DEFAULT)
+    ).build();
+
+    if (httpVideoAsset != null) {
       MediaSource mediaSource = buildMediaSource(uri, dataSourceFactory, httpVideoAsset.streamingFormat);
       exoPlayer.setMediaSource(mediaSource);
     }
