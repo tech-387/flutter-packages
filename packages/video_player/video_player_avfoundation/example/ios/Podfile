@@ -39,7 +39,7 @@ target 'Runner' do
   end
 
   # Add your GitHub-hosted pod here
-  pod 'SJMediaCacheServer', '2.2.99', :source => 'https://github.com/tech-387/tech387-specs.git'
+  pod 'SJMediaCacheServer', '2.3.99', :source => 'https://github.com/tech-387/tech387-specs.git'
 
   # Overriding SJUIKit: using GitHub mirror instead of gitee.com (avoids connection reset / clone failures)
   # GitHub mirror doesn't have tag 0.0.0.59; we use master (dependency has no version constraint)
