@@ -128,6 +128,18 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
     return buildView(options.playerId);
   }
 
+  /// Returns the raw platform texture id backing [playerId]'s video frames,
+  /// for callers that need to build their own [Texture] widget instead of
+  /// using [buildView]/[buildViewWithOptions] (for example, to make video
+  /// rotation affect layout instead of just paint).
+  ///
+  /// Returns `null` if [playerId] isn't using texture-based rendering (for
+  /// example, because it was created with [VideoViewType.platformView]) or
+  /// isn't a texture-backed player known to this platform implementation.
+  int? getTextureId(int playerId) {
+    throw UnimplementedError('getTextureId() has not been implemented.');
+  }
+
   /// Sets the audio mode to mix with other sources.
   Future<void> setMixWithOthers(bool mixWithOthers) {
     throw UnimplementedError('setMixWithOthers() has not been implemented.');

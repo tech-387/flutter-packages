@@ -538,6 +538,22 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   @visibleForTesting
   int get playerId => _playerId;
 
+  /// The raw platform texture id backing this controller's video frames, for
+  /// callers that build their own [Texture] widget instead of using the
+  /// [VideoPlayer] widget (for example, to make video rotation affect layout
+  /// instead of just paint).
+  ///
+  /// This is *not* the same value as [playerId]: [playerId] is an opaque
+  /// handle used to route platform-channel calls to this controller, while
+  /// this is the actual texture id registered with Flutter's engine. Only
+  /// meaningful once [initialize] has completed and when the controller was
+  /// created with the default `VideoViewType.textureView`; returns `null`
+  /// otherwise (including before initialization or after [dispose]).
+  int? get textureId =>
+      _playerId == kUninitializedPlayerId
+          ? null
+          : _videoPlayerPlatform.getTextureId(_playerId);
+
   /// Attempts to open the given [dataSource] and load metadata about the video.
   Future<void> initialize() async {
     final bool allowBackgroundPlayback =

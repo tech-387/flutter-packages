@@ -275,6 +275,14 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
     };
   }
 
+  @override
+  int? getTextureId(int playerId) {
+    final VideoPlayerViewState? viewState = _players[playerId]?.viewState;
+    return viewState is VideoPlayerTextureViewState
+        ? viewState.textureId
+        : null;
+  }
+
   Widget _buildPlatformView(int playerId) {
     final creationParams = PlatformVideoViewCreationParams(playerId: playerId);
 

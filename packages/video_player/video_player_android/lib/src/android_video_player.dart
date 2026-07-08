@@ -263,6 +263,14 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
+  int? getTextureId(int playerId) {
+    final VideoPlayerViewState? viewState = _players[playerId]?.viewState;
+    return viewState is VideoPlayerTextureViewState
+        ? viewState.textureId
+        : null;
+  }
+
+  @override
   Future<void> setMixWithOthers(bool mixWithOthers) {
     return _api.setMixWithOthers(mixWithOthers);
   }
