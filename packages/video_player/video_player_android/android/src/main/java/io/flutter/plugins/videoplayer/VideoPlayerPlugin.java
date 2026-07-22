@@ -11,13 +11,11 @@ import android.util.LongSparseArray;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
-import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.datasource.cache.CacheDataSink;
 import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.datasource.cache.SimpleCache;
-import androidx.media3.exoplayer.hls.offline.HlsDownloader;
 import androidx.media3.exoplayer.offline.Downloader;
 
 import org.jetbrains.annotations.NotNull;
@@ -42,13 +40,6 @@ import kotlin.jvm.functions.Function1;
 /** Android platform implementation of the VideoPlayerPlugin. */
 public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   private static final String TAG = "VideoPlayerPlugin";
-
-  // HlsDownloader has no direct "first N segments" API - SegmentDownloader only bounds
-  // downloads by setDurationUs(). This estimates a generous per-segment duration so
-  // segmentCount maps to a duration long enough to capture at least that many real
-  // segments across typical HLS target durations; warming a couple of segments more
-  // than requested is harmless for a cache-priming (Tier A) feature.
-  private static final long PRELOAD_ESTIMATED_SEGMENT_DURATION_US = 12_000_000L;
 
   private final LongSparseArray<VideoPlayer> videoPlayers = new LongSparseArray<>();
   private FlutterState flutterState;
@@ -288,9 +279,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
         sharedOptions.enableCache = msg.getEnableCache();
     }
 
-  // Data-only cache warming (Tier A): downloads the first `segmentCount` HLS segments into
-  // the same SimpleCache singleton and with the same upstream/cache-key configuration as
-  // playback (see CacheDataSourceFactory), using Media3's HlsDownloader - no renderers, no
+  // Data-only cache warming (Tier A): downloads exactly the first `segmentCount` HLS segments
+  // into the same SimpleCache singleton and with the same upstream/cache-key configuration as
+  // playback (see CacheDataSourceFactory), via ExactHlsSegmentDownloader - no renderers, no
   // decoder, no VideoPlayer/ExoPlayer instance is created. Runs on a background executor;
   // preloadDownloadersByUri lets cancelPreload() interrupt an in-flight download for a URI.
   @OptIn(markerClass = UnstableApi.class)
@@ -331,11 +322,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
                     .setCache(simpleCache)
                     .setFragmentSize(sharedOptions.maxFileBytes));
 
-    long durationUs = Math.max(segmentCount, 1) * PRELOAD_ESTIMATED_SEGMENT_DURATION_US;
-    HlsDownloader downloader =
-        new HlsDownloader.Factory(cacheDataSourceFactory)
-            .setDurationUs(durationUs)
-            .create(new MediaItem.Builder().setUri(uri).build());
+    Downloader downloader =
+        new ExactHlsSegmentDownloader(cacheDataSourceFactory, uri, (int) segmentCount);
 
     preloadDownloadersByUri.put(uri, downloader);
 
