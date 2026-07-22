@@ -554,6 +554,35 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
           ? null
           : _videoPlayerPlatform.getTextureId(_playerId);
 
+  /// Warms the shared disk cache for [url] by downloading its first
+  /// [segmentCount] segments, without creating a [VideoPlayerController] or
+  /// allocating a decoder. Call this for videos further out than the live
+  /// playback window so that when a controller is later created for [url],
+  /// [initialize] finds the data already cached and starts almost instantly.
+  ///
+  /// [cacheOptions] should match the [platform_interface.VideoPlayerCacheOptions]
+  /// that will be used for playback, since the same cache instance is reused.
+  static Future<void> preloadIntoCache(
+    String url, {
+    platform_interface.VideoPlayerCacheOptions? cacheOptions,
+    int segmentCount = 3,
+    Map<String, String> httpHeaders = const <String, String>{},
+  }) async {
+    await _videoPlayerPlatform.setCacheOptions(
+      cacheOptions ?? const platform_interface.VideoPlayerCacheOptions(),
+    );
+    await _videoPlayerPlatform.preloadIntoCache(
+      url,
+      segmentCount: segmentCount,
+      httpHeaders: httpHeaders,
+    );
+  }
+
+  /// Cancels an in-flight [preloadIntoCache] for [url], if any.
+  static Future<void> cancelPreload(String url) {
+    return _videoPlayerPlatform.cancelPreload(url);
+  }
+
   /// Attempts to open the given [dataSource] and load metadata about the video.
   Future<void> initialize() async {
     final bool allowBackgroundPlayback =

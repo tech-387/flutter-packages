@@ -225,6 +225,13 @@ abstract class AndroidVideoPlayerApi {
   void dispose(int playerId);
   void setMixWithOthers(bool mixWithOthers);
   void setCacheOptions(CacheOptionsMessage msg);
+  @async
+  void preloadIntoCache(
+    String uri,
+    int segmentCount,
+    Map<String, String> httpHeaders,
+  );
+  void cancelPreload(String uri);
   String getLookupKeyForAsset(String asset, String? packageName);
 }
 

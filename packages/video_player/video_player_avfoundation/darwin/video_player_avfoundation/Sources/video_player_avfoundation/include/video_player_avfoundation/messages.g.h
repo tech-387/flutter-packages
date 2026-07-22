@@ -121,6 +121,8 @@ NSObject<FlutterMessageCodec> *FVPGetMessagesCodec(void);
 - (nullable FVPTexturePlayerIds *)createTexturePlayerWithOptions:(FVPCreationOptions *)creationOptions error:(FlutterError *_Nullable *_Nonnull)error;
 - (void)setMixWithOthers:(BOOL)mixWithOthers error:(FlutterError *_Nullable *_Nonnull)error;
 - (void)setCacheOptions:(FVPCacheOptionsMessage *)msg error:(FlutterError *_Nullable *_Nonnull)error;
+- (void)preloadWithURL:(NSString *)uri segmentCount:(NSInteger)segmentCount httpHeaders:(NSDictionary<NSString *, NSString *> *)httpHeaders completion:(void (^)(FlutterError *_Nullable))completion;
+- (void)cancelPreloadForURL:(NSString *)uri error:(FlutterError *_Nullable *_Nonnull)error;
 - (nullable NSString *)fileURLForAssetWithName:(NSString *)asset package:(nullable NSString *)package error:(FlutterError *_Nullable *_Nonnull)error;
 @end
 

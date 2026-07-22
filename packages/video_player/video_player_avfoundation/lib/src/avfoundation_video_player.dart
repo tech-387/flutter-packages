@@ -212,6 +212,20 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
+  Future<void> preloadIntoCache(
+    String uri, {
+    int segmentCount = 3,
+    Map<String, String> httpHeaders = const <String, String>{},
+  }) {
+    return _api.preloadIntoCache(uri, segmentCount, httpHeaders);
+  }
+
+  @override
+  Future<void> cancelPreload(String uri) {
+    return _api.cancelPreload(uri);
+  }
+
+  @override
   Future<void> setCacheOptions(VideoPlayerCacheOptions options) {
     return _api.setCacheOptions(
       CacheOptionsMessage(

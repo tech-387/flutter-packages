@@ -113,6 +113,15 @@ abstract class AVFoundationVideoPlayerApi {
   void setMixWithOthers(bool mixWithOthers);
   @ObjCSelector('setCacheOptions:')
   void setCacheOptions(CacheOptionsMessage msg);
+  @async
+  @ObjCSelector('preloadWithURL:segmentCount:httpHeaders:')
+  void preloadIntoCache(
+    String uri,
+    int segmentCount,
+    Map<String?, String?> httpHeaders,
+  );
+  @ObjCSelector('cancelPreloadForURL:')
+  void cancelPreload(String uri);
   @ObjCSelector('fileURLForAssetWithName:package:')
   String? getAssetUrl(String asset, String? package);
 }

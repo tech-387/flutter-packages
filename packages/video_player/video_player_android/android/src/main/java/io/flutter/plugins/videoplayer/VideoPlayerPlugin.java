@@ -13,6 +13,8 @@ import androidx.media3.common.util.UnstableApi;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Map;
+
 import io.flutter.FlutterInjector;
 import io.flutter.Log;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -21,6 +23,9 @@ import io.flutter.plugins.videoplayer.platformview.PlatformVideoViewFactory;
 import io.flutter.plugins.videoplayer.platformview.PlatformViewVideoPlayer;
 import io.flutter.plugins.videoplayer.texture.TextureVideoPlayer;
 import io.flutter.view.TextureRegistry;
+import kotlin.Result;
+import kotlin.Unit;
+import kotlin.jvm.functions.Function1;
 
 /** Android platform implementation of the VideoPlayerPlugin. */
 public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
@@ -250,6 +255,21 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
         sharedOptions.maxFileBytes = msg.getMaxFileBytes();
         sharedOptions.enableCache = msg.getEnableCache();
     }
+
+  // Phase 1 (iOS-first rollout): Android data-only cache warming isn't implemented yet -- it
+  // requires Media3's HlsDownloader against the shared SimpleCache singleton (Phase 2). No-op for
+  // now so the app's wide data-preload window simply does nothing extra on Android meanwhile.
+  @Override
+  public void preloadIntoCache(
+      @NonNull String uri,
+      long segmentCount,
+      @NonNull Map<String, String> httpHeaders,
+      @NonNull Function1<? super Result<Unit>, Unit> callback) {
+    ResultCompat.success(null, callback);
+  }
+
+  @Override
+  public void cancelPreload(@NonNull String uri) {}
 
   @Override
   public @NonNull String getLookupKeyForAsset(@NonNull String asset, @Nullable String packageName) {

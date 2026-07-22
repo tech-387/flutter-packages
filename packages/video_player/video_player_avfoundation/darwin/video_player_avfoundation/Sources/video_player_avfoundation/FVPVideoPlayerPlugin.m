@@ -82,6 +82,10 @@
 @property(nonatomic, strong) NSObject<FVPAssetProvider> *assetProvider;
 @property(nonatomic, assign) int64_t nextPlayerIdentifier;
 @property(nonatomic, strong) FVPVideoPlayerOptions *videoPlayerOptions;
+/// Outstanding data-only cache-warming prefetches, keyed by the original asset URL string, so
+/// `cancelPreload` can cancel a specific in-flight prefetch. These never back a
+/// VideoPlayerController/decoder; see `preloadWithURL:segmentCount:...`.
+@property(nonatomic, strong) NSMutableDictionary<NSString *, id<MCSPrefetchTask>> *prefetchTasksByURL;
 @end
 
 @implementation FVPVideoPlayerPlugin
@@ -136,6 +140,7 @@
   _avFactory = avFactory ?: [[FVPDefaultAVFactory alloc] init];
   _videoPlayerOptions = [[FVPVideoPlayerOptions alloc] init];
   _playersByIdentifier = [NSMutableDictionary dictionaryWithCapacity:1];
+  _prefetchTasksByURL = [NSMutableDictionary dictionary];
   _nextPlayerIdentifier = 1;
   return self;
 }
@@ -304,6 +309,53 @@ static void upgradeAudioSessionCategory(NSObject<FVPAVAudioSession> *session,
   self.videoPlayerOptions.cacheDirectory = msg.cacheDirectory;
   self.videoPlayerOptions.maxCacheBytes = msg.maxCacheBytes;
   self.videoPlayerOptions.maxFileBytes = msg.maxFileBytes;
+  SJMediaCacheServer.shared.cacheMaxDiskSize = msg.maxCacheBytes;
+}
+
+// Warms the shared SJMediaCacheServer disk cache for `uri` without creating an AVPlayerItem or
+// allocating a decoder: prefetch writes into the exact same cache a later playerItemWithCreationOptions:
+// reads from (same original URL, same proxy/cache-key resolution), so a subsequent player is a cache hit.
+- (void)preloadWithURL:(NSString *)uri
+           segmentCount:(NSInteger)segmentCount
+            httpHeaders:(NSDictionary<NSString *, NSString *> *)httpHeaders
+             completion:(void (^)(FlutterError *_Nullable))completion {
+  NSURL *assetURL = [NSURL URLWithString:uri];
+  if (!self.videoPlayerOptions.enableCache || !FVPURLIsCacheableRemoteResource(assetURL)) {
+    completion(nil);
+    return;
+  }
+
+  for (NSString *field in httpHeaders) {
+    [SJMediaCacheServer.shared setHTTPHeaderField:field
+                                         withValue:httpHeaders[field]
+                                       forAssetURL:assetURL
+                                            ofType:MCSDataTypeHLS];
+  }
+
+  [self.prefetchTasksByURL[uri] cancel];
+  __weak typeof(self) weakSelf = self;
+  id<MCSPrefetchTask> task = [SJMediaCacheServer.shared
+      prefetchWithURL:assetURL
+      prefetchFileCount:(NSUInteger)MAX(segmentCount, 1)
+             progress:nil
+           completion:^(NSError *_Nullable prefetchError) {
+             [weakSelf.prefetchTasksByURL removeObjectForKey:uri];
+             completion(prefetchError
+                            ? [FlutterError errorWithCode:@"video_player_preload"
+                                                   message:prefetchError.localizedDescription
+                                                   details:nil]
+                            : nil);
+           }];
+  if (task) {
+    self.prefetchTasksByURL[uri] = task;
+  } else {
+    completion(nil);
+  }
+}
+
+- (void)cancelPreloadForURL:(NSString *)uri error:(FlutterError **)error {
+  [self.prefetchTasksByURL[uri] cancel];
+  [self.prefetchTasksByURL removeObjectForKey:uri];
 }
 
 - (nullable NSString *)fileURLForAssetWithName:(NSString *)asset
@@ -347,7 +399,6 @@ static BOOL FVPURLIsCacheableRemoteResource(NSURL *url) {
   BOOL isFullyStoredBeforePlay = NO;
   if (self.videoPlayerOptions.enableCache && FVPURLIsCacheableRemoteResource(assetURL)) {
     isFullyStoredBeforePlay = [SJMediaCacheServer.shared isFullyStoredAssetForURL:assetURL];
-    SJMediaCacheServer.shared.cacheMaxDiskSize = self.videoPlayerOptions.maxCacheBytes;
     NSURL *proxyURL = [SJMediaCacheServer.shared proxyURLFromURL:assetURL];
     if (proxyURL) {
       assetURL = proxyURL;

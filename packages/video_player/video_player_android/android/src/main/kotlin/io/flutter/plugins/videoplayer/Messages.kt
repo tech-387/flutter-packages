@@ -1143,6 +1143,7 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
 
 val MessagesPigeonMethodCodec = StandardMethodCodec(MessagesPigeonCodec())
 
+
 /** Generated interface from Pigeon that represents a handler of messages from Flutter. */
 interface AndroidVideoPlayerApi {
   fun initialize()
@@ -1151,6 +1152,8 @@ interface AndroidVideoPlayerApi {
   fun dispose(playerId: Long)
   fun setMixWithOthers(mixWithOthers: Boolean)
   fun setCacheOptions(msg: CacheOptionsMessage)
+  fun preloadIntoCache(uri: String, segmentCount: Long, httpHeaders: Map<String, String>, callback: (Result<Unit>) -> Unit)
+  fun cancelPreload(uri: String)
   fun getLookupKeyForAsset(asset: String, packageName: String?): String
 
   companion object {
@@ -1256,6 +1259,45 @@ interface AndroidVideoPlayerApi {
             val msgArg = args[0] as CacheOptionsMessage
             val wrapped: List<Any?> = try {
               api.setCacheOptions(msgArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.preloadIntoCache$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val uriArg = args[0] as String
+            val segmentCountArg = args[1] as Long
+            val httpHeadersArg = args[2] as Map<String, String>
+            api.preloadIntoCache(uriArg, segmentCountArg, httpHeadersArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(MessagesPigeonUtils.wrapError(error))
+              } else {
+                reply.reply(MessagesPigeonUtils.wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.cancelPreload$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val uriArg = args[0] as String
+            val wrapped: List<Any?> = try {
+              api.cancelPreload(uriArg)
               listOf(null)
             } catch (exception: Throwable) {
               MessagesPigeonUtils.wrapError(exception)

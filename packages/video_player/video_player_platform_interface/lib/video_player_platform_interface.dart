@@ -150,6 +150,26 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
     throw UnimplementedError('setCacheOptions() has not been implemented.');
   }
 
+  /// Warms the shared disk cache for [uri] by downloading its first
+  /// [segmentCount] segments, without creating a player or allocating a
+  /// decoder. Call [setCacheOptions] first so the warmed cache matches the
+  /// one playback will later read from.
+  ///
+  /// This is a data-only preload: it is not tied to any player id and does
+  /// not count toward platform decoder/controller limits.
+  Future<void> preloadIntoCache(
+    String uri, {
+    int segmentCount = 3,
+    Map<String, String> httpHeaders = const <String, String>{},
+  }) async {
+    throw UnimplementedError('preloadIntoCache() has not been implemented.');
+  }
+
+  /// Cancels an in-flight [preloadIntoCache] for [uri], if any.
+  Future<void> cancelPreload(String uri) async {
+    throw UnimplementedError('cancelPreload() has not been implemented.');
+  }
+
   /// Sets whether the video should continue to play in the background.
   Future<void> setAllowBackgroundPlayback(bool allowBackgroundPlayback) {
     throw UnimplementedError(

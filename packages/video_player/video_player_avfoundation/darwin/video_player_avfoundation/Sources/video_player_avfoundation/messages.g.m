@@ -690,6 +690,46 @@ void SetUpFVPAVFoundationVideoPlayerApiWithSuffix(id<FlutterBinaryMessenger> bin
   {
     FlutterBasicMessageChannel *channel =
       [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.preloadIntoCache", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(preloadWithURL:segmentCount:httpHeaders:completion:)], @"FVPAVFoundationVideoPlayerApi api (%@) doesn't respond to @selector(preloadWithURL:segmentCount:httpHeaders:completion:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        NSArray<id> *args = message;
+        NSString *arg_uri = GetNullableObjectAtIndex(args, 0);
+        NSInteger arg_segmentCount = [GetNullableObjectAtIndex(args, 1) integerValue];
+        NSDictionary<NSString *, NSString *> *arg_httpHeaders = GetNullableObjectAtIndex(args, 2);
+        [api preloadWithURL:arg_uri segmentCount:arg_segmentCount httpHeaders:arg_httpHeaders completion:^(FlutterError *_Nullable error) {
+          callback(wrapResult(nil, error));
+        }];
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.cancelPreload", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(cancelPreloadForURL:error:)], @"FVPAVFoundationVideoPlayerApi api (%@) doesn't respond to @selector(cancelPreloadForURL:error:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        NSArray<id> *args = message;
+        NSString *arg_uri = GetNullableObjectAtIndex(args, 0);
+        FlutterError *error;
+        [api cancelPreloadForURL:arg_uri error:&error];
+        callback(wrapResult(nil, error));
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
         initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.getAssetUrl", messageChannelSuffix]
         binaryMessenger:binaryMessenger
         codec:FVPGetMessagesCodec()];
