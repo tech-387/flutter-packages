@@ -5,15 +5,27 @@
 package io.flutter.plugins.videoplayer;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.LongSparseArray;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.datasource.cache.CacheDataSink;
+import androidx.media3.datasource.cache.CacheDataSource;
+import androidx.media3.datasource.cache.SimpleCache;
+import androidx.media3.exoplayer.hls.offline.HlsDownloader;
+import androidx.media3.exoplayer.offline.Downloader;
 
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import io.flutter.FlutterInjector;
 import io.flutter.Log;
@@ -30,10 +42,24 @@ import kotlin.jvm.functions.Function1;
 /** Android platform implementation of the VideoPlayerPlugin. */
 public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   private static final String TAG = "VideoPlayerPlugin";
+
+  // HlsDownloader has no direct "first N segments" API - SegmentDownloader only bounds
+  // downloads by setDurationUs(). This estimates a generous per-segment duration so
+  // segmentCount maps to a duration long enough to capture at least that many real
+  // segments across typical HLS target durations; warming a couple of segments more
+  // than requested is harmless for a cache-priming (Tier A) feature.
+  private static final long PRELOAD_ESTIMATED_SEGMENT_DURATION_US = 12_000_000L;
+
   private final LongSparseArray<VideoPlayer> videoPlayers = new LongSparseArray<>();
   private FlutterState flutterState;
   private final VideoPlayerOptions sharedOptions = new VideoPlayerOptions();
   private long nextPlayerIdentifier = 1;
+
+  @UnstableApi
+  private final Map<String, Downloader> preloadDownloadersByUri = new ConcurrentHashMap<>();
+
+  private final ExecutorService preloadExecutor = Executors.newFixedThreadPool(2);
+  private final Handler mainThreadHandler = new Handler(Looper.getMainLooper());
 
   /** Register this with the v2 embedding for the plugin to respond to lifecycle callbacks. */
   public VideoPlayerPlugin() {}
@@ -74,6 +100,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     videoPlayers.clear();
   }
 
+  @OptIn(markerClass = UnstableApi.class)
   public void onDestroy() {
     // The whole FlutterView is being destroyed. Here we release resources acquired for all
     // instances
@@ -81,6 +108,11 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     // be replaced with just asserting that videoPlayers.isEmpty().
     // https://github.com/flutter/flutter/issues/20989 tracks this.
     disposeAllPlayers();
+    for (Downloader downloader : preloadDownloadersByUri.values()) {
+      downloader.cancel();
+    }
+    preloadDownloadersByUri.clear();
+    preloadExecutor.shutdownNow();
   }
 
   @Override
@@ -256,20 +288,91 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
         sharedOptions.enableCache = msg.getEnableCache();
     }
 
-  // Phase 1 (iOS-first rollout): Android data-only cache warming isn't implemented yet -- it
-  // requires Media3's HlsDownloader against the shared SimpleCache singleton (Phase 2). No-op for
-  // now so the app's wide data-preload window simply does nothing extra on Android meanwhile.
+  // Data-only cache warming (Tier A): downloads the first `segmentCount` HLS segments into
+  // the same SimpleCache singleton and with the same upstream/cache-key configuration as
+  // playback (see CacheDataSourceFactory), using Media3's HlsDownloader - no renderers, no
+  // decoder, no VideoPlayer/ExoPlayer instance is created. Runs on a background executor;
+  // preloadDownloadersByUri lets cancelPreload() interrupt an in-flight download for a URI.
+  @OptIn(markerClass = UnstableApi.class)
   @Override
   public void preloadIntoCache(
       @NonNull String uri,
       long segmentCount,
       @NonNull Map<String, String> httpHeaders,
       @NonNull Function1<? super Result<Unit>, Unit> callback) {
-    ResultCompat.success(null, callback);
+    if (!sharedOptions.enableCache) {
+      ResultCompat.success(null, callback);
+      return;
+    }
+
+    cancelPreload(uri);
+
+    DefaultHttpDataSource.Factory httpDataSourceFactory = new DefaultHttpDataSource.Factory();
+    httpDataSourceFactory.setUserAgent("ExoPlayer");
+    httpDataSourceFactory.setAllowCrossProtocolRedirects(true);
+    httpDataSourceFactory.setDefaultRequestProperties(httpHeaders);
+
+    SimpleCache simpleCache =
+        SimpleCacheSingleton.getInstance(
+                flutterState.applicationContext,
+                sharedOptions.maxCacheBytes,
+                sharedOptions.cacheDirectory)
+            .simpleCache;
+
+    // No explicit CacheKeyFactory - defaults to URI-based keys, same as
+    // CacheDataSourceFactory.createDataSource() (which also passes a null factory), so preload
+    // and playback resolve to identical cache keys.
+    CacheDataSource.Factory cacheDataSourceFactory =
+        new CacheDataSource.Factory()
+            .setCache(simpleCache)
+            .setUpstreamDataSourceFactory(httpDataSourceFactory)
+            .setCacheWriteDataSinkFactory(
+                new CacheDataSink.Factory()
+                    .setCache(simpleCache)
+                    .setFragmentSize(sharedOptions.maxFileBytes));
+
+    long durationUs = Math.max(segmentCount, 1) * PRELOAD_ESTIMATED_SEGMENT_DURATION_US;
+    HlsDownloader downloader =
+        new HlsDownloader.Factory(cacheDataSourceFactory)
+            .setDurationUs(durationUs)
+            .create(new MediaItem.Builder().setUri(uri).build());
+
+    preloadDownloadersByUri.put(uri, downloader);
+
+    preloadExecutor.execute(
+        () -> {
+          Throwable error = null;
+          try {
+            downloader.download(null);
+          } catch (InterruptedException e) {
+            // Canceled via cancelPreload() - not an error condition.
+            Thread.currentThread().interrupt();
+          } catch (Exception e) {
+            error = e;
+            Log.e(TAG, "preloadIntoCache failed for uri=" + uri, e);
+          } finally {
+            preloadDownloadersByUri.remove(uri, downloader);
+          }
+          final Throwable finalError = error;
+          mainThreadHandler.post(
+              () -> {
+                if (finalError != null) {
+                  ResultCompat.failure(finalError, callback);
+                } else {
+                  ResultCompat.success(null, callback);
+                }
+              });
+        });
   }
 
+  @OptIn(markerClass = UnstableApi.class)
   @Override
-  public void cancelPreload(@NonNull String uri) {}
+  public void cancelPreload(@NonNull String uri) {
+    Downloader downloader = preloadDownloadersByUri.remove(uri);
+    if (downloader != null) {
+      downloader.cancel();
+    }
+  }
 
   @Override
   public @NonNull String getLookupKeyForAsset(@NonNull String asset, @Nullable String packageName) {
