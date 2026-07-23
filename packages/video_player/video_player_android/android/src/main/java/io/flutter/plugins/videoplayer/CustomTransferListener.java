@@ -73,6 +73,13 @@ class CustomTransferListener implements TransferListener {
 
         ioExecutor.execute(() -> {
             try {
+                if (!filename.endsWith(".ts")) {
+                    // Manifests/playlists (.m3u8) and keys are expected to reach this listener
+                    // too but aren't segment files - only .ts segments are tracked here.
+                    customLogger.logV("Skipping non-segment filename: " + filename);
+                    return;
+                }
+
                 Pattern pattern = Pattern.compile("([a-f0-9\\-]+)_([0-9]+)_([0-9]+)\\.ts");
                 Matcher matcher = pattern.matcher(filename);
 

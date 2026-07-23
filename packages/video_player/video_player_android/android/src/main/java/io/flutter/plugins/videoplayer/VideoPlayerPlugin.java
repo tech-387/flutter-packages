@@ -322,7 +322,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
                     .setCache(simpleCache)
                     .setFragmentSize(sharedOptions.maxFileBytes));
 
-    Downloader downloader =
+    ExactHlsSegmentDownloader downloader =
         new ExactHlsSegmentDownloader(cacheDataSourceFactory, uri, (int) segmentCount);
 
     preloadDownloadersByUri.put(uri, downloader);
@@ -336,8 +336,12 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
             // Canceled via cancelPreload() - not an error condition.
             Thread.currentThread().interrupt();
           } catch (Exception e) {
-            error = e;
-            Log.e(TAG, "preloadIntoCache failed for uri=" + uri, e);
+            // CacheWriter surfaces cancellation as InterruptedIOException (an IOException),
+            // not InterruptedException, so a canceled preload lands here rather than above.
+            if (!downloader.isCanceled()) {
+              error = e;
+              Log.e(TAG, "preloadIntoCache failed for uri=" + uri, e);
+            }
           } finally {
             preloadDownloadersByUri.remove(uri, downloader);
           }

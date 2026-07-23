@@ -123,6 +123,10 @@ final class ExactHlsSegmentDownloader implements Downloader {
     }
   }
 
+  boolean isCanceled() {
+    return canceled;
+  }
+
   @Override
   public void remove() {
     // Tier A preloads aren't protected/exported content - the cache's own eviction policy
