@@ -4,6 +4,9 @@
 
 package io.flutter.plugins.videoplayer;
 
+import android.content.Context;
+import android.media.MediaMetadataRetriever;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -11,6 +14,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
@@ -26,6 +30,11 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
   private boolean isInitialized = false;
   private boolean isWaitingForValidDuration = false;
   private long waitStartTimeMs = 0;
+  // Set when ExoPlayer can't determine a duration but the media item is a local content:// or
+  // file:// URI, so MediaMetadataRetriever was able to read one directly from the file's
+  // metadata instead. See getEffectiveDurationMs().
+  @Nullable private Long resolvedLocalDurationMs;
+  private boolean triedLocalDurationFallback = false;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private final Runnable initializationFallback = this::onInitializationFallback;
   protected final ExoPlayer exoPlayer;
@@ -103,12 +112,80 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
     return !exoPlayer.isCurrentMediaItemLive() && !exoPlayer.isCurrentMediaItemDynamic();
   }
 
+  /**
+   * Returns the duration subclasses should report in {@code sendInitialized()}: ExoPlayer's own
+   * value when it has one, otherwise the value read via {@link MediaMetadataRetriever} for local
+   * files (see {@link #resolvedLocalDurationMs}), otherwise ExoPlayer's (possibly unset) value.
+   */
+  protected long getEffectiveDurationMs() {
+    long duration = exoPlayer.getDuration();
+    if (duration != C.TIME_UNSET) {
+      return duration;
+    }
+    return resolvedLocalDurationMs != null ? resolvedLocalDurationMs : duration;
+  }
+
+  /**
+   * For a local {@code content://}/{@code file://} media item, reads the duration directly from
+   * the file's metadata via {@link MediaMetadataRetriever}. Unlike ExoPlayer's extractor-based
+   * duration, this doesn't depend on the container reporting a duration ExoPlayer can parse, so
+   * it covers local files where {@link #hasValidDuration()} never becomes true (e.g. some
+   * camera-recorded videos picked from the gallery). Returns null for remote URIs, or if the
+   * retriever couldn't determine a duration either.
+   */
+  @Nullable
+  private Long tryGetLocalFileDurationMs() {
+    MediaItem mediaItem = exoPlayer.getCurrentMediaItem();
+    if (mediaItem == null || mediaItem.localConfiguration == null) {
+      return null;
+    }
+    Uri uri = mediaItem.localConfiguration.uri;
+    String scheme = uri.getScheme();
+    if (!"content".equals(scheme) && !"file".equals(scheme)) {
+      return null;
+    }
+    Context context = ApplicationContextHolder.get();
+    if (context == null) {
+      return null;
+    }
+    MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+    try {
+      retriever.setDataSource(context, uri);
+      String durationStr =
+          retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+      long durationMs = durationStr != null ? Long.parseLong(durationStr) : 0;
+      return durationMs > 0 ? durationMs : null;
+    } catch (Exception e) {
+      Log.w(TAG, "MediaMetadataRetriever duration fallback failed for " + uri, e);
+      return null;
+    } finally {
+      try {
+        retriever.release();
+      } catch (Exception ignored) {
+        // release() failures aren't actionable here.
+      }
+    }
+  }
+
   private void maybeSendInitialized() {
     if (isInitialized) {
       return;
     }
 
     if (!hasValidDuration() && shouldWaitForValidDuration()) {
+      if (!triedLocalDurationFallback) {
+        triedLocalDurationFallback = true;
+        resolvedLocalDurationMs = tryGetLocalFileDurationMs();
+        if (resolvedLocalDurationMs != null) {
+          Log.i(TAG, "ExoPlayer duration unset but MediaMetadataRetriever read durationMs="
+              + resolvedLocalDurationMs + " from local file; initializing immediately");
+          isWaitingForValidDuration = false;
+          isInitialized = true;
+          mainHandler.removeCallbacks(initializationFallback);
+          sendInitialized();
+          return;
+        }
+      }
       if (!isWaitingForValidDuration) {
         isWaitingForValidDuration = true;
         waitStartTimeMs = SystemClock.elapsedRealtime();

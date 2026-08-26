@@ -58,6 +58,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   @Override
   public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
     final FlutterInjector injector = FlutterInjector.instance();
+    ApplicationContextHolder.set(binding.getApplicationContext());
     this.flutterState =
         new FlutterState(
             binding.getApplicationContext(),
@@ -81,6 +82,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     }
     flutterState.stopListening(binding.getBinaryMessenger());
     flutterState = null;
+    ApplicationContextHolder.set(null);
     onDestroy();
   }
 
