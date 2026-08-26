@@ -10,7 +10,6 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -22,7 +21,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.exoplayer.ExoPlayer;
 
 public abstract class ExoPlayerEventListener implements Player.Listener {
-  private static final String TAG = "DurationInit";
   static final long DURATION_UNSET_INITIALIZATION_TIMEOUT_MS = 2000;
   // Upper bound on total time spent waiting for a valid duration before giving up and
   // initializing anyway, so a video that never reports one doesn't block forever.
@@ -46,19 +44,13 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
     }
     long elapsed = SystemClock.elapsedRealtime() - waitStartTimeMs;
     if (hasValidDuration()) {
-      Log.i(TAG, "fallback fired but duration is now valid (elapsedMs=" + elapsed
-          + ", durationMs=" + exoPlayer.getDuration() + "); sending initialized normally");
       maybeSendInitialized();
       return;
     }
     if (elapsed < DURATION_UNSET_MAX_WAIT_MS) {
-      Log.i(TAG, "fallback fired, duration still unset after elapsedMs=" + elapsed
-          + "; retrying for up to " + DURATION_UNSET_MAX_WAIT_MS + "ms total");
       mainHandler.postDelayed(initializationFallback, DURATION_UNSET_INITIALIZATION_TIMEOUT_MS);
       return;
     }
-    Log.w(TAG, "giving up waiting for valid duration after elapsedMs=" + elapsed
-        + "; initializing with duration=" + exoPlayer.getDuration());
     isWaitingForValidDuration = false;
     isInitialized = true;
     sendInitialized();
@@ -155,8 +147,7 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
           retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
       long durationMs = durationStr != null ? Long.parseLong(durationStr) : 0;
       return durationMs > 0 ? durationMs : null;
-    } catch (Exception e) {
-      Log.w(TAG, "MediaMetadataRetriever duration fallback failed for " + uri, e);
+    } catch (Exception ignored) {
       return null;
     } finally {
       try {
@@ -177,8 +168,6 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
         triedLocalDurationFallback = true;
         resolvedLocalDurationMs = tryGetLocalFileDurationMs();
         if (resolvedLocalDurationMs != null) {
-          Log.i(TAG, "ExoPlayer duration unset but MediaMetadataRetriever read durationMs="
-              + resolvedLocalDurationMs + " from local file; initializing immediately");
           isWaitingForValidDuration = false;
           isInitialized = true;
           mainHandler.removeCallbacks(initializationFallback);
@@ -189,19 +178,11 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
       if (!isWaitingForValidDuration) {
         isWaitingForValidDuration = true;
         waitStartTimeMs = SystemClock.elapsedRealtime();
-        Log.i(TAG, "duration unset (durationMs=" + exoPlayer.getDuration()
-            + ", playbackState=" + exoPlayer.getPlaybackState() + "); waiting up to "
-            + DURATION_UNSET_MAX_WAIT_MS + "ms for a valid one");
         mainHandler.postDelayed(initializationFallback, DURATION_UNSET_INITIALIZATION_TIMEOUT_MS);
       }
       return;
     }
 
-    if (isWaitingForValidDuration) {
-      Log.i(TAG, "valid duration arrived after elapsedMs="
-          + (SystemClock.elapsedRealtime() - waitStartTimeMs)
-          + " (durationMs=" + exoPlayer.getDuration() + ")");
-    }
     isWaitingForValidDuration = false;
     isInitialized = true;
     mainHandler.removeCallbacks(initializationFallback);
@@ -231,20 +212,6 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
 
   @Override
   public void onTimelineChanged(@NonNull Timeline timeline, int reason) {
-    if (isWaitingForValidDuration) {
-      Log.i(TAG, "onTimelineChanged reason=" + reason
-          + " playbackState=" + exoPlayer.getPlaybackState()
-          + " timelineEmpty=" + timeline.isEmpty()
-          + " windowCount=" + timeline.getWindowCount()
-          + " exoPlayerDurationMs=" + exoPlayer.getDuration());
-      if (!timeline.isEmpty()) {
-        Timeline.Window window = timeline.getWindow(0, new Timeline.Window());
-        Log.i(TAG, "window[0] durationUs=" + window.durationUs
-            + " isPlaceholder=" + window.isPlaceholder
-            + " isDynamic=" + window.isDynamic
-            + " isLive=" + window.isLive());
-      }
-    }
     if (isWaitingForValidDuration && exoPlayer.getPlaybackState() == Player.STATE_READY) {
       maybeSendInitialized();
     }
