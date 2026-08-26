@@ -154,6 +154,20 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
 
   @Override
   public void onTimelineChanged(@NonNull Timeline timeline, int reason) {
+    if (isWaitingForValidDuration) {
+      Log.i(TAG, "onTimelineChanged reason=" + reason
+          + " playbackState=" + exoPlayer.getPlaybackState()
+          + " timelineEmpty=" + timeline.isEmpty()
+          + " windowCount=" + timeline.getWindowCount()
+          + " exoPlayerDurationMs=" + exoPlayer.getDuration());
+      if (!timeline.isEmpty()) {
+        Timeline.Window window = timeline.getWindow(0, new Timeline.Window());
+        Log.i(TAG, "window[0] durationUs=" + window.durationUs
+            + " isPlaceholder=" + window.isPlaceholder
+            + " isDynamic=" + window.isDynamic
+            + " isLive=" + window.isLive());
+      }
+    }
     if (isWaitingForValidDuration && exoPlayer.getPlaybackState() == Player.STATE_READY) {
       maybeSendInitialized();
     }
