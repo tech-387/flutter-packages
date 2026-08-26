@@ -27,32 +27,33 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
   private boolean isWaitingForValidDuration = false;
   private long waitStartTimeMs = 0;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
-  private final Runnable initializationFallback =
-      () -> {
-        if (isInitialized || !isWaitingForValidDuration) {
-          return;
-        }
-        long elapsed = SystemClock.elapsedRealtime() - waitStartTimeMs;
-        if (hasValidDuration()) {
-          Log.i(TAG, "fallback fired but duration is now valid (elapsedMs=" + elapsed
-              + ", durationMs=" + exoPlayer.getDuration() + "); sending initialized normally");
-          maybeSendInitialized();
-          return;
-        }
-        if (elapsed < DURATION_UNSET_MAX_WAIT_MS) {
-          Log.i(TAG, "fallback fired, duration still unset after elapsedMs=" + elapsed
-              + "; retrying for up to " + DURATION_UNSET_MAX_WAIT_MS + "ms total");
-          mainHandler.postDelayed(initializationFallback, DURATION_UNSET_INITIALIZATION_TIMEOUT_MS);
-          return;
-        }
-        Log.w(TAG, "giving up waiting for valid duration after elapsedMs=" + elapsed
-            + "; initializing with duration=" + exoPlayer.getDuration());
-        isWaitingForValidDuration = false;
-        isInitialized = true;
-        sendInitialized();
-      };
+  private final Runnable initializationFallback = this::onInitializationFallback;
   protected final ExoPlayer exoPlayer;
   protected final VideoPlayerCallbacks events;
+
+  private void onInitializationFallback() {
+    if (isInitialized || !isWaitingForValidDuration) {
+      return;
+    }
+    long elapsed = SystemClock.elapsedRealtime() - waitStartTimeMs;
+    if (hasValidDuration()) {
+      Log.i(TAG, "fallback fired but duration is now valid (elapsedMs=" + elapsed
+          + ", durationMs=" + exoPlayer.getDuration() + "); sending initialized normally");
+      maybeSendInitialized();
+      return;
+    }
+    if (elapsed < DURATION_UNSET_MAX_WAIT_MS) {
+      Log.i(TAG, "fallback fired, duration still unset after elapsedMs=" + elapsed
+          + "; retrying for up to " + DURATION_UNSET_MAX_WAIT_MS + "ms total");
+      mainHandler.postDelayed(initializationFallback, DURATION_UNSET_INITIALIZATION_TIMEOUT_MS);
+      return;
+    }
+    Log.w(TAG, "giving up waiting for valid duration after elapsedMs=" + elapsed
+        + "; initializing with duration=" + exoPlayer.getDuration());
+    isWaitingForValidDuration = false;
+    isInitialized = true;
+    sendInitialized();
+  }
 
   protected enum RotationDegrees {
     ROTATE_0(0),
