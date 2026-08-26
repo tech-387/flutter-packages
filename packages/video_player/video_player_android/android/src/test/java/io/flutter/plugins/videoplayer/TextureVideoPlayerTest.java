@@ -14,6 +14,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
+import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import io.flutter.plugins.videoplayer.texture.TextureVideoPlayer;
 import io.flutter.view.TextureRegistry;
@@ -25,6 +26,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.RobolectricTestRunner;
@@ -199,5 +201,50 @@ public final class TextureVideoPlayerTest {
     InOrder inOrder = inOrder(mockExoPlayer, mockProducer);
     inOrder.verify(mockExoPlayer).release();
     inOrder.verify(mockProducer).release();
+  }
+
+  // Unlike upstream, TextureVideoPlayer.create() delegates ExoPlayer construction to the shared
+  // VideoPlayer.constructExoPlayer(), which passes the LoadControl into ExoPlayer.Builder's
+  // constructor rather than via a chained setLoadControl() call - so this verifies the
+  // DefaultLoadControl.Builder itself receives the back buffer, instead of verifying
+  // ExoPlayer.Builder#setLoadControl.
+  @Test
+  public void create_withBackBufferDuration_setsLoadControl() {
+    android.content.Context mockContext = mock(android.content.Context.class);
+    VideoPlayerOptions options = new VideoPlayerOptions();
+    options.backBufferDurationMs = 20000L;
+
+    try (MockedConstruction<DefaultLoadControl.Builder> mockedLoadControlBuilder =
+            mockConstruction(
+                DefaultLoadControl.Builder.class,
+                (mock, context) -> {
+                  when(mock.setBufferDurationsMs(anyInt(), anyInt(), anyInt(), anyInt()))
+                      .thenReturn(mock);
+                  when(mock.setBackBuffer(anyInt(), anyBoolean())).thenReturn(mock);
+                });
+        MockedConstruction<ExoPlayer.Builder> mockedBuilder =
+            mockConstruction(
+                ExoPlayer.Builder.class,
+                (mock, context) -> {
+                  when(mock.build()).thenReturn(mockExoPlayer);
+                })) {
+
+      TextureVideoPlayer player =
+          TextureVideoPlayer.create(
+              mockContext,
+              mockEvents,
+              mockProducer,
+              fakeVideoAsset,
+              options,
+              new VideoPlayerBufferOptions(),
+              new VideoPlayerLoggerOptions());
+
+      assertEquals(1, mockedLoadControlBuilder.constructed().size());
+      assertEquals(1, mockedBuilder.constructed().size());
+      DefaultLoadControl.Builder loadControlBuilderMock =
+          mockedLoadControlBuilder.constructed().get(0);
+      verify(loadControlBuilderMock).setBackBuffer(20000, /* retainBackBufferFromKeyframe= */ true);
+      player.dispose();
+    }
   }
 }

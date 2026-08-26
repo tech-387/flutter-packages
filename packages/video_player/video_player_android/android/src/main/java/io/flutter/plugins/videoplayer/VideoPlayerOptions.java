@@ -4,6 +4,9 @@
 
 package io.flutter.plugins.videoplayer;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 public class VideoPlayerOptions {
   public boolean mixWithOthers;
 
@@ -11,4 +14,21 @@ public class VideoPlayerOptions {
   public String cacheDirectory = "streaming";
   public Long maxCacheBytes = 1024 * 1024 * 1024L;
   public Long maxFileBytes = 1024 * 1024 * 100L;
+
+  /**
+   * The duration of the back buffer in milliseconds, used to configure ExoPlayer's load control.
+   */
+  @Nullable public Long backBufferDurationMs;
+
+  public VideoPlayerOptions() {}
+
+  /** Copy constructor to ensure all options are reliably copied. */
+  public VideoPlayerOptions(@NonNull VideoPlayerOptions other) {
+    this.mixWithOthers = other.mixWithOthers;
+    this.enableCache = other.enableCache;
+    this.cacheDirectory = other.cacheDirectory;
+    this.maxCacheBytes = other.maxCacheBytes;
+    this.maxFileBytes = other.maxFileBytes;
+    this.backBufferDurationMs = other.backBufferDurationMs;
+  }
 }
