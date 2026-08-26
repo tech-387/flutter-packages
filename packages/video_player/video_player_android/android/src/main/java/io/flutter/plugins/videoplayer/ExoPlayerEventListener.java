@@ -6,6 +6,8 @@ package io.flutter.plugins.videoplayer;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
+import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -16,17 +18,38 @@ import androidx.media3.common.Tracks;
 import androidx.media3.exoplayer.ExoPlayer;
 
 public abstract class ExoPlayerEventListener implements Player.Listener {
+  private static final String TAG = "DurationInit";
   static final long DURATION_UNSET_INITIALIZATION_TIMEOUT_MS = 2000;
+  // Upper bound on total time spent waiting for a valid duration before giving up and
+  // initializing anyway, so a video that never reports one doesn't block forever.
+  static final long DURATION_UNSET_MAX_WAIT_MS = 8000;
   private boolean isInitialized = false;
   private boolean isWaitingForValidDuration = false;
+  private long waitStartTimeMs = 0;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private final Runnable initializationFallback =
       () -> {
-        if (!isInitialized && isWaitingForValidDuration) {
-          isWaitingForValidDuration = false;
-          isInitialized = true;
-          sendInitialized();
+        if (isInitialized || !isWaitingForValidDuration) {
+          return;
         }
+        long elapsed = SystemClock.elapsedRealtime() - waitStartTimeMs;
+        if (hasValidDuration()) {
+          Log.i(TAG, "fallback fired but duration is now valid (elapsedMs=" + elapsed
+              + ", durationMs=" + exoPlayer.getDuration() + "); sending initialized normally");
+          maybeSendInitialized();
+          return;
+        }
+        if (elapsed < DURATION_UNSET_MAX_WAIT_MS) {
+          Log.i(TAG, "fallback fired, duration still unset after elapsedMs=" + elapsed
+              + "; retrying for up to " + DURATION_UNSET_MAX_WAIT_MS + "ms total");
+          mainHandler.postDelayed(initializationFallback, DURATION_UNSET_INITIALIZATION_TIMEOUT_MS);
+          return;
+        }
+        Log.w(TAG, "giving up waiting for valid duration after elapsedMs=" + elapsed
+            + "; initializing with duration=" + exoPlayer.getDuration());
+        isWaitingForValidDuration = false;
+        isInitialized = true;
+        sendInitialized();
       };
   protected final ExoPlayer exoPlayer;
   protected final VideoPlayerCallbacks events;
@@ -87,11 +110,20 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
     if (!hasValidDuration() && shouldWaitForValidDuration()) {
       if (!isWaitingForValidDuration) {
         isWaitingForValidDuration = true;
+        waitStartTimeMs = SystemClock.elapsedRealtime();
+        Log.i(TAG, "duration unset (durationMs=" + exoPlayer.getDuration()
+            + ", playbackState=" + exoPlayer.getPlaybackState() + "); waiting up to "
+            + DURATION_UNSET_MAX_WAIT_MS + "ms for a valid one");
         mainHandler.postDelayed(initializationFallback, DURATION_UNSET_INITIALIZATION_TIMEOUT_MS);
       }
       return;
     }
 
+    if (isWaitingForValidDuration) {
+      Log.i(TAG, "valid duration arrived after elapsedMs="
+          + (SystemClock.elapsedRealtime() - waitStartTimeMs)
+          + " (durationMs=" + exoPlayer.getDuration() + ")");
+    }
     isWaitingForValidDuration = false;
     isInitialized = true;
     mainHandler.removeCallbacks(initializationFallback);
