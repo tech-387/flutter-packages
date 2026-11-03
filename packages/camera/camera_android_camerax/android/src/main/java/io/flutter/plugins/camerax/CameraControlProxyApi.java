@@ -100,6 +100,11 @@ class CameraControlProxyApi extends PigeonApiCameraControl {
         new FutureCallback<>() {
           @Override
           public void onSuccess(FocusMeteringResult focusMeteringResult) {
+            if (getPigeonRegistrar().getIgnoreCallsToDart()) {
+              // The plugin detached from the engine while focusing, so the Dart isolate that
+              // asked is gone and the codec can no longer create the Dart FocusMeteringResult.
+              return;
+            }
             ResultCompat.success(focusMeteringResult, callback);
           }
 

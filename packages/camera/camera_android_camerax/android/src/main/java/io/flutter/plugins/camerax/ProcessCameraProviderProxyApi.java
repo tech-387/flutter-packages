@@ -43,6 +43,11 @@ class ProcessCameraProviderProxyApi extends PigeonApiProcessCameraProvider {
 
     processCameraProviderFuture.addListener(
         () -> {
+          if (getPigeonRegistrar().getIgnoreCallsToDart()) {
+            // The plugin detached from the engine before CameraX initialized, so the Dart isolate
+            // that asked is gone and the codec can no longer create the Dart ProcessCameraProvider.
+            return;
+          }
           try {
             // Camera provider is now guaranteed to be available.
             ResultCompat.success(processCameraProviderFuture.get(), callback);
