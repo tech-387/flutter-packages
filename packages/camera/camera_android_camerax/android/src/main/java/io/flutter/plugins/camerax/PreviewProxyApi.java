@@ -92,6 +92,21 @@ class PreviewProxyApi extends PigeonApiPreview {
             + " camera preview has not yet been initialized.");
   }
 
+  /**
+   * Releases every {@link TextureRegistry.SurfaceProducer} that Dart has not released through
+   * {@link #releaseSurfaceProvider}.
+   *
+   * <p>A producer that outlives its engine still receives the camera frames in flight when the
+   * engine is destroyed, and each one makes the engine schedule a frame on a detached {@code
+   * FlutterJNI}, which throws. Released producers drop those frames instead.
+   */
+  void releaseAllSurfaceProviders() {
+    for (TextureRegistry.SurfaceProducer surfaceProducer : surfaceProducers.values()) {
+      surfaceProducer.release();
+    }
+    surfaceProducers.clear();
+  }
+
   @Override
   public boolean surfaceProducerHandlesCropAndRotation(@NonNull Preview pigeonInstance) {
     final TextureRegistry.SurfaceProducer surfaceProducer = surfaceProducers.get(pigeonInstance);

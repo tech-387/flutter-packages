@@ -5,10 +5,12 @@
 package io.flutter.plugins.camerax;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -301,6 +303,39 @@ public class PreviewTest {
     api.surfaceProducerHandlesCropAndRotation(instance);
 
     verify(mockSurfaceProducer).handlesCropAndRotation();
+  }
+
+  @Test
+  public void releaseSurfaceProducers_releasesSurfaceProducersNotYetReleased() {
+    final TextureRegistry mockTextureRegistry = mock(TextureRegistry.class);
+    final TextureRegistry.SurfaceProducer releasedSurfaceProducer =
+        mock(TextureRegistry.SurfaceProducer.class);
+    final TextureRegistry.SurfaceProducer heldSurfaceProducer =
+        mock(TextureRegistry.SurfaceProducer.class);
+    when(mockTextureRegistry.createSurfaceProducer())
+        .thenReturn(releasedSurfaceProducer, heldSurfaceProducer);
+    final ProxyApiRegistrar registrar =
+        new TestProxyApiRegistrar() {
+          @NonNull
+          @Override
+          TextureRegistry getTextureRegistry() {
+            return mockTextureRegistry;
+          }
+        };
+    final PigeonApiPreview api = registrar.getPigeonApiPreview();
+
+    final Preview releasedInstance = mock(Preview.class);
+    final Preview heldInstance = mock(Preview.class);
+    final SystemServicesManager systemServicesManager = mock(SystemServicesManager.class);
+    api.setSurfaceProvider(releasedInstance, systemServicesManager);
+    api.setSurfaceProvider(heldInstance, systemServicesManager);
+    api.releaseSurfaceProvider(releasedInstance);
+
+    registrar.releaseSurfaceProducers();
+
+    verify(releasedSurfaceProducer, times(1)).release();
+    verify(heldSurfaceProducer, times(1)).release();
+    assertThrows(IllegalStateException.class, () -> api.releaseSurfaceProvider(heldInstance));
   }
 
   // TODO(bparrishMines): Replace with inline calls to onSurfaceCleanup once available on stable;

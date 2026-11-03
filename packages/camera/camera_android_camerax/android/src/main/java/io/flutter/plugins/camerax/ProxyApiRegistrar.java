@@ -136,6 +136,13 @@ public class ProxyApiRegistrar extends CameraXLibraryPigeonProxyApiRegistrar {
     return textureRegistry;
   }
 
+  /** Releases the preview {@link TextureRegistry.SurfaceProducer}s still held for Dart. */
+  void releaseSurfaceProducers() {
+    if (previewProxyApi != null) {
+      previewProxyApi.releaseAllSurfaceProviders();
+    }
+  }
+
   long getDefaultClearFinalizedWeakReferencesInterval() {
     return 3000;
   }

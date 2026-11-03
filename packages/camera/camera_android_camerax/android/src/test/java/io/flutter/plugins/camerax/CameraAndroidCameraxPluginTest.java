@@ -9,6 +9,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
@@ -213,5 +215,22 @@ public class CameraAndroidCameraxPluginTest {
     assertEquals(plugin.proxyApiRegistrar.getContext(), mockContext);
     assertNull(plugin.proxyApiRegistrar.getActivity());
     assertNull(plugin.proxyApiRegistrar.getLifecycleOwner());
+  }
+
+  @Test
+  public void onDetachedFromEngine_releasesSurfaceProducers() {
+    when(flutterPluginBinding.getBinaryMessenger()).thenReturn(mock(BinaryMessenger.class));
+    when(flutterPluginBinding.getApplicationContext()).thenReturn(mock(Context.class));
+    when(flutterPluginBinding.getTextureRegistry()).thenReturn(mock(TextureRegistry.class));
+
+    final CameraAndroidCameraxPlugin plugin = new CameraAndroidCameraxPlugin();
+    plugin.onAttachedToEngine(flutterPluginBinding);
+    final ProxyApiRegistrar proxyApiRegistrar = spy(plugin.proxyApiRegistrar);
+    plugin.proxyApiRegistrar = proxyApiRegistrar;
+
+    plugin.onDetachedFromEngine(flutterPluginBinding);
+
+    verify(proxyApiRegistrar).releaseSurfaceProducers();
+    assertNull(plugin.proxyApiRegistrar);
   }
 }

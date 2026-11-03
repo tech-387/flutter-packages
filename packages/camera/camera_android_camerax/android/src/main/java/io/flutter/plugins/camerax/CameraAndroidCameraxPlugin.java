@@ -38,6 +38,10 @@ public final class CameraAndroidCameraxPlugin implements FlutterPlugin, Activity
   @Override
   public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
     if (proxyApiRegistrar != null) {
+      // The engine destroys the Dart isolate right after detaching its plugins, so a camera that
+      // Dart has not disposed yet would keep its preview SurfaceProducer past the engine. Release
+      // them here, while the engine is still attached.
+      proxyApiRegistrar.releaseSurfaceProducers();
       proxyApiRegistrar.setIgnoreCallsToDart(true);
       proxyApiRegistrar.tearDown();
       proxyApiRegistrar.getInstanceManager().stopFinalizationListener();
