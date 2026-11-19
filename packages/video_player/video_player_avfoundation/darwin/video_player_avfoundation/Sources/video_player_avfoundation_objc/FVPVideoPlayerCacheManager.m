@@ -7,6 +7,7 @@
 
 #import "./include/video_player_avfoundation_objc/FVPVideoPlayerCacheManager.h"
 #import "./include/video_player_avfoundation_objc/FVPVideoPlayerOptions.h"
+#import "./include/video_player_avfoundation_objc/FVPPlaybackMetrics.h"
 
 @import Network;
 @import QuartzCore;
@@ -163,6 +164,18 @@ static NSInteger const FVPMaxConcurrentPrefetchCount = 2;
       ^(NSURLSession *session, NSURLSessionTask *task, NSURLSessionTaskMetrics *metrics) {
         int64_t bytes = task.countOfBytesReceived;
         NSTimeInterval seconds = metrics.taskInterval.duration;
+        // Counts the proxy's downloads (playback and prefetch) for the app's developer tools.
+        // The proxy's own disk cache hits never reach the session, so these are network bytes.
+        NSURL *url = task.originalRequest.URL;
+        NSURLSessionTaskTransactionMetrics *lastTransaction =
+            metrics.transactionMetrics.lastObject;
+        if (url != nil &&
+            !(lastTransaction != nil && lastTransaction.resourceFetchType ==
+                                            NSURLSessionTaskMetricsResourceFetchTypeLocalCache)) {
+          [FVPPlaybackMetrics.sharedInstance recordTransferForURL:url
+                                                            bytes:bytes
+                                                       durationMs:(int64_t)(seconds * 1000)];
+        }
         os_log_debug(FVPVideoPipelineLog(), "upstream file=%{public}@ bytes=%lld ms=%.0f",
                      task.originalRequest.URL.lastPathComponent, bytes, seconds * 1000);
         if (task.error != nil || bytes < FVPMinBytesForThroughputSample || seconds <= 0.02) {

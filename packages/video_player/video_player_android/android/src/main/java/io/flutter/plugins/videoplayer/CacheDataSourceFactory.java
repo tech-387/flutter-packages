@@ -124,7 +124,7 @@ public class CacheDataSourceFactory implements DataSource.Factory {
     @OptIn(markerClass = UnstableApi.class)
     @Override
     public DataSource createDataSource() {
-        DataSource dataSource = customFactory.createDataSource();
+        DataSource dataSource = new CountingDataSource(customFactory.createDataSource());
         TransferListener transferListener = new CustomTransferListener(
                 context, loggerOptions,
                 jsonObject -> {

@@ -43,6 +43,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
 
   private final LongSparseArray<VideoPlayer> videoPlayers = new LongSparseArray<>();
   private FlutterState flutterState;
+  @Nullable private PlaybackMetrics.Channel metricsChannel;
   private final VideoPlayerOptions sharedOptions = new VideoPlayerOptions();
   private long nextPlayerIdentifier = 1;
 
@@ -67,6 +68,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
             injector.flutterLoader()::getLookupKeyForAsset,
             binding.getTextureRegistry());
     flutterState.startListening(this, binding.getBinaryMessenger());
+    metricsChannel = new PlaybackMetrics.Channel(binding.getBinaryMessenger(), videoPlayers::get);
 
     // Housekeeping for the per-video cached-segment metadata files (runs off the main thread).
     CachedSegmentIndex.scheduleCleanup(binding.getApplicationContext());
@@ -84,6 +86,10 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
       Log.wtf(TAG, "Detached from the engine before registering to it.");
     }
     flutterState.stopListening(binding.getBinaryMessenger());
+    if (metricsChannel != null) {
+      metricsChannel.dispose();
+      metricsChannel = null;
+    }
     flutterState = null;
     ApplicationContextHolder.set(null);
     onDestroy();
@@ -331,7 +337,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
             .setCache(simpleCache)
-            .setUpstreamDataSourceFactory(httpDataSourceFactory)
+            .setUpstreamDataSourceFactory(CountingDataSource.wrap(httpDataSourceFactory))
             .setCacheWriteDataSinkFactory(
                 new CacheDataSink.Factory()
                     .setCache(simpleCache)

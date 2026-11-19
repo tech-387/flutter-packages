@@ -72,6 +72,8 @@ public final class VideoPlayerPlugin: NSObject, FlutterPlugin, AVFoundationVideo
   // Owns the SJMediaCacheServer-backed HTTP(S)/HLS proxy caching integration; see
   // FVPVideoPlayerCacheManager for why that dependency is kept out of this Swift file.
   private let cacheManager = VideoPlayerCacheManager()
+  // Answers the app's playback metrics queries; see PlaybackMetrics.
+  private var metricsChannel: FlutterMethodChannel?
 
   public static func register(with registrar: FlutterPluginRegistrar) {
     let instance = VideoPlayerPlugin(registrar: registrar)
@@ -93,6 +95,82 @@ public final class VideoPlayerPlugin: NSObject, FlutterPlugin, AVFoundationVideo
     registrar.register(factory, withId: "plugins.flutter.dev/video_player_ios")
 
     AVFoundationVideoPlayerApiSetup.setUp(binaryMessenger: messenger, api: instance)
+
+    let metricsChannel = FlutterMethodChannel(
+      name: "buzzer/video_player_metrics", binaryMessenger: messenger)
+    metricsChannel.setMethodCallHandler { [weak instance] call, result in
+      guard let instance = instance else {
+        result(nil)
+        return
+      }
+      instance.handleMetricsCall(call, result: result)
+    }
+    instance.metricsChannel = metricsChannel
+  }
+
+  /// Playback metrics for the app's developer tools. Read-only.
+  private func handleMetricsCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    let arguments = call.arguments as? [String: Any]
+    switch call.method {
+    case "version":
+      result(PlaybackMetrics.version)
+    case "transferStats":
+      guard let string = arguments?["url"] as? String, let url = URL(string: string) else {
+        result(nil)
+        return
+      }
+      result(PlaybackMetrics.shared.transferStats(for: url))
+    case "playerStats":
+      guard let id = (arguments?["playerId"] as? NSNumber)?.int64Value,
+        let item = playersByIdentifier[id]?.player.currentItem
+      else {
+        result(nil)
+        return
+      }
+      result(Self.playerStats(of: item))
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  /// The current variant, from the item's presentation size and access log, and totals over the
+  /// access log. Each access log event covers one variant (or a seek).
+  private static func playerStats(of item: AVPlayerItem) -> [String: Any] {
+    var stats: [String: Any] = [
+      "width": Int(item.presentationSize.width),
+      "height": Int(item.presentationSize.height),
+      "firstFrameEpochMs": -1,
+    ]
+    let events = item.accessLog()?.events ?? []
+    guard let last = events.last else { return stats }
+    var readBytes: Int64 = 0
+    var droppedFrames = 0
+    var stalls = 0
+    var loads = 0
+    var formatChanges = 0
+    var previousBitrate: Double?
+    for event in events {
+      readBytes += event.numberOfBytesTransferred
+      droppedFrames += max(0, event.numberOfDroppedVideoFrames)
+      stalls += max(0, event.numberOfStalls)
+      loads += max(0, event.numberOfMediaRequests)
+      if let previous = previousBitrate, previous != event.indicatedBitrate {
+        formatChanges += 1
+      }
+      previousBitrate = event.indicatedBitrate
+    }
+    stats["bitrate"] = last.indicatedBitrate > 0 ? Int(last.indicatedBitrate) : -1
+    stats["averageBitrate"] =
+      last.averageVideoBitrate > 0 ? Int(last.averageVideoBitrate) : -1
+    stats["bandwidthEstimate"] = last.observedBitrate > 0 ? Int(last.observedBitrate) : -1
+    stats["readBytes"] = readBytes
+    stats["droppedFrames"] = droppedFrames
+    stats["stalls"] = stalls
+    stats["loads"] = loads
+    stats["formatChanges"] = formatChanges
+    stats["startupMs"] =
+      events[0].startupTime > 0 ? Int(events[0].startupTime * 1000) : -1
+    return stats
   }
 
   convenience init(registrar: FlutterPluginRegistrar) {
@@ -146,6 +224,8 @@ public final class VideoPlayerPlugin: NSObject, FlutterPlugin, AVFoundationVideo
       let messenger = registrar.messenger
     #endif
     AVFoundationVideoPlayerApiSetup.setUp(binaryMessenger: messenger, api: nil)
+    metricsChannel?.setMethodCallHandler(nil)
+    metricsChannel = nil
   }
 
   func initialize() throws {

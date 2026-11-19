@@ -137,7 +137,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
         }
         dataSourceFactory = cacheDataSourceFactory;
       } else {
-        dataSourceFactory = new DefaultDataSource.Factory(context);
+        dataSourceFactory = CountingDataSource.wrap(new DefaultDataSource.Factory(context));
       }
 
       mediaSourceFactory.setDataSourceFactory(dataSourceFactory);
@@ -156,6 +156,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
             DefaultBandwidthMeter.getSingletonInstance(context),
             new DefaultAnalyticsCollector(Clock.DEFAULT)
     ).build();
+    PlaybackMetrics.attach(exoPlayer);
 
     if (httpVideoAsset != null) {
       MediaSource mediaSource = buildMediaSource(uri, dataSourceFactory, httpVideoAsset.streamingFormat);
