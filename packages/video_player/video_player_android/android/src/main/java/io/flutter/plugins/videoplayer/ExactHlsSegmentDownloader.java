@@ -89,6 +89,7 @@ final class ExactHlsSegmentDownloader implements Downloader {
         Vpm.log(
             "prefetch end file=" + playlistUri.getLastPathSegment()
                 + " ms=" + (SystemClock.elapsedRealtime() - startMs)
+                + " yielded=" + yieldedMs
                 + " canceled=" + (canceled ? 1 : 0));
       }
     }
@@ -156,11 +157,17 @@ final class ExactHlsSegmentDownloader implements Downloader {
       addSegmentDataSpec(mediaPlaylist.baseUri, segment, seenEncryptionKeyUris, dataSpecs);
     }
 
+    // Pauses between reads while the video on screen is short of buffer (see NetworkPriority).
+    // Holding off reading also holds off the download, as the socket's receive window fills.
+    CacheWriter.ProgressListener yieldToPlayers =
+        (requestLength, bytesCached, newBytesCached) -> waitForPlayers();
     for (DataSpec dataSpec : dataSpecs) {
+      waitForPlayers();
       if (canceled) {
         break;
       }
-      CacheWriter writer = new CacheWriter(dataSource, dataSpec, new byte[BUFFER_SIZE_BYTES], null);
+      CacheWriter writer =
+          new CacheWriter(dataSource, dataSpec, new byte[BUFFER_SIZE_BYTES], yieldToPlayers);
       currentWriter = writer;
       try {
         writer.cache();
@@ -173,6 +180,20 @@ final class ExactHlsSegmentDownloader implements Downloader {
       if (fileName != null && fileName.endsWith(".ts")) {
         CachedSegmentIndex.record(context, fileName);
       }
+    }
+  }
+
+  /** Total time this download waited for the video on screen, for the VPM log. */
+  private long yieldedMs;
+
+  private void waitForPlayers() {
+    try {
+      long waited = NetworkPriority.awaitPlayers(() -> canceled);
+      if (waited > 0) {
+        yieldedMs += waited;
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
     }
   }
 

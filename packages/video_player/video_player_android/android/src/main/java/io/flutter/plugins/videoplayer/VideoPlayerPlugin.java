@@ -13,6 +13,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.datasource.cache.CacheDataSink;
 import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.datasource.cache.SimpleCache;
@@ -323,6 +324,11 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     httpDataSourceFactory.setUserAgent("ExoPlayer");
     httpDataSourceFactory.setAllowCrossProtocolRedirects(true);
     httpDataSourceFactory.setDefaultRequestProperties(httpHeaders);
+    // Preload downloads count toward the shared bandwidth estimate, so the variant ABR and the
+    // next preload pick follows the network sooner (on a slow network most downloads are
+    // preloads, and without them the estimate stays at its optimistic initial value longer).
+    httpDataSourceFactory.setTransferListener(
+        DefaultBandwidthMeter.getSingletonInstance(flutterState.applicationContext));
 
     SimpleCache simpleCache =
         SimpleCacheSingleton.getInstance(

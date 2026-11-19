@@ -15,6 +15,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,16 +34,31 @@ public final class RoleAwareLoadControlTest {
     loadControl = new RoleAwareLoadControl(delegate, PRELOAD_BUFFER_US);
   }
 
+  @After
+  public void tearDown() {
+    NetworkPriority.setForegroundStarvedForTest(false);
+  }
+
   private static LoadControl.Parameters params(boolean playWhenReady, long bufferedUs) {
+    return params(playWhenReady, bufferedUs, /* positionUs= */ 0);
+  }
+
+  private static LoadControl.Parameters params(
+      boolean playWhenReady, long bufferedUs, long positionUs) {
+    return params(playWhenReady, bufferedUs, positionUs, /* rebuffering= */ false);
+  }
+
+  private static LoadControl.Parameters params(
+      boolean playWhenReady, long bufferedUs, long positionUs, boolean rebuffering) {
     return new LoadControl.Parameters(
         PlayerId.UNSET,
         Timeline.EMPTY,
         new MediaPeriodId(new Object()),
-        /* playbackPositionUs= */ 0,
+        positionUs,
         bufferedUs,
         /* playbackSpeed= */ 1f,
         playWhenReady,
-        /* rebuffering= */ false,
+        rebuffering,
         /* targetLiveOffsetUs= */ 0,
         /* lastRebufferRealtimeMs= */ 0);
   }
@@ -70,11 +86,66 @@ public final class RoleAwareLoadControlTest {
   }
 
   @Test
-  public void playingAlwaysDelegatesEvenAboveCap() {
-    LoadControl.Parameters playing = params(true, PRELOAD_BUFFER_US * 10);
+  public void pausedBelowCapStopsWhileTheForegroundIsStarved() {
+    LoadControl.Parameters below = params(false, 0);
+    when(delegate.shouldContinueLoading(below)).thenReturn(true);
+    NetworkPriority.setForegroundStarvedForTest(true);
+    assertFalse(loadControl.shouldContinueLoading(below));
+
+    NetworkPriority.setForegroundStarvedForTest(false);
+    assertTrue(loadControl.shouldContinueLoading(below));
+  }
+
+  @Test
+  public void playingIgnoresAStarvedForeground() {
+    LoadControl.Parameters playing = params(true, 0);
     when(delegate.shouldContinueLoading(playing)).thenReturn(true);
+    NetworkPriority.setForegroundStarvedForTest(true);
     assertTrue(loadControl.shouldContinueLoading(playing));
-    verify(delegate).shouldContinueLoading(playing);
+  }
+
+  @Test
+  public void playingDelegatesBelowTheTargetAndStopsAtIt() {
+    long start = RoleAwareLoadControl.PLAYING_START_BUFFER_US;
+    LoadControl.Parameters below = params(true, start - 1);
+    LoadControl.Parameters atTarget = params(true, start);
+    when(delegate.shouldContinueLoading(below)).thenReturn(true);
+    when(delegate.shouldContinueLoading(atTarget)).thenReturn(true);
+
+    assertTrue(loadControl.shouldContinueLoading(below));
+    assertFalse(loadControl.shouldContinueLoading(atTarget));
+    verify(delegate, never()).shouldContinueLoading(atTarget);
+  }
+
+  @Test
+  public void playingTargetGrowsWithThePositionPlayed() {
+    long start = RoleAwareLoadControl.PLAYING_START_BUFFER_US;
+    LoadControl.Parameters later = params(true, start + 5_000_000L, /* positionUs= */ 6_000_000L);
+    when(delegate.shouldContinueLoading(later)).thenReturn(true);
+    assertTrue(loadControl.shouldContinueLoading(later));
+
+    assertEquals(start, RoleAwareLoadControl.playingBufferTargetUs(0, PRELOAD_BUFFER_US));
+    assertEquals(
+        start + 6_000_000L,
+        RoleAwareLoadControl.playingBufferTargetUs(6_000_000L, PRELOAD_BUFFER_US));
+    // Never below the paused cap.
+    assertEquals(
+        start * 2, RoleAwareLoadControl.playingBufferTargetUs(0, start * 2));
+  }
+
+  @Test
+  public void afterAStallWaitsForMoreBufferBeforeResuming() {
+    long resume = RoleAwareLoadControl.REBUFFER_RESUME_US;
+    LoadControl.Parameters short_ = params(true, resume - 1, 0, /* rebuffering= */ true);
+    LoadControl.Parameters enough = params(true, resume, 0, /* rebuffering= */ true);
+    LoadControl.Parameters firstStart = params(true, 500_000L, 0, /* rebuffering= */ false);
+    when(delegate.shouldStartPlayback(short_)).thenReturn(true);
+    when(delegate.shouldStartPlayback(enough)).thenReturn(true);
+    when(delegate.shouldStartPlayback(firstStart)).thenReturn(true);
+
+    assertFalse(loadControl.shouldStartPlayback(short_));
+    assertTrue(loadControl.shouldStartPlayback(enough));
+    assertTrue(loadControl.shouldStartPlayback(firstStart));
   }
 
   @Test

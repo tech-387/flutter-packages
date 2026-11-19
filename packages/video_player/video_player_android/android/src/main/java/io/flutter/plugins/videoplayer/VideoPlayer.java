@@ -313,6 +313,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
     exoPlayer.addListener(exoPlayerEventListener);
     exoPlayer.addAnalyticsListener(new VpmAnalyticsListener(exoPlayerEventListener.currentFileName()));
     setAudioAttributes(exoPlayer, options.mixWithOthers);
+    NetworkPriority.register(exoPlayer);
   }
 
   public void setDisposeHandler(@Nullable DisposeHandler handler) {
@@ -686,6 +687,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
       exoPlayerEventListener.dispose();
       exoPlayerEventListener = null;
     }
+    NetworkPriority.unregister(exoPlayer);
     exoPlayer.release();
   }
 }
