@@ -7,6 +7,7 @@
 
 #import "./include/video_player_avfoundation_objc/FVPVideoPlayerCacheManager.h"
 #import "./include/video_player_avfoundation_objc/FVPVideoPlayerOptions.h"
+#import "./include/video_player_avfoundation_objc/FVPPlaybackMetrics.h"
 
 #import <SJMediaCacheServer/SJMediaCacheServer.h>
 
@@ -46,6 +47,24 @@ static BOOL FVPURLIsCacheableRemoteResource(NSURL *url) {
     // still works.
     _videoPlayerOptions = [[FVPVideoPlayerOptions alloc] init];
     _prefetchTasksByURL = [NSMutableDictionary dictionary];
+    // Counts the proxy's downloads (playback and prefetch) for the app's developer tools. The
+    // proxy's own disk cache hits never reach the session, so these are network bytes.
+    SJMediaCacheServer.shared.metricsHandler =
+        ^(NSURLSession *session, NSURLSessionTask *task, NSURLSessionTaskMetrics *metrics) {
+          NSURL *url = task.originalRequest.URL;
+          if (url == nil) return;
+          if (@available(iOS 10.0, macOS 10.12, *)) {
+            NSURLSessionTaskTransactionMetrics *last = metrics.transactionMetrics.lastObject;
+            if (last != nil &&
+                last.resourceFetchType == NSURLSessionTaskMetricsResourceFetchTypeLocalCache) {
+              return;
+            }
+          }
+          int64_t durationMs = (int64_t)(metrics.taskInterval.duration * 1000);
+          [FVPPlaybackMetrics.sharedInstance recordTransferForURL:url
+                                                            bytes:task.countOfBytesReceived
+                                                       durationMs:durationMs];
+        };
   }
   return self;
 }
