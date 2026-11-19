@@ -68,6 +68,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
             binding.getTextureRegistry());
     flutterState.startListening(this, binding.getBinaryMessenger());
 
+    // Housekeeping for the per-video cached-segment metadata files (runs off the main thread).
+    CachedSegmentIndex.scheduleCleanup(binding.getApplicationContext());
+
     binding
         .getPlatformViewRegistry()
         .registerViewFactory(
@@ -132,7 +135,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
               Math.toIntExact(bufferOptionsMessage != null ? bufferOptionsMessage.getMaxWidthToDiscard() : 1279),
               Math.toIntExact(bufferOptionsMessage != null ? bufferOptionsMessage.getMaxHeightToDiscard() : 719),
               bufferOptionsMessage != null ? bufferOptionsMessage.getBandwidthFraction() : 0.85f,
-              bufferOptionsMessage != null ? bufferOptionsMessage.getBufferedFractionToLiveEdgeForQualityIncrease() : 0.75f
+              bufferOptionsMessage != null ? bufferOptionsMessage.getBufferedFractionToLiveEdgeForQualityIncrease() : 0.75f,
+              bufferOptionsMessage != null ? bufferOptionsMessage.getPlayingMinBufferMs() : null,
+              bufferOptionsMessage != null ? bufferOptionsMessage.getPlayingMaxBufferMs() : null
       );
 
       VideoPlayerLoggerOptions videoPlayerLoggerOptions = new VideoPlayerLoggerOptions(
@@ -181,7 +186,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
               Math.toIntExact(bufferOptionsMessage != null ? bufferOptionsMessage.getMaxWidthToDiscard() : 1279),
               Math.toIntExact(bufferOptionsMessage != null ? bufferOptionsMessage.getMaxHeightToDiscard() : 719),
               bufferOptionsMessage != null ? bufferOptionsMessage.getBandwidthFraction() : 0.85f,
-              bufferOptionsMessage != null ? bufferOptionsMessage.getBufferedFractionToLiveEdgeForQualityIncrease() : 0.75f
+              bufferOptionsMessage != null ? bufferOptionsMessage.getBufferedFractionToLiveEdgeForQualityIncrease() : 0.75f,
+              bufferOptionsMessage != null ? bufferOptionsMessage.getPlayingMinBufferMs() : null,
+              bufferOptionsMessage != null ? bufferOptionsMessage.getPlayingMaxBufferMs() : null
       );
 
       VideoPlayerLoggerOptions videoPlayerLoggerOptions = new VideoPlayerLoggerOptions(
@@ -331,7 +338,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
                     .setFragmentSize(sharedOptions.maxFileBytes));
 
     Downloader downloader =
-        new ExactHlsSegmentDownloader(cacheDataSourceFactory, uri, (int) segmentCount);
+        new ExactHlsSegmentDownloader(
+            flutterState.applicationContext, cacheDataSourceFactory, uri, (int) segmentCount);
 
     preloadDownloadersByUri.put(uri, downloader);
 

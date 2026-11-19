@@ -135,6 +135,8 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
         bandwidthFraction: videoPlayerBufferOptions.bandwidthFraction,
         bufferedFractionToLiveEdgeForQualityIncrease: videoPlayerBufferOptions
             .bufferedFractionToLiveEdgeForQualityIncrease,
+        playingMinBufferMs: videoPlayerBufferOptions.playingMinBufferMs,
+        playingMaxBufferMs: videoPlayerBufferOptions.playingMaxBufferMs,
       ),
       loggerOptions: LoggerOptionsMessage(
         enableTransferListenerLogs:
@@ -622,6 +624,18 @@ class _PlayerInstance {
             _updateBufferPosition(position);
           }
         });
+      case FirstFrameRenderedEvent _:
+        _eventStreamController.add(
+          VideoEvent(eventType: VideoEventType.firstFrameRendered),
+        );
+      case VideoSizeChangedEvent _:
+        _eventStreamController.add(
+          VideoEvent(
+            eventType: VideoEventType.videoSizeChanged,
+            size: Size(event.width.toDouble(), event.height.toDouble()),
+            bitrate: event.bitrate,
+          ),
+        );
       case IsPlayingStateEvent _:
         _eventStreamController.add(
           VideoEvent(eventType: VideoEventType.isPlayingStateUpdate, isPlaying: event.isPlaying),

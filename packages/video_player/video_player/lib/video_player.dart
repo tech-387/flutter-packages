@@ -167,6 +167,9 @@ class VideoPlayerValue {
     this.errorDescription,
     this.isCompleted = false,
     this.preventsDisplaySleepDuringVideoPlayback = true,
+    this.hasRenderedFirstFrame = false,
+    this.renderedSize,
+    this.renderedBitrate,
   });
 
   /// Returns an instance for a video that hasn't been loaded.
@@ -228,6 +231,23 @@ class VideoPlayerValue {
   /// Does not update if video is looping.
   final bool isCompleted;
 
+  /// Whether the first video frame has been rendered to the output surface.
+  ///
+  /// Becomes true when the platform reports that the first frame was rendered,
+  /// which can happen while the video is still paused (for example a preloaded
+  /// video). Currently only reported on Android.
+  final bool hasRenderedFirstFrame;
+
+  /// Size, in pixels, of the video frames being rendered, as last reported by
+  /// the platform. Unlike [size] it follows adaptive streaming switching to
+  /// another HLS variant, and it is not rotation corrected. Null until the
+  /// platform reports it.
+  final Size? renderedSize;
+
+  /// Declared bitrate, in bits per second, of the rendered video format.
+  /// Only reported on Android; null when unknown.
+  final int? renderedBitrate;
+
   /// Whether the screen is prevented from sleeping during video playback.
   ///
   /// Defaults to `true`.
@@ -284,6 +304,9 @@ class VideoPlayerValue {
     String? errorDescription = _defaultErrorDescription,
     bool? isCompleted,
     bool? preventsDisplaySleepDuringVideoPlayback,
+    bool? hasRenderedFirstFrame,
+    Size? renderedSize,
+    int? renderedBitrate,
   }) {
     return VideoPlayerValue(
       duration: duration ?? this.duration,
@@ -305,6 +328,9 @@ class VideoPlayerValue {
       isCompleted: isCompleted ?? this.isCompleted,
       preventsDisplaySleepDuringVideoPlayback:
           preventsDisplaySleepDuringVideoPlayback ?? this.preventsDisplaySleepDuringVideoPlayback,
+      hasRenderedFirstFrame: hasRenderedFirstFrame ?? this.hasRenderedFirstFrame,
+      renderedSize: renderedSize ?? this.renderedSize,
+      renderedBitrate: renderedBitrate ?? this.renderedBitrate,
     );
   }
 
@@ -325,7 +351,10 @@ class VideoPlayerValue {
         'playbackSpeed: $playbackSpeed, '
         'errorDescription: $errorDescription, '
         'isCompleted: $isCompleted, '
-        'preventsDisplaySleepDuringVideoPlayback: $preventsDisplaySleepDuringVideoPlayback),';
+        'preventsDisplaySleepDuringVideoPlayback: $preventsDisplaySleepDuringVideoPlayback, '
+        'hasRenderedFirstFrame: $hasRenderedFirstFrame, '
+        'renderedSize: $renderedSize, '
+        'renderedBitrate: $renderedBitrate),';
   }
 
   @override
@@ -348,7 +377,10 @@ class VideoPlayerValue {
           rotationCorrection == other.rotationCorrection &&
           isInitialized == other.isInitialized &&
           isCompleted == other.isCompleted &&
-          preventsDisplaySleepDuringVideoPlayback == other.preventsDisplaySleepDuringVideoPlayback;
+          preventsDisplaySleepDuringVideoPlayback == other.preventsDisplaySleepDuringVideoPlayback &&
+          hasRenderedFirstFrame == other.hasRenderedFirstFrame &&
+          renderedSize == other.renderedSize &&
+          renderedBitrate == other.renderedBitrate;
 
   @override
   int get hashCode => Object.hash(
@@ -368,6 +400,9 @@ class VideoPlayerValue {
     isInitialized,
     isCompleted,
     preventsDisplaySleepDuringVideoPlayback,
+    hasRenderedFirstFrame,
+    renderedSize,
+    renderedBitrate,
   );
 }
 
@@ -736,6 +771,14 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
           } else {
             value = value.copyWith(isPlaying: event.isPlaying);
           }
+        case platform_interface.VideoEventType.firstFrameRendered:
+          value = value.copyWith(hasRenderedFirstFrame: true);
+        case platform_interface.VideoEventType.videoSizeChanged:
+          final int? bitrate = event.bitrate;
+          value = value.copyWith(
+            renderedSize: event.size,
+            renderedBitrate: bitrate != null && bitrate > 0 ? bitrate : null,
+          );
         case platform_interface.VideoEventType.unknown:
           break;
       }

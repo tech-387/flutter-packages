@@ -88,8 +88,9 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
       throw new IllegalArgumentException("backBufferDurationMs must be at least 0");
     }
 
+    final int[] loadControlMs = resolveLoadControlMs(videoPlayerBufferOptions);
     DefaultLoadControl.Builder loadControlBuilder = new DefaultLoadControl.Builder().setBufferDurationsMs(
-            Math.toIntExact(videoPlayerBufferOptions.minBufferMs), Math.toIntExact(videoPlayerBufferOptions.maxBufferMs), Math.toIntExact(videoPlayerBufferOptions.bufferForPlaybackMs), Math.toIntExact(videoPlayerBufferOptions.bufferForPlaybackAfterRebufferMs)
+            loadControlMs[0], loadControlMs[1], Math.toIntExact(videoPlayerBufferOptions.bufferForPlaybackMs), Math.toIntExact(videoPlayerBufferOptions.bufferForPlaybackAfterRebufferMs)
     );
     if (options.backBufferDurationMs != null && options.backBufferDurationMs > 0) {
       // Clamp the value to ensure it fits within the int range expected by DefaultLoadControl.
@@ -97,6 +98,11 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
       loadControlBuilder.setBackBuffer(backBufferInt, /* retainBackBufferFromKeyframe= */ true);
     }
     LoadControl loadControl = loadControlBuilder.build();
+    if (loadControlMs[2] > 0) {
+      // Paused (preloaded) players stop buffering at the smaller preload cap; the playing
+      // player uses the DefaultLoadControl limits above.
+      loadControl = new RoleAwareLoadControl(loadControl, loadControlMs[2] * 1000L);
+    }
 
     Log.i("Cache", "enableCache="+options.enableCache+ ",cacheDirectory="+options.cacheDirectory + ",maxCacheBytes="+options.maxCacheBytes + ",maxFileBytes="+options.maxFileBytes);
 
@@ -157,6 +163,35 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
     }
 
     return exoPlayer;
+  }
+
+  /**
+   * Resolves the buffer limits for the {@code DefaultLoadControl} and the preload cap.
+   *
+   * <p>Returns {@code {minBufferMs, maxBufferMs, preloadCapMs}}. When neither playing value is
+   * set, this is exactly the configured min/max and {@code preloadCapMs} is 0 (no role-aware cap).
+   * Otherwise min/max are the playing values (falling back to the configured ones), clamped so
+   * {@code max >= min >= bufferForPlayback(AfterRebuffer)Ms} (DefaultLoadControl asserts this),
+   * and the cap is the configured {@code maxBufferMs} (at least the playback start thresholds).
+   */
+  @VisibleForTesting
+  static int[] resolveLoadControlMs(@NonNull VideoPlayerBufferOptions o) {
+    final int min = Math.toIntExact(o.minBufferMs);
+    final int max = Math.toIntExact(o.maxBufferMs);
+    if (o.playingMinBufferMs == null && o.playingMaxBufferMs == null) {
+      return new int[] {min, max, 0};
+    }
+    final int forPlayback = Math.toIntExact(o.bufferForPlaybackMs);
+    final int afterRebuffer = Math.toIntExact(o.bufferForPlaybackAfterRebufferMs);
+    final int startThreshold = Math.max(forPlayback, afterRebuffer);
+    final int playingMin =
+        o.playingMinBufferMs != null ? (int) Math.min(o.playingMinBufferMs, Integer.MAX_VALUE) : min;
+    final int playingMax =
+        o.playingMaxBufferMs != null ? (int) Math.min(o.playingMaxBufferMs, Integer.MAX_VALUE) : max;
+    final int clampedMin = Math.max(playingMin, startThreshold);
+    final int clampedMax = Math.max(playingMax, clampedMin);
+    final int cap = Math.max(max, startThreshold);
+    return new int[] {clampedMin, clampedMax, cap};
   }
 
   @OptIn(markerClass = UnstableApi.class)
@@ -275,6 +310,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
     exoPlayer.prepare();
     exoPlayerEventListener = createExoPlayerEventListener(exoPlayer, surfaceProducer);
     exoPlayer.addListener(exoPlayerEventListener);
+    exoPlayer.addAnalyticsListener(new VpmAnalyticsListener(exoPlayerEventListener.currentFileName()));
     setAudioAttributes(exoPlayer, options.mixWithOthers);
   }
 

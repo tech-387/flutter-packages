@@ -4,9 +4,13 @@
 
 package io.flutter.plugins.videoplayer;
 
+import android.content.Context;
 import android.net.Uri;
+import android.os.SystemClock;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.UriUtil;
@@ -18,12 +22,15 @@ import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylist;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistParser;
 import androidx.media3.exoplayer.offline.Downloader;
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Downloads the manifest(s) and exactly the first {@code segmentCount} media segments of an HLS
@@ -43,6 +50,13 @@ import java.util.List;
 final class ExactHlsSegmentDownloader implements Downloader {
   private static final int BUFFER_SIZE_BYTES = 128 * 1024;
 
+  /** Fraction of the bandwidth estimate a variant's bitrate may use; matches ABR's default. */
+  static final double BANDWIDTH_FRACTION = 0.85;
+
+  private static final Pattern VARIANT_LABEL_PATTERN = Pattern.compile("_([0-9]+)\\.m3u8$");
+
+  private final Context context;
+
   private final CacheDataSource.Factory cacheDataSourceFactory;
   private final Uri playlistUri;
   private final int segmentCount;
@@ -51,7 +65,11 @@ final class ExactHlsSegmentDownloader implements Downloader {
   @Nullable private volatile CacheWriter currentWriter;
 
   ExactHlsSegmentDownloader(
-      CacheDataSource.Factory cacheDataSourceFactory, String playlistUri, int segmentCount) {
+      Context context,
+      CacheDataSource.Factory cacheDataSourceFactory,
+      String playlistUri,
+      int segmentCount) {
+    this.context = context.getApplicationContext() != null ? context.getApplicationContext() : context;
     this.cacheDataSourceFactory = cacheDataSourceFactory;
     this.playlistUri = Uri.parse(playlistUri);
     this.segmentCount = Math.max(segmentCount, 1);
@@ -62,6 +80,21 @@ final class ExactHlsSegmentDownloader implements Downloader {
     if (canceled) {
       return;
     }
+    final long startMs = SystemClock.elapsedRealtime();
+    final boolean vpm = Vpm.isEnabled();
+    try {
+      downloadInternal(vpm);
+    } finally {
+      if (vpm) {
+        Vpm.log(
+            "prefetch end file=" + playlistUri.getLastPathSegment()
+                + " ms=" + (SystemClock.elapsedRealtime() - startMs)
+                + " canceled=" + (canceled ? 1 : 0));
+      }
+    }
+  }
+
+  private void downloadInternal(boolean vpm) throws IOException {
     CacheDataSource dataSource = cacheDataSourceFactory.createDataSourceForDownloading();
     HlsPlaylistParser playlistParser = new HlsPlaylistParser();
 
@@ -73,10 +106,28 @@ final class ExactHlsSegmentDownloader implements Downloader {
 
     HlsMediaPlaylist mediaPlaylist;
     if (playlist instanceof HlsMultivariantPlaylist) {
-      // Best-effort variant choice for a cache-priming preload: the first listed rendition,
-      // which for standard HLS output is the first video variant. We don't try to match
-      // whatever ABR would actually pick at playback time.
-      Uri mediaPlaylistUri = ((HlsMultivariantPlaylist) playlist).mediaPlaylistUrls.get(0);
+      // Cache the variant ABR is most likely to pick at playback time: the highest-bitrate
+      // variant that fits the current bandwidth estimate, else the lowest one. The segments
+      // are recorded in CachedSegmentIndex below, so playback's ABR prefers them.
+      List<HlsMultivariantPlaylist.Variant> variants = ((HlsMultivariantPlaylist) playlist).variants;
+      long estimate = DefaultBandwidthMeter.getSingletonInstance(context).getBitrateEstimate();
+      int[] bitrates = new int[variants.size()];
+      for (int i = 0; i < bitrates.length; i++) {
+        bitrates[i] = variants.get(i).format.bitrate;
+      }
+      int chosen = chooseVariantIndex(bitrates, estimate);
+      Uri mediaPlaylistUri =
+          chosen >= 0
+              ? variants.get(chosen).url
+              : ((HlsMultivariantPlaylist) playlist).mediaPlaylistUrls.get(0);
+      if (vpm) {
+        Vpm.log(
+            "prefetch start file=" + playlistUri.getLastPathSegment()
+                + " variant=" + variantLabel(mediaPlaylistUri)
+                + " bps=" + (chosen >= 0 ? bitrates[chosen] : -1)
+                + " est=" + estimate
+                + " segs=" + segmentCount);
+      }
       dataSpecs.add(getCompressibleDataSpec(mediaPlaylistUri));
       mediaPlaylist =
           (HlsMediaPlaylist)
@@ -84,6 +135,11 @@ final class ExactHlsSegmentDownloader implements Downloader {
                   dataSource, playlistParser, mediaPlaylistUri, C.DATA_TYPE_MANIFEST);
     } else {
       mediaPlaylist = (HlsMediaPlaylist) playlist;
+      if (vpm) {
+        Vpm.log(
+            "prefetch start file=" + playlistUri.getLastPathSegment()
+                + " variant=media bps=-1 est=-1 segs=" + segmentCount);
+      }
     }
 
     List<HlsMediaPlaylist.Segment> hlsSegments = mediaPlaylist.segments;
@@ -111,6 +167,12 @@ final class ExactHlsSegmentDownloader implements Downloader {
       } finally {
         currentWriter = null;
       }
+      // Fully cached (cache() returns normally; cancellation throws). Record media segments so
+      // ABR at playback time knows this variant's segments are available.
+      String fileName = dataSpec.uri.getLastPathSegment();
+      if (fileName != null && fileName.endsWith(".ts")) {
+        CachedSegmentIndex.record(context, fileName);
+      }
     }
   }
 
@@ -121,6 +183,51 @@ final class ExactHlsSegmentDownloader implements Downloader {
     if (writer != null) {
       writer.cancel();
     }
+  }
+
+  /**
+   * Chooses which variant to cache: the index of the highest-bitrate entry of {@code bitrates}
+   * with {@code bitrate <= estimateBps * BANDWIDTH_FRACTION}, falling back to the lowest-bitrate
+   * entry when none fits (or the estimate is unknown). Entries with an unknown bitrate
+   * ({@code <= 0}) are only chosen when no entry has a known bitrate (then index 0). Returns -1
+   * for an empty array.
+   */
+  @VisibleForTesting
+  static int chooseVariantIndex(@NonNull int[] bitrates, long estimateBps) {
+    if (bitrates.length == 0) {
+      return -1;
+    }
+    double budget = estimateBps * BANDWIDTH_FRACTION;
+    int bestFit = -1;
+    int lowest = -1;
+    for (int i = 0; i < bitrates.length; i++) {
+      int bitrate = bitrates[i];
+      if (bitrate <= 0) {
+        continue;
+      }
+      if (lowest < 0 || bitrate < bitrates[lowest]) {
+        lowest = i;
+      }
+      if (bitrate <= budget && (bestFit < 0 || bitrate > bitrates[bestFit])) {
+        bestFit = i;
+      }
+    }
+    if (bestFit >= 0) {
+      return bestFit;
+    }
+    return lowest >= 0 ? lowest : 0;
+  }
+
+  /** The variant label from a media playlist URL ({@code <id>_720.m3u8} -> {@code 720}). */
+  private static String variantLabel(Uri mediaPlaylistUri) {
+    String name = mediaPlaylistUri.getLastPathSegment();
+    if (name != null) {
+      Matcher matcher = VARIANT_LABEL_PATTERN.matcher(name);
+      if (matcher.find()) {
+        return matcher.group(1);
+      }
+    }
+    return String.valueOf(name);
   }
 
   boolean isCanceled() {

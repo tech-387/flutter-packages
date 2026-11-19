@@ -1,5 +1,7 @@
 package io.flutter.plugins.videoplayer;
 
+import androidx.annotation.Nullable;
+
 public class VideoPlayerBufferOptions {
     public Long minBufferMs = 15000L;
     public Long maxBufferMs = 30000L;
@@ -12,6 +14,12 @@ public class VideoPlayerBufferOptions {
     public int maxHeightToDiscard = 719;
     public double bandwidthFraction = 0.85F;
     public double bufferedFractionToLiveEdgeForQualityIncrease = 0.75f;
+    /**
+     * Buffer limits while playing; when both are null, minBufferMs/maxBufferMs apply to every
+     * player and paused players aren't capped (see RoleAwareLoadControl).
+     */
+    @Nullable public Long playingMinBufferMs = null;
+    @Nullable public Long playingMaxBufferMs = null;
 
 
     // Constructor
@@ -25,8 +33,9 @@ public class VideoPlayerBufferOptions {
                                     int maxWidthToDiscard,
                                     int maxHeightToDiscard,
                                     double bandwidthFraction,
-                                    double bufferedFractionToLiveEdgeForQualityIncrease
-
+                                    double bufferedFractionToLiveEdgeForQualityIncrease,
+                                    @Nullable Long playingMinBufferMs,
+                                    @Nullable Long playingMaxBufferMs
     ) {
         this.minBufferMs = minBufferMs;
         this.maxBufferMs = maxBufferMs;
@@ -39,6 +48,8 @@ public class VideoPlayerBufferOptions {
         this.maxHeightToDiscard = maxHeightToDiscard;
         this.bandwidthFraction = bandwidthFraction;
         this.bufferedFractionToLiveEdgeForQualityIncrease = bufferedFractionToLiveEdgeForQualityIncrease;
+        this.playingMinBufferMs = playingMinBufferMs;
+        this.playingMaxBufferMs = playingMaxBufferMs;
     }
 
     VideoPlayerBufferOptions() {

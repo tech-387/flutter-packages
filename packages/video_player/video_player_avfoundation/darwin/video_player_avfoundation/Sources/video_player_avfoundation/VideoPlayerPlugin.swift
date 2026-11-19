@@ -169,6 +169,7 @@ public final class VideoPlayerPlugin: NSObject, FlutterPlugin, AVFoundationVideo
   func createPlatformViewPlayer(options params: CreationOptions) throws -> Int64 {
     let item = try playerItem(with: params)
     let player = FVPVideoPlayer(playerItem: item, avFactory: avFactory, viewProvider: viewProvider)
+    applyBufferOptions(params.bufferOptions, to: player)
     return configurePlayer(player, extraDisposeHandler: nil)
   }
 
@@ -186,6 +187,8 @@ public final class VideoPlayerPlugin: NSObject, FlutterPlugin, AVFoundationVideo
       avFactory: avFactory,
       viewProvider: viewProvider
     )
+
+    applyBufferOptions(creationOptions.bufferOptions, to: player)
 
     let textureId = textureRegistry.register(player)
     player.setTextureIdentifier(textureId)
@@ -300,6 +303,14 @@ public final class VideoPlayerPlugin: NSObject, FlutterPlugin, AVFoundationVideo
     player.eventListener = eventBridge
 
     return playerId
+  }
+
+  private func applyBufferOptions(_ options: BufferOptionsMessage?, to player: FVPVideoPlayer) {
+    guard let options else { return }
+    player.configureBuffering(
+      preloadForwardBufferDuration: TimeInterval(options.preferredForwardBufferDuration),
+      automaticallyWaitsToMinimizeStalling: options.automaticallyWaitsToMinimizeStalling
+    )
   }
 
   private func playerItem(with options: CreationOptions) throws -> FVPAVPlayerItem {

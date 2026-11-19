@@ -31,6 +31,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)videoPlayerDidSetPlaying:(BOOL)playing;
 /// Called when the video player has been disposed on the Dart side.
 - (void)videoPlayerWasDisposed;
+@optional
+/// Called when the presentation size of the video changes, e.g. when the HLS variant changes.
+/// [bitrate] is the indicated bitrate of the playing variant in bits per second, or 0.
+- (void)videoPlayerDidChangeVideoSize:(CGSize)size bitrate:(int64_t)bitrate;
 @end
 
 NS_ASSUME_NONNULL_END

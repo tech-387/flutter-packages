@@ -1,7 +1,5 @@
 package io.flutter.plugins.videoplayer;
 
-import android.net.Uri;
-
 import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Clock;
@@ -14,8 +12,10 @@ import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
+
 import java.util.List;
-import java.util.Objects;
 
 @UnstableApi
 public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
@@ -25,11 +25,14 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
     private final CacheDataSourceFactory cacheDataSourceFactory;
     private final CustomLogger customLogger;
 
+    @Nullable private final String videoId;
+
     private long currentChunkIndex = 1;
 
     public CustomAdaptiveTrackSelection(TrackGroup group, int[] tracks, BandwidthMeter bandwidthMeter, String assetUrl, CacheDataSourceFactory cacheDataSourceFactory, VideoPlayerLoggerOptions loggerOptions) {
         super(group, tracks, bandwidthMeter);
         this.assetUrl = assetUrl;
+        this.videoId = CachedSegmentIndex.videoIdFromAssetUrl(assetUrl);
         this.cacheDataSourceFactory = cacheDataSourceFactory;
         this.customLogger = new CustomLogger(TAG, loggerOptions.enableAdaptiveTrackSelectionLogs);
     }
@@ -37,6 +40,7 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
     protected CustomAdaptiveTrackSelection(TrackGroup group, int[] tracks, int type, BandwidthMeter bandwidthMeter, long minDurationForQualityIncreaseMs, long maxDurationForQualityDecreaseMs, long minDurationToRetainAfterDiscardMs, int maxWidthToDiscard, int maxHeightToDiscard, float bandwidthFraction, float bufferedFractionToLiveEdgeForQualityIncrease, List<AdaptationCheckpoint> adaptationCheckpoints, Clock clock, String assetUrl, CacheDataSourceFactory cacheDataSourceFactory, VideoPlayerLoggerOptions loggerOptions) {
         super(group, tracks, type, bandwidthMeter, minDurationForQualityIncreaseMs, maxDurationForQualityDecreaseMs, minDurationToRetainAfterDiscardMs, maxWidthToDiscard, maxHeightToDiscard, bandwidthFraction, bufferedFractionToLiveEdgeForQualityIncrease, adaptationCheckpoints, clock);
         this.assetUrl = assetUrl;
+        this.videoId = CachedSegmentIndex.videoIdFromAssetUrl(assetUrl);
         this.cacheDataSourceFactory = cacheDataSourceFactory;
         this.customLogger = new CustomLogger(TAG, loggerOptions.enableAdaptiveTrackSelectionLogs);
     }
@@ -50,78 +54,35 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
             List<? extends MediaChunk> queue,
             MediaChunkIterator[] mediaChunkIterators) {
 
-        customLogger.logD("----- updateSelectedTrack() -----");
-
-        // Print timing info
-        customLogger.logD("playbackPositionUs: " + playbackPositionUs);
-        customLogger.logD("bufferedDurationUs: " + bufferedDurationUs);
-        customLogger.logD("availableDurationUs: " + availableDurationUs);
-
-        // Print selected format before update
-        Format currentFormat = getSelectedFormat();
-        customLogger.logD("Current selected format: height=" + currentFormat.height +
-                ", width=" + currentFormat.width +
-                ", bitrate=" + currentFormat.bitrate +
-                ", id=" + currentFormat.id);
-
-        // Log media chunk queue
+        // Track the index of the next chunk to be loaded; canSelectFormat() uses it to check
+        // whether that segment is already cached for a candidate format.
         if (!queue.isEmpty()) {
-            customLogger.logD("Queue size: " + queue.size());
-            for (int i = 0; i < queue.size(); i++) {
-                MediaChunk chunk = queue.get(i);
-                customLogger.logD("Chunk[" + i + "]: startTimeUs=" + chunk.startTimeUs +
-                        ", endTimeUs=" + chunk.endTimeUs +
-                        ", chunkIndex=" + chunk.getNextChunkIndex() +
-                        ", selectionReason=" + chunk.trackSelectionReason
-                );
-
-                // Update current chunk index.
-                currentChunkIndex = chunk.getNextChunkIndex();
-            }
+            currentChunkIndex = queue.get(queue.size() - 1).getNextChunkIndex();
         } else {
             currentChunkIndex = 1;
-            customLogger.logD("Queue is empty or null");
         }
 
-        // Print info about each MediaChunkIterator
-        customLogger.logD("mediaChunkIterators.length = " + mediaChunkIterators.length);
-        for (int i = 0; i < mediaChunkIterators.length; i++) {
-            MediaChunkIterator it = mediaChunkIterators[i];
-            if (it != null && it.next()) {
-                customLogger.logD("Iterator[" + i + "]: chunkStartTimeUs=" + it.getChunkStartTimeUs() +
-                        ", chunkEndTimeUs=" + it.getChunkEndTimeUs());
-            } else {
-                customLogger.logD("Iterator[" + i + "] is empty or null");
-            }
+        if (customLogger.isEnabled()) {
+            Format currentFormat = getSelectedFormat();
+            customLogger.logD("updateSelectedTrack: playbackPositionUs=" + playbackPositionUs
+                    + ", bufferedDurationUs=" + bufferedDurationUs
+                    + ", availableDurationUs=" + availableDurationUs
+                    + ", currentFormat=" + currentFormat.width + "x" + currentFormat.height
+                    + "@" + currentFormat.bitrate + ", queueSize=" + queue.size()
+                    + ", currentChunkIndex=" + currentChunkIndex);
         }
 
-
-
-        // You can add custom decision logic here before calling super
-        // e.g., avoid switching to low bitrate if high bitrate is cached, etc.
-
-        // Finally, call the default behavior
         super.updateSelectedTrack(playbackPositionUs, bufferedDurationUs, availableDurationUs, queue, mediaChunkIterators);
     }
 
     @Override
     protected boolean canSelectFormat(Format format, int trackBitrate, long effectiveBitrate) {
-        customLogger.logD("----- canSelectFormat() called -----");
-
-        customLogger.logD("  asset.url: " + assetUrl);
-
-        customLogger.logD("Format details:");
-        customLogger.logD("  id: " + format.id);
-        customLogger.logD("  sampleMimeType: " + format.sampleMimeType);
-        customLogger.logD("  bitrate: " + format.bitrate);
-        customLogger.logD("  width: " + format.width);
-        customLogger.logD("  height: " + format.height);
-        customLogger.logD("  channelCount: " + format.channelCount);
-        customLogger.logD("  language: " + format.language);
-
-        customLogger.logD("trackBitrate: " + trackBitrate);
-        customLogger.logD("effectiveBitrate: " + effectiveBitrate);
-        customLogger.logD("currentChunkIndex: " + currentChunkIndex);
+        if (customLogger.isEnabled()) {
+            customLogger.logD("canSelectFormat: id=" + format.id + ", width=" + format.width
+                    + ", height=" + format.height + ", bitrate=" + format.bitrate
+                    + ", trackBitrate=" + trackBitrate + ", effectiveBitrate=" + effectiveBitrate
+                    + ", currentChunkIndex=" + currentChunkIndex + ", asset=" + assetUrl);
+        }
 
         try {
             JSONObject metadataJson = null;
@@ -129,56 +90,51 @@ public class CustomAdaptiveTrackSelection extends AdaptiveTrackSelection {
                 metadataJson = cacheDataSourceFactory.getVideoMetadataJson();
             }
 
-            if (metadataJson != null) {
-                // Extract videoId from assetUrl
-                Uri uri = Uri.parse(assetUrl);
-                String videoId = null;
-                for (String segment : uri.getPathSegments()) {
-                    if (segment.endsWith(".m3u8")) {
-                        String filename = segment.split("\\.")[0];
-                        int lastUnderscore = filename.lastIndexOf('_');
-                        videoId = (lastUnderscore > 0) ? filename.substring(0, lastUnderscore) : filename;
-                        break;
+            if (metadataJson != null && videoId != null && metadataJson.has(videoId)) {
+                JSONObject videoEntry = metadataJson.getJSONObject(videoId);
+                // The next segment is cached for this format: select it regardless of bandwidth,
+                // so playback keeps using the variant that is already on disk.
+                if (isSegmentCached(videoEntry, format.width, format.height, currentChunkIndex)) {
+                    if (customLogger.isEnabled()) {
+                        customLogger.logD("Segment " + currentChunkIndex + " is cached for " + format.width + "x" + format.height);
                     }
+                    return true;
                 }
-
-                if (videoId != null && metadataJson.has(videoId)) {
-                    JSONObject videoEntry = metadataJson.getJSONObject(videoId);
-
-                    int currentWidth = format.width;
-                    String currentKey = String.valueOf(currentWidth);
-
-                    // 1. Check if the current format has the current segment cached.
-                    if (videoEntry.has(currentKey)) {
-                        JSONArray segments = videoEntry.getJSONArray(currentKey);
-                        for (int i = 0; i < segments.length(); i++) {
-                            if (segments.getInt(i) == currentChunkIndex) {
-                                customLogger.logD("✅ Current segment " + currentChunkIndex + " is cached for width=" + currentWidth);
-                                return true;
-                            }
-                        }
-                    }
-
-                } else {
-                    customLogger.logD("⚠️ No metadata found for videoId: " + videoId);
-                }
-            } else {
-                customLogger.logD("⚠️ Metadata JSON is null");
             }
         } catch (Exception e) {
             customLogger.logE("Error checking cache metadata: " + e.getMessage(), e);
         }
 
+        // AdaptiveTrackSelection already falls back to the lowest-bitrate format when no format
+        // is selectable, so no special handling of the lowest format is needed here.
         boolean result = super.canSelectFormat(format, trackBitrate, effectiveBitrate);
-
-        // If super.canSelectFormat returns false and this is last resolution (360p) then return true at this point.
-        if(!result && Objects.equals(format.id, "2")) {
-            customLogger.logD("returning true as this is last format");
-            return true;
+        if (customLogger.isEnabled()) {
+            customLogger.logD("super.canSelectFormat returned: " + result);
         }
-
-        customLogger.logD("super.canSelectFormat returned: " + result);
-
         return result;
+    }
+
+    /**
+     * Whether {@code chunkIndex} is recorded as cached for the variant matching a format of the
+     * given size. Variant labels in segment file names are the video's short side (720, 540), so
+     * the lookup tries the format's width first and then {@code min(width, height)}, which
+     * matches the label even when a lower variant is encoded at the same width as a higher one.
+     */
+    @VisibleForTesting
+    static boolean isSegmentCached(JSONObject videoEntry, int width, int height, long chunkIndex) {
+        return hasSegment(videoEntry.optJSONArray(String.valueOf(width)), chunkIndex)
+                || hasSegment(videoEntry.optJSONArray(String.valueOf(Math.min(width, height))), chunkIndex);
+    }
+
+    private static boolean hasSegment(@Nullable JSONArray segments, long chunkIndex) {
+        if (segments == null) {
+            return false;
+        }
+        for (int i = 0; i < segments.length(); i++) {
+            if (segments.optLong(i, -1) == chunkIndex) {
+                return true;
+            }
+        }
+        return false;
     }
 }

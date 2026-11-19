@@ -6,8 +6,26 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <os/log.h>
 
 NS_ASSUME_NONNULL_BEGIN
+
+/// Diagnostic log for the video pipeline (subsystem `video_player`, category `VPM`). Write only
+/// debug-level entries: they are kept only while a log stream is attached (Console.app with
+/// "Include Debug Messages", or `log stream --level debug --predicate 'category == "VPM"'`), so
+/// they cost almost nothing otherwise.
+os_log_t FVPVideoPipelineLog(void);
+
+/// The kind of network the device currently uses, as far as variant selection cares.
+typedef NS_ENUM(NSInteger, FVPNetworkKind) {
+  FVPNetworkKindUnknown = 0,
+  /// Wi-Fi or wired, not in Low Data Mode.
+  FVPNetworkKindUnconstrained = 1,
+  /// Cellular or a personal hotspot.
+  FVPNetworkKindExpensive = 2,
+  /// Low Data Mode is on.
+  FVPNetworkKindConstrained = 3,
+};
 
 /// Encapsulates the plugin's SJMediaCacheServer-backed HTTP(S)/HLS proxy caching and
 /// controller-less cache preload. Isolating the dependency to this Objective-C target means the
@@ -37,6 +55,15 @@ NS_SWIFT_NAME(VideoPlayerCacheManager)
     NS_SWIFT_NAME(preloadURL(_:segmentCount:httpHeaders:completion:));
 
 - (void)cancelPreloadForURL:(NSString *)uri NS_SWIFT_NAME(cancelPreload(forURL:));
+
+/// Index of the HLS variant to proxy and cache, given each variant's peak `BANDWIDTH` and
+/// `AVERAGE-BANDWIDTH` (0 when absent) in playlist order. Picks the highest variant whose
+/// average bandwidth fits 80% of the estimate; the highest variant while nothing is measured
+/// yet; the lowest variant in Low Data Mode or when nothing fits.
++ (NSInteger)indexOfPreferredVariantWithBandwidths:(NSArray<NSNumber *> *)bandwidths
+                                 averageBandwidths:(NSArray<NSNumber *> *)averageBandwidths
+                            estimatedBitsPerSecond:(double)estimatedBitsPerSecond
+                                       networkKind:(FVPNetworkKind)networkKind;
 
 @end
 

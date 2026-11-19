@@ -6,7 +6,9 @@ package io.flutter.plugins.videoplayer;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -177,5 +179,14 @@ public final class ExoPlayerEventListenerTest {
 
     eventListener.onIsPlayingChanged(false);
     verify(mockCallbacks).onIsPlayingStateUpdate(false);
+  }
+
+  @Test
+  public void onRenderedFirstFrameForwardsOnlyOnce() {
+    eventListener.onRenderedFirstFrame();
+    eventListener.onRenderedFirstFrame();
+
+    verify(mockCallbacks, times(1)).onFirstFrameRendered(anyLong());
+    verifyNoMoreInteractions(mockCallbacks);
   }
 }

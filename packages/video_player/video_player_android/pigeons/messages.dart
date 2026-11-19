@@ -49,6 +49,8 @@ class BufferOptionsMessage {
     required this.maxHeightToDiscard,
     required this.bandwidthFraction,
     required this.bufferedFractionToLiveEdgeForQualityIncrease,
+    this.playingMinBufferMs,
+    this.playingMaxBufferMs,
   });
   final int minBufferMs;
   final int maxBufferMs;
@@ -61,6 +63,11 @@ class BufferOptionsMessage {
   final int maxHeightToDiscard;
   final double bandwidthFraction;
   final double bufferedFractionToLiveEdgeForQualityIncrease;
+
+  /// Buffer limits used while playing. When null, [minBufferMs]/[maxBufferMs]
+  /// apply to every player and paused players are not capped.
+  final int? playingMinBufferMs;
+  final int? playingMaxBufferMs;
 }
 
 class LoggerOptionsMessage {
@@ -131,6 +138,33 @@ class VideoTrackChangedEvent extends PlatformVideoEvent {
   /// The ID of the newly selected video track, if any.
   /// Will be null when auto quality selection is enabled.
   late final String? selectedTrackId;
+}
+
+/// Sent when the first video frame has been rendered.
+///
+/// Corresponds to ExoPlayer's onRenderedFirstFrame.
+///
+/// Pigeon (Kotlin) can't generate a data class without fields, so this carries
+/// the time from player creation to the first frame for diagnostics.
+class FirstFrameRenderedEvent extends PlatformVideoEvent {
+  /// Milliseconds between creating the native player and its first rendered frame.
+  late final int sinceCreateMs;
+}
+
+/// Sent when the size of the rendered video changes, e.g. when adaptive
+/// streaming switches to another HLS variant.
+///
+/// Corresponds to ExoPlayer's onVideoSizeChanged.
+class VideoSizeChangedEvent extends PlatformVideoEvent {
+  /// The width of the rendered video in pixels.
+  late final int width;
+
+  /// The height of the rendered video in pixels.
+  late final int height;
+
+  /// The declared bitrate of the rendered format in bits per second, or 0
+  /// when unknown.
+  late final int bitrate;
 }
 
 /// Information passed to the platform view creation.

@@ -103,6 +103,15 @@
   [self sendOrQueue:@{@"event" : @"isPlayingStateUpdate", @"isPlaying" : @(playing)}];
 }
 
+- (void)videoPlayerDidChangeVideoSize:(CGSize)size bitrate:(int64_t)bitrate {
+  [self sendOrQueue:@{
+    @"event" : @"videoSizeChanged",
+    @"width" : @(size.width),
+    @"height" : @(size.height),
+    @"bitrate" : @(bitrate)
+  }];
+}
+
 - (void)videoPlayerWasDisposed {
   [self.eventChannel setStreamHandler:nil];
 }

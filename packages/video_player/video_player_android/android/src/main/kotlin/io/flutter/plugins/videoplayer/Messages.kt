@@ -342,7 +342,13 @@ data class BufferOptionsMessage (
   val maxWidthToDiscard: Long,
   val maxHeightToDiscard: Long,
   val bandwidthFraction: Double,
-  val bufferedFractionToLiveEdgeForQualityIncrease: Double
+  val bufferedFractionToLiveEdgeForQualityIncrease: Double,
+  /**
+   * Buffer limits used while playing. When null, [minBufferMs]/[maxBufferMs]
+   * apply to every player and paused players are not capped.
+   */
+  val playingMinBufferMs: Long? = null,
+  val playingMaxBufferMs: Long? = null
 )
  {
   companion object {
@@ -358,7 +364,9 @@ data class BufferOptionsMessage (
       val maxHeightToDiscard = pigeonVar_list[8] as Long
       val bandwidthFraction = pigeonVar_list[9] as Double
       val bufferedFractionToLiveEdgeForQualityIncrease = pigeonVar_list[10] as Double
-      return BufferOptionsMessage(minBufferMs, maxBufferMs, bufferForPlaybackMs, bufferForPlaybackAfterRebufferMs, minDurationForQualityIncreaseMs, maxDurationForQualityDecreaseMs, minDurationToRetainAfterDiscardMs, maxWidthToDiscard, maxHeightToDiscard, bandwidthFraction, bufferedFractionToLiveEdgeForQualityIncrease)
+      val playingMinBufferMs = pigeonVar_list[11] as Long?
+      val playingMaxBufferMs = pigeonVar_list[12] as Long?
+      return BufferOptionsMessage(minBufferMs, maxBufferMs, bufferForPlaybackMs, bufferForPlaybackAfterRebufferMs, minDurationForQualityIncreaseMs, maxDurationForQualityDecreaseMs, minDurationToRetainAfterDiscardMs, maxWidthToDiscard, maxHeightToDiscard, bandwidthFraction, bufferedFractionToLiveEdgeForQualityIncrease, playingMinBufferMs, playingMaxBufferMs)
     }
   }
   fun toList(): List<Any?> {
@@ -374,6 +382,8 @@ data class BufferOptionsMessage (
       maxHeightToDiscard,
       bandwidthFraction,
       bufferedFractionToLiveEdgeForQualityIncrease,
+      playingMinBufferMs,
+      playingMaxBufferMs,
     )
   }
   override fun equals(other: Any?): Boolean {
@@ -384,7 +394,7 @@ data class BufferOptionsMessage (
       return true
     }
     val other = other as BufferOptionsMessage
-    return MessagesPigeonUtils.deepEquals(this.minBufferMs, other.minBufferMs) && MessagesPigeonUtils.deepEquals(this.maxBufferMs, other.maxBufferMs) && MessagesPigeonUtils.deepEquals(this.bufferForPlaybackMs, other.bufferForPlaybackMs) && MessagesPigeonUtils.deepEquals(this.bufferForPlaybackAfterRebufferMs, other.bufferForPlaybackAfterRebufferMs) && MessagesPigeonUtils.deepEquals(this.minDurationForQualityIncreaseMs, other.minDurationForQualityIncreaseMs) && MessagesPigeonUtils.deepEquals(this.maxDurationForQualityDecreaseMs, other.maxDurationForQualityDecreaseMs) && MessagesPigeonUtils.deepEquals(this.minDurationToRetainAfterDiscardMs, other.minDurationToRetainAfterDiscardMs) && MessagesPigeonUtils.deepEquals(this.maxWidthToDiscard, other.maxWidthToDiscard) && MessagesPigeonUtils.deepEquals(this.maxHeightToDiscard, other.maxHeightToDiscard) && MessagesPigeonUtils.deepEquals(this.bandwidthFraction, other.bandwidthFraction) && MessagesPigeonUtils.deepEquals(this.bufferedFractionToLiveEdgeForQualityIncrease, other.bufferedFractionToLiveEdgeForQualityIncrease)
+    return MessagesPigeonUtils.deepEquals(this.minBufferMs, other.minBufferMs) && MessagesPigeonUtils.deepEquals(this.maxBufferMs, other.maxBufferMs) && MessagesPigeonUtils.deepEquals(this.bufferForPlaybackMs, other.bufferForPlaybackMs) && MessagesPigeonUtils.deepEquals(this.bufferForPlaybackAfterRebufferMs, other.bufferForPlaybackAfterRebufferMs) && MessagesPigeonUtils.deepEquals(this.minDurationForQualityIncreaseMs, other.minDurationForQualityIncreaseMs) && MessagesPigeonUtils.deepEquals(this.maxDurationForQualityDecreaseMs, other.maxDurationForQualityDecreaseMs) && MessagesPigeonUtils.deepEquals(this.minDurationToRetainAfterDiscardMs, other.minDurationToRetainAfterDiscardMs) && MessagesPigeonUtils.deepEquals(this.maxWidthToDiscard, other.maxWidthToDiscard) && MessagesPigeonUtils.deepEquals(this.maxHeightToDiscard, other.maxHeightToDiscard) && MessagesPigeonUtils.deepEquals(this.bandwidthFraction, other.bandwidthFraction) && MessagesPigeonUtils.deepEquals(this.bufferedFractionToLiveEdgeForQualityIncrease, other.bufferedFractionToLiveEdgeForQualityIncrease) && MessagesPigeonUtils.deepEquals(this.playingMinBufferMs, other.playingMinBufferMs) && MessagesPigeonUtils.deepEquals(this.playingMaxBufferMs, other.playingMaxBufferMs)
   }
 
   override fun hashCode(): Int {
@@ -400,6 +410,8 @@ data class BufferOptionsMessage (
     result = 31 * result + MessagesPigeonUtils.deepHash(this.maxHeightToDiscard)
     result = 31 * result + MessagesPigeonUtils.deepHash(this.bandwidthFraction)
     result = 31 * result + MessagesPigeonUtils.deepHash(this.bufferedFractionToLiveEdgeForQualityIncrease)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.playingMinBufferMs)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.playingMaxBufferMs)
     return result
   }
 }
@@ -672,6 +684,105 @@ data class VideoTrackChangedEvent (
   override fun hashCode(): Int {
     var result = javaClass.hashCode()
     result = 31 * result + MessagesPigeonUtils.deepHash(this.selectedTrackId)
+    return result
+  }
+}
+
+/**
+ * Sent when the first video frame has been rendered.
+ *
+ * Corresponds to ExoPlayer's onRenderedFirstFrame.
+ *
+ * Pigeon (Kotlin) can't generate a data class without fields, so this carries
+ * the time from player creation to the first frame for diagnostics.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class FirstFrameRenderedEvent (
+  /** Milliseconds between creating the native player and its first rendered frame. */
+  val sinceCreateMs: Long
+) : PlatformVideoEvent()
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): FirstFrameRenderedEvent {
+      val sinceCreateMs = pigeonVar_list[0] as Long
+      return FirstFrameRenderedEvent(sinceCreateMs)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      sinceCreateMs,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as FirstFrameRenderedEvent
+    return MessagesPigeonUtils.deepEquals(this.sinceCreateMs, other.sinceCreateMs)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.sinceCreateMs)
+    return result
+  }
+}
+
+/**
+ * Sent when the size of the rendered video changes, e.g. when adaptive
+ * streaming switches to another HLS variant.
+ *
+ * Corresponds to ExoPlayer's onVideoSizeChanged.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class VideoSizeChangedEvent (
+  /** The width of the rendered video in pixels. */
+  val width: Long,
+  /** The height of the rendered video in pixels. */
+  val height: Long,
+  /**
+   * The declared bitrate of the rendered format in bits per second, or 0
+   * when unknown.
+   */
+  val bitrate: Long
+) : PlatformVideoEvent()
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): VideoSizeChangedEvent {
+      val width = pigeonVar_list[0] as Long
+      val height = pigeonVar_list[1] as Long
+      val bitrate = pigeonVar_list[2] as Long
+      return VideoSizeChangedEvent(width, height, bitrate)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      width,
+      height,
+      bitrate,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as VideoSizeChangedEvent
+    return MessagesPigeonUtils.deepEquals(this.width, other.width) && MessagesPigeonUtils.deepEquals(this.height, other.height) && MessagesPigeonUtils.deepEquals(this.bitrate, other.bitrate)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.width)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.height)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.bitrate)
     return result
   }
 }
@@ -1193,45 +1304,55 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
       }
       140.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          PlatformVideoViewCreationParams.fromList(it)
+          FirstFrameRenderedEvent.fromList(it)
         }
       }
       141.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          CreationOptions.fromList(it)
+          VideoSizeChangedEvent.fromList(it)
         }
       }
       142.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          TexturePlayerIds.fromList(it)
+          PlatformVideoViewCreationParams.fromList(it)
         }
       }
       143.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          PlaybackState.fromList(it)
+          CreationOptions.fromList(it)
         }
       }
       144.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          AudioTrackMessage.fromList(it)
+          TexturePlayerIds.fromList(it)
         }
       }
       145.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          ExoPlayerAudioTrackData.fromList(it)
+          PlaybackState.fromList(it)
         }
       }
       146.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          NativeAudioTrackData.fromList(it)
+          AudioTrackMessage.fromList(it)
         }
       }
       147.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          ExoPlayerVideoTrackData.fromList(it)
+          ExoPlayerAudioTrackData.fromList(it)
         }
       }
       148.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          NativeAudioTrackData.fromList(it)
+        }
+      }
+      149.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          ExoPlayerVideoTrackData.fromList(it)
+        }
+      }
+      150.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
           NativeVideoTrackData.fromList(it)
         }
@@ -1285,40 +1406,48 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
         stream.write(139)
         writeValue(stream, value.toList())
       }
-      is PlatformVideoViewCreationParams -> {
+      is FirstFrameRenderedEvent -> {
         stream.write(140)
         writeValue(stream, value.toList())
       }
-      is CreationOptions -> {
+      is VideoSizeChangedEvent -> {
         stream.write(141)
         writeValue(stream, value.toList())
       }
-      is TexturePlayerIds -> {
+      is PlatformVideoViewCreationParams -> {
         stream.write(142)
         writeValue(stream, value.toList())
       }
-      is PlaybackState -> {
+      is CreationOptions -> {
         stream.write(143)
         writeValue(stream, value.toList())
       }
-      is AudioTrackMessage -> {
+      is TexturePlayerIds -> {
         stream.write(144)
         writeValue(stream, value.toList())
       }
-      is ExoPlayerAudioTrackData -> {
+      is PlaybackState -> {
         stream.write(145)
         writeValue(stream, value.toList())
       }
-      is NativeAudioTrackData -> {
+      is AudioTrackMessage -> {
         stream.write(146)
         writeValue(stream, value.toList())
       }
-      is ExoPlayerVideoTrackData -> {
+      is ExoPlayerAudioTrackData -> {
         stream.write(147)
         writeValue(stream, value.toList())
       }
-      is NativeVideoTrackData -> {
+      is NativeAudioTrackData -> {
         stream.write(148)
+        writeValue(stream, value.toList())
+      }
+      is ExoPlayerVideoTrackData -> {
+        stream.write(149)
+        writeValue(stream, value.toList())
+      }
+      is NativeVideoTrackData -> {
+        stream.write(150)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)

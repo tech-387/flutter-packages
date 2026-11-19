@@ -73,4 +73,14 @@ final class VideoPlayerEventCallbacks implements VideoPlayerCallbacks {
   public void onVideoTrackChanged(@Nullable String selectedTrackId) {
     eventSink.success(new VideoTrackChangedEvent(selectedTrackId));
   }
+
+  @Override
+  public void onFirstFrameRendered(long sinceCreateMs) {
+    eventSink.success(new FirstFrameRenderedEvent(sinceCreateMs));
+  }
+
+  @Override
+  public void onVideoSizeChanged(int width, int height, int bitrate) {
+    eventSink.success(new VideoSizeChangedEvent(width, height, bitrate));
+  }
 }

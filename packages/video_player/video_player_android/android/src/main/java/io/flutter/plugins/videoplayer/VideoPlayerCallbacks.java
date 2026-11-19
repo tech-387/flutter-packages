@@ -28,4 +28,13 @@ public interface VideoPlayerCallbacks {
   void onAudioTrackChanged(@Nullable String selectedTrackId);
 
   void onVideoTrackChanged(@Nullable String selectedTrackId);
+
+  /** The first video frame was rendered to the output; sent at most once per player. */
+  void onFirstFrameRendered(long sinceCreateMs);
+
+  /**
+   * The size of the rendered video changed, e.g. adaptive streaming switched HLS variant.
+   * [bitrate] is the declared bitrate of the rendered format in bits per second, or 0.
+   */
+  void onVideoSizeChanged(int width, int height, int bitrate);
 }

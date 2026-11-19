@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #import "./include/video_player_avfoundation_objc/FVPVideoPlayer.h"
+#import "./include/video_player_avfoundation_objc/FVPVideoPlayerCacheManager.h"
 #import "./include/video_player_avfoundation_objc/FVPVideoPlayer_Internal.h"
 
 #import <CoreMedia/CoreMedia.h>
@@ -14,6 +15,7 @@ static void *timeRangeContext = &timeRangeContext;
 static void *statusContext = &statusContext;
 static void *playbackLikelyToKeepUpContext = &playbackLikelyToKeepUpContext;
 static void *rateContext = &rateContext;
+static void *presentationSizeContext = &presentationSizeContext;
 
 /// The key name for loading AVURLAsset variants property asynchronously.
 /// Note: Apple does not provide a constant for this key.
@@ -70,12 +72,17 @@ static NSDictionary<NSString *, NSValue *> *FVPGetPlayerItemObservations(void) {
     @"loadedTimeRanges" : [NSValue valueWithPointer:timeRangeContext],
     @"status" : [NSValue valueWithPointer:statusContext],
     @"playbackLikelyToKeepUp" : [NSValue valueWithPointer:playbackLikelyToKeepUpContext],
+    @"presentationSize" : [NSValue valueWithPointer:presentationSizeContext],
   };
 }
 
 @implementation FVPVideoPlayer {
   // Whether or not player and player item listeners have ever been registered.
   BOOL _listenersRegistered;
+  // Set by configureBufferingWithPreloadForwardBufferDuration:...; until then AVFoundation's
+  // defaults apply unchanged.
+  BOOL _hasBufferConfiguration;
+  NSTimeInterval _preloadForwardBufferDuration;
 }
 
 - (instancetype)initWithPlayerItem:(NSObject<FVPAVPlayerItem> *)item
@@ -210,8 +217,27 @@ static NSDictionary<NSString *, NSValue *> *FVPGetPlayerItemObservations(void) {
                                              selector:@selector(itemDidPlayToEndTime:)
                                                  name:AVPlayerItemDidPlayToEndTimeNotification
                                                object:item];
+    // The access log carries the playing variant's bitrate, often only after presentationSize was
+    // first reported; report again when it gets an entry.
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(itemDidAddAccessLogEntry:)
+                                                 name:AVPlayerItemNewAccessLogEntryNotification
+                                               object:item];
     _listenersRegistered = YES;
   }
+}
+
+- (void)itemDidAddAccessLogEntry:(NSNotification *)notification {
+  // Posted on an arbitrary queue; events must be sent from the main thread.
+  __weak typeof(self) weakSelf = self;
+  AVPlayerItem *item = notification.object;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    typeof(self) strongSelf = weakSelf;
+    if (strongSelf == nil || strongSelf->_disposed || strongSelf.player.currentItem != item) {
+      return;
+    }
+    [strongSelf reportPresentationSizeForPlayerItem:item];
+  });
 }
 
 - (void)itemDidPlayToEndTime:(NSNotification *)notification {
@@ -311,7 +337,22 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
     // as it is not available in AVPlayerItem.
     AVPlayer *player = (AVPlayer *)object;
     [self.eventListener videoPlayerDidSetPlaying:(player.rate > 0)];
+  } else if (context == presentationSizeContext) {
+    [self reportPresentationSizeForPlayerItem:(AVPlayerItem *)object];
   }
+}
+
+/// Reports the item's presentation size (and the indicated bitrate of the variant, when the access
+/// log has one) so Dart can tell which HLS variant is on screen.
+- (void)reportPresentationSizeForPlayerItem:(AVPlayerItem *)item {
+  CGSize size = item.presentationSize;
+  if (size.width <= 0 || size.height <= 0 ||
+      ![self.eventListener respondsToSelector:@selector(videoPlayerDidChangeVideoSize:bitrate:)]) {
+    return;
+  }
+  double indicatedBitrate = item.accessLog.events.lastObject.indicatedBitrate;
+  int64_t bitrate = indicatedBitrate > 0 ? (int64_t)indicatedBitrate : 0;
+  [self.eventListener videoPlayerDidChangeVideoSize:size bitrate:bitrate];
 }
 
 - (void)reportStatusForPlayerItem:(AVPlayerItem *)item {
@@ -416,12 +457,40 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
 
 - (void)playWithError:(FlutterError *_Nullable *_Nonnull)error {
   _isPlaying = YES;
+  [self applyForwardBufferForCurrentRole];
   [self updatePlayingState];
 }
 
 - (void)pauseWithError:(FlutterError *_Nullable *_Nonnull)error {
   _isPlaying = NO;
+  [self applyForwardBufferForCurrentRole];
   [self updatePlayingState];
+}
+
+#pragma mark - Buffering
+
+- (void)configureBufferingWithPreloadForwardBufferDuration:(NSTimeInterval)preloadForwardBufferDuration
+                      automaticallyWaitsToMinimizeStalling:(BOOL)automaticallyWaitsToMinimizeStalling {
+  _hasBufferConfiguration = YES;
+  _preloadForwardBufferDuration = MAX(preloadForwardBufferDuration, 0);
+  _player.automaticallyWaitsToMinimizeStalling = automaticallyWaitsToMinimizeStalling;
+  [self applyForwardBufferForCurrentRole];
+}
+
+/// A feed keeps several players alive around the current video. Without a limit every paused,
+/// preloaded player keeps downloading as much as AVFoundation decides, competing with the video
+/// on screen for bandwidth. While paused, buffer only the preload duration; while playing, let
+/// AVFoundation choose (0), as it always did.
+- (void)applyForwardBufferForCurrentRole {
+  if (!_hasBufferConfiguration) {
+    return;
+  }
+  NSTimeInterval duration = _isPlaying ? 0 : _preloadForwardBufferDuration;
+  AVPlayerItem *item = _player.currentItem;
+  if (item != nil && item.preferredForwardBufferDuration != duration) {
+    item.preferredForwardBufferDuration = duration;
+    os_log_debug(FVPVideoPipelineLog(), "fwdbuf sec=%.1f playing=%d", duration, _isPlaying);
+  }
 }
 
 - (nullable NSNumber *)position:(FlutterError *_Nullable *_Nonnull)error {

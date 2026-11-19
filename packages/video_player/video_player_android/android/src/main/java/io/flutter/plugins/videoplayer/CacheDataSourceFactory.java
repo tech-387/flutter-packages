@@ -1,7 +1,6 @@
 package io.flutter.plugins.videoplayer;
 
 import android.content.Context;
-import android.net.Uri;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -17,9 +16,6 @@ import androidx.media3.datasource.cache.CacheDataSink;
 
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.util.Map;
 
 @UnstableApi
@@ -29,7 +25,12 @@ public class CacheDataSourceFactory implements DataSource.Factory {
     private final long maxFileSize, maxCacheSize;
     private final String cacheDirectory;
     private final String assetUrl;
-    private JSONObject videoMetadataJson;
+    private volatile JSONObject videoMetadataJson;
+    // Uptime of the last attempt to read the metadata file while it was missing. Prefetch
+    // (ExactHlsSegmentDownloader) may write the file after this player was created, so a missing
+    // file is looked for again, at most once per METADATA_RETRY_INTERVAL_MS.
+    private volatile long lastMetadataLoadAttemptMs = -1;
+    private static final long METADATA_RETRY_INTERVAL_MS = 1000;
     private final CustomLogger customLogger;
     private final VideoPlayerLoggerOptions loggerOptions;
 
@@ -56,57 +57,38 @@ public class CacheDataSourceFactory implements DataSource.Factory {
         customFactory = new CustomDataSourceFactory(defaultHttpDataSourceFactory, loggerOptions);
 
         customLogger = new CustomLogger(TAG, loggerOptions.enableCacheDataSourceLogs);
-
-        loadVideoMetadata();
     }
 
+    /**
+     * Reads this asset's metadata file once. Called lazily (not from the constructor, which runs on
+     * the platform thread for every player) and at most once per factory.
+     */
     private void loadVideoMetadata() {
         try {
-            Uri uri = Uri.parse(assetUrl);
-            // Extract video ID from last path segment before the file
-            String videoId = null;
-            for (String segment : uri.getPathSegments()) {
-                if (segment.endsWith(".m3u8")) {
-                    String filename = segment.split("\\.")[0]; // remove .m3u8
-                    int lastUnderscore = filename.lastIndexOf('_');
-                    if (lastUnderscore > 0) {
-                        videoId = filename.substring(0, lastUnderscore);
-                    } else {
-                        videoId = filename;
-                    }
-                    break;
-                }
-            }
-
+            String videoId = CachedSegmentIndex.videoIdFromAssetUrl(assetUrl);
             if (videoId == null) {
-                customLogger.logW("Video ID could not be extracted from assetUrl: " + assetUrl);
-                return;
-            }
-
-            File streamingDir = new File(context.getCacheDir(), "metadata");
-            if (!streamingDir.exists()) {
-                customLogger.logW("Streaming directory not yet created");
-                return;
-            }
-
-            // Create individual file per video ID
-            File metadataFile = new File(streamingDir, videoId + ".json");
-            if (!metadataFile.exists()) {
-                customLogger.logW("Metadata file not found for video ID: " + videoId);
-                return;
-            }
-
-            StringBuilder jsonBuilder = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(new FileReader(metadataFile))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    jsonBuilder.append(line);
+                if (customLogger.isEnabled()) {
+                    customLogger.logW("Video ID could not be extracted from assetUrl: " + assetUrl);
                 }
+                return;
             }
 
-            videoMetadataJson = new JSONObject(jsonBuilder.toString());
-            customLogger.logD("Loaded metadata for video ID: " + videoId + " → " + videoMetadataJson);
+            JSONObject loaded = CachedSegmentIndex.readMetadata(context, videoId);
+            if (loaded == null) {
+                if (customLogger.isEnabled()) {
+                    customLogger.logW("Metadata file not found for video ID: " + videoId);
+                }
+                return;
+            }
 
+            // A transfer-listener update may have arrived first; it already includes the file's
+            // contents, so don't overwrite it.
+            if (videoMetadataJson == null) {
+                videoMetadataJson = loaded;
+            }
+            if (customLogger.isEnabled()) {
+                customLogger.logD("Loaded metadata for video ID: " + videoId + " → " + loaded);
+            }
         } catch (Exception e) {
             customLogger.logE("Failed to load video metadata: " + e.getMessage(), e);
         }
@@ -114,8 +96,21 @@ public class CacheDataSourceFactory implements DataSource.Factory {
 
     @Nullable
     public JSONObject getVideoMetadataJson() {
-        if(videoMetadataJson == null) {
-            loadVideoMetadata();
+        JSONObject json = videoMetadataJson;
+        if (json != null) {
+            return json;
+        }
+        long now = android.os.SystemClock.uptimeMillis();
+        if (lastMetadataLoadAttemptMs < 0
+                || now - lastMetadataLoadAttemptMs >= METADATA_RETRY_INTERVAL_MS) {
+            synchronized (this) {
+                if (videoMetadataJson == null
+                        && (lastMetadataLoadAttemptMs < 0
+                                || now - lastMetadataLoadAttemptMs >= METADATA_RETRY_INTERVAL_MS)) {
+                    lastMetadataLoadAttemptMs = now;
+                    loadVideoMetadata();
+                }
+            }
         }
         return videoMetadataJson;
     }

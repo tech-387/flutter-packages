@@ -13,11 +13,13 @@ import android.os.SystemClock;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.VideoSize;
 import androidx.media3.exoplayer.ExoPlayer;
 
 public abstract class ExoPlayerEventListener implements Player.Listener {
@@ -33,6 +35,11 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
   // metadata instead. See getEffectiveDurationMs().
   @Nullable private Long resolvedLocalDurationMs;
   private boolean triedLocalDurationFallback = false;
+  private boolean firstFrameSent = false;
+  private final long createTimeMs = SystemClock.elapsedRealtime();
+  // VPM diagnostics: stall tracking (BUFFERING after the first READY while playing).
+  private boolean hasBeenReady = false;
+  private long stallStartMs = -1;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private final Runnable initializationFallback = this::onInitializationFallback;
   protected final ExoPlayer exoPlayer;
@@ -195,16 +202,29 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
     switch (playbackState) {
       case Player.STATE_BUFFERING:
         platformState = PlatformPlaybackState.BUFFERING;
+        if (hasBeenReady && stallStartMs < 0 && exoPlayer.getPlayWhenReady() && Vpm.isEnabled()) {
+          stallStartMs = SystemClock.elapsedRealtime();
+          Vpm.log("stall start");
+        }
         break;
       case Player.STATE_READY:
         platformState = PlatformPlaybackState.READY;
+        hasBeenReady = true;
+        if (stallStartMs >= 0) {
+          if (Vpm.isEnabled()) {
+            Vpm.log("stall end ms=" + (SystemClock.elapsedRealtime() - stallStartMs));
+          }
+          stallStartMs = -1;
+        }
         maybeSendInitialized();
         break;
       case Player.STATE_ENDED:
         platformState = PlatformPlaybackState.ENDED;
+        stallStartMs = -1;
         break;
       case Player.STATE_IDLE:
         platformState = PlatformPlaybackState.IDLE;
+        stallStartMs = -1;
         break;
     }
     events.onPlaybackStateChanged(platformState);
@@ -218,7 +238,57 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
   }
 
   @Override
+  public void onRenderedFirstFrame() {
+    if (firstFrameSent) {
+      return;
+    }
+    firstFrameSent = true;
+    final long sinceCreateMs = SystemClock.elapsedRealtime() - createTimeMs;
+    if (Vpm.isEnabled()) {
+      Vpm.log("firstFrame id=" + currentFileName() + " sinceCreateMs=" + sinceCreateMs);
+    }
+    events.onFirstFrameRendered(sinceCreateMs);
+  }
+
+  @Override
+  public void onVideoSizeChanged(@NonNull VideoSize videoSize) {
+    if (videoSize.width <= 0 || videoSize.height <= 0) {
+      return;
+    }
+    // The format being rendered, so the bitrate matches the HLS variant on screen.
+    Format format = exoPlayer.getVideoFormat();
+    int bitrate = format == null ? 0 : Math.max(format.bitrate, 0);
+    if (Vpm.isEnabled()) {
+      Vpm.log(
+          "videoSize id="
+              + currentFileName()
+              + " "
+              + videoSize.width
+              + "x"
+              + videoSize.height
+              + " bitrate="
+              + bitrate);
+    }
+    events.onVideoSizeChanged(videoSize.width, videoSize.height, bitrate);
+  }
+
+  /** The last path segment of the current media item's URI, for diagnostic logs. */
+  @NonNull
+  String currentFileName() {
+    MediaItem mediaItem = exoPlayer.getCurrentMediaItem();
+    if (mediaItem == null || mediaItem.localConfiguration == null) {
+      return "?";
+    }
+    String name = mediaItem.localConfiguration.uri.getLastPathSegment();
+    return name != null ? name : "?";
+  }
+
+  @Override
   public void onPlayerError(@NonNull final PlaybackException error) {
+    if (Vpm.isEnabled()) {
+      String message = String.valueOf(error.getMessage()).replace('\n', ' ');
+      Vpm.log("error code=" + error.errorCode + " msg=" + message);
+    }
     if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
       // See
       // https://exoplayer.dev/live-streaming.html#behindlivewindowexception-and-error_code_behind_live_window

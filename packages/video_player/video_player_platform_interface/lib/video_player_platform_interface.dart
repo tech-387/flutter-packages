@@ -368,6 +368,7 @@ class VideoEvent {
     this.rotationCorrection,
     this.buffered,
     this.isPlaying,
+    this.bitrate,
   });
 
   /// The type of the event.
@@ -398,6 +399,12 @@ class VideoEvent {
   /// Only used if [eventType] is [VideoEventType.isPlayingStateUpdate].
   final bool? isPlaying;
 
+  /// Declared bitrate, in bits per second, of the rendered video format.
+  ///
+  /// Only used if [eventType] is [VideoEventType.videoSizeChanged], and only
+  /// reported on Android (null or 0 when unknown).
+  final int? bitrate;
+
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
@@ -408,12 +415,13 @@ class VideoEvent {
             size == other.size &&
             rotationCorrection == other.rotationCorrection &&
             listEquals(buffered, other.buffered) &&
-            isPlaying == other.isPlaying;
+            isPlaying == other.isPlaying &&
+            bitrate == other.bitrate;
   }
 
   @override
   int get hashCode =>
-      Object.hash(eventType, duration, size, rotationCorrection, buffered, isPlaying);
+      Object.hash(eventType, duration, size, rotationCorrection, buffered, isPlaying, bitrate);
 }
 
 /// Type of the event.
@@ -446,6 +454,17 @@ enum VideoEventType {
 
   /// An unknown event has been received.
   unknown,
+
+  /// The first video frame has been rendered to the output surface.
+  ///
+  /// Currently only emitted on Android. At most one event of this type is
+  /// emitted per player instance.
+  firstFrameRendered,
+
+  /// The size of the rendered video changed, e.g. because adaptive streaming
+  /// switched to another HLS variant. Carries [VideoEvent.size] and, on
+  /// Android, [VideoEvent.bitrate].
+  videoSizeChanged,
 }
 
 /// Describes a discrete segment of time within a video using a [start] and
@@ -644,6 +663,8 @@ class VideoPlayerBufferOptions {
     this.preferredForwardBufferDuration = 6,
     this.canUseNetworkResourcesForLiveStreamingWhilePaused = false,
     this.automaticallyWaitsToMinimizeStalling = false,
+    this.playingMinBufferMs,
+    this.playingMaxBufferMs,
   });
 
   /// The minimum duration of media that the player will attempt to ensure is buffered at all times, in milliseconds.
@@ -713,6 +734,23 @@ class VideoPlayerBufferOptions {
   /// Indicates that the player is allowed to delay playback at the specified rate in order to minimize stalling.
   /// Only on iOS.
   final bool automaticallyWaitsToMinimizeStalling;
+
+  /// The minimum buffered duration, in milliseconds, used while the player is
+  /// actively playing (`playWhenReady`).
+  ///
+  /// Only on Android. When null (and [playingMaxBufferMs] is null), behaviour is
+  /// exactly as before: [minBufferMs] and [maxBufferMs] are used for every
+  /// player regardless of role and no cap is applied to paused players. When
+  /// set, [minBufferMs]/[maxBufferMs] act as the (smaller) buffer limits of a
+  /// paused, preloaded player, while the playing player uses
+  /// [playingMinBufferMs]/[playingMaxBufferMs].
+  final int? playingMinBufferMs;
+
+  /// The maximum buffered duration, in milliseconds, used while the player is
+  /// actively playing (`playWhenReady`).
+  ///
+  /// Only on Android. See [playingMinBufferMs].
+  final int? playingMaxBufferMs;
 }
 
 /// [VideoPlayerLoggerOptions] can be used to set granular logging options.

@@ -107,15 +107,23 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
     final pigeonCreationOptions = CreationOptions(
       uri: uri,
       httpHeaders: dataSource.httpHeaders,
-      bufferOptions: BufferOptionsMessage(
-        preferredForwardBufferDuration:
-            videoPlayerBufferOptions.preferredForwardBufferDuration,
-        canUseNetworkResourcesForLiveStreamingWhilePaused:
-            videoPlayerBufferOptions
-                .canUseNetworkResourcesForLiveStreamingWhilePaused,
-        automaticallyWaitsToMinimizeStalling:
-            videoPlayerBufferOptions.automaticallyWaitsToMinimizeStalling,
-      ),
+      // Native code applies buffer options to the AVPlayer, so only send them
+      // when the caller chose them. Callers that pass none keep AVFoundation's
+      // defaults instead of this class's placeholder values.
+      bufferOptions: identical(
+        videoPlayerBufferOptions,
+        const VideoPlayerBufferOptions(),
+      )
+          ? null
+          : BufferOptionsMessage(
+              preferredForwardBufferDuration:
+                  videoPlayerBufferOptions.preferredForwardBufferDuration,
+              canUseNetworkResourcesForLiveStreamingWhilePaused:
+                  videoPlayerBufferOptions
+                      .canUseNetworkResourcesForLiveStreamingWhilePaused,
+              automaticallyWaitsToMinimizeStalling:
+                  videoPlayerBufferOptions.automaticallyWaitsToMinimizeStalling,
+            ),
       loggerOptions: LoggerOptionsMessage(
         enableTransferListenerLogs:
             videoPlayerLoggerOptions.enableTransferListenerLogs,
@@ -484,6 +492,14 @@ class _PlayerInstance {
       'isPlayingStateUpdate' => VideoEvent(
         eventType: VideoEventType.isPlayingStateUpdate,
         isPlaying: map['isPlaying'] as bool,
+      ),
+      'videoSizeChanged' => VideoEvent(
+        eventType: VideoEventType.videoSizeChanged,
+        size: Size(
+          (map['width'] as num?)?.toDouble() ?? 0.0,
+          (map['height'] as num?)?.toDouble() ?? 0.0,
+        ),
+        bitrate: (map['bitrate'] as num?)?.toInt(),
       ),
       _ => VideoEvent(eventType: VideoEventType.unknown),
     });

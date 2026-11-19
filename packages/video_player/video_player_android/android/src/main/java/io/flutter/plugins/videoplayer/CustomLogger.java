@@ -12,6 +12,14 @@ public class CustomLogger {
         this.enableLogs = enableLogs;
     }
 
+    /**
+     * Whether this logger emits anything. Hot paths should check this before building log
+     * strings, so that nothing is concatenated when logging is disabled.
+     */
+    public boolean isEnabled() {
+        return enableLogs;
+    }
+
     public void logD(String message) {
         if(!enableLogs) {
             return;

@@ -42,6 +42,13 @@ NS_ASSUME_NONNULL_BEGIN
                          avFactory:(id<FVPAVFactory>)avFactory
                       viewProvider:(NSObject<FVPViewProvider> *)viewProvider;
 
+/// Applies the buffer options sent from Dart. While the player is paused (for example a
+/// preloaded video next to the one on screen) the item buffers at most
+/// `preloadForwardBufferDuration` seconds ahead; while playing, AVFoundation chooses.
+- (void)configureBufferingWithPreloadForwardBufferDuration:(NSTimeInterval)preloadForwardBufferDuration
+                      automaticallyWaitsToMinimizeStalling:(BOOL)automaticallyWaitsToMinimizeStalling
+    NS_SWIFT_NAME(configureBuffering(preloadForwardBufferDuration:automaticallyWaitsToMinimizeStalling:));
+
 @end
 
 NS_ASSUME_NONNULL_END

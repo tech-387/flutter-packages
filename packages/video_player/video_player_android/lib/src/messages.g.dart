@@ -255,6 +255,8 @@ class BufferOptionsMessage {
     required this.maxHeightToDiscard,
     required this.bandwidthFraction,
     required this.bufferedFractionToLiveEdgeForQualityIncrease,
+    this.playingMinBufferMs,
+    this.playingMaxBufferMs,
   });
 
   int minBufferMs;
@@ -279,6 +281,12 @@ class BufferOptionsMessage {
 
   double bufferedFractionToLiveEdgeForQualityIncrease;
 
+  /// Buffer limits used while playing. When null, [minBufferMs]/[maxBufferMs]
+  /// apply to every player and paused players are not capped.
+  int? playingMinBufferMs;
+
+  int? playingMaxBufferMs;
+
   List<Object?> _toList() {
     return <Object?>[
       minBufferMs,
@@ -292,6 +300,8 @@ class BufferOptionsMessage {
       maxHeightToDiscard,
       bandwidthFraction,
       bufferedFractionToLiveEdgeForQualityIncrease,
+      playingMinBufferMs,
+      playingMaxBufferMs,
     ];
   }
 
@@ -312,6 +322,8 @@ class BufferOptionsMessage {
       maxHeightToDiscard: result[8]! as int,
       bandwidthFraction: result[9]! as double,
       bufferedFractionToLiveEdgeForQualityIncrease: result[10]! as double,
+      playingMinBufferMs: result[11] as int?,
+      playingMaxBufferMs: result[12] as int?,
     );
   }
 
@@ -324,7 +336,7 @@ class BufferOptionsMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(minBufferMs, other.minBufferMs) && _deepEquals(maxBufferMs, other.maxBufferMs) && _deepEquals(bufferForPlaybackMs, other.bufferForPlaybackMs) && _deepEquals(bufferForPlaybackAfterRebufferMs, other.bufferForPlaybackAfterRebufferMs) && _deepEquals(minDurationForQualityIncreaseMs, other.minDurationForQualityIncreaseMs) && _deepEquals(maxDurationForQualityDecreaseMs, other.maxDurationForQualityDecreaseMs) && _deepEquals(minDurationToRetainAfterDiscardMs, other.minDurationToRetainAfterDiscardMs) && _deepEquals(maxWidthToDiscard, other.maxWidthToDiscard) && _deepEquals(maxHeightToDiscard, other.maxHeightToDiscard) && _deepEquals(bandwidthFraction, other.bandwidthFraction) && _deepEquals(bufferedFractionToLiveEdgeForQualityIncrease, other.bufferedFractionToLiveEdgeForQualityIncrease);
+    return _deepEquals(minBufferMs, other.minBufferMs) && _deepEquals(maxBufferMs, other.maxBufferMs) && _deepEquals(bufferForPlaybackMs, other.bufferForPlaybackMs) && _deepEquals(bufferForPlaybackAfterRebufferMs, other.bufferForPlaybackAfterRebufferMs) && _deepEquals(minDurationForQualityIncreaseMs, other.minDurationForQualityIncreaseMs) && _deepEquals(maxDurationForQualityDecreaseMs, other.maxDurationForQualityDecreaseMs) && _deepEquals(minDurationToRetainAfterDiscardMs, other.minDurationToRetainAfterDiscardMs) && _deepEquals(maxWidthToDiscard, other.maxWidthToDiscard) && _deepEquals(maxHeightToDiscard, other.maxHeightToDiscard) && _deepEquals(bandwidthFraction, other.bandwidthFraction) && _deepEquals(bufferedFractionToLiveEdgeForQualityIncrease, other.bufferedFractionToLiveEdgeForQualityIncrease) && _deepEquals(playingMinBufferMs, other.playingMinBufferMs) && _deepEquals(playingMaxBufferMs, other.playingMaxBufferMs);
   }
 
   @override
@@ -620,6 +632,111 @@ class VideoTrackChangedEvent extends PlatformVideoEvent {
       return true;
     }
     return _deepEquals(selectedTrackId, other.selectedTrackId);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+}
+
+/// Sent when the first video frame has been rendered.
+///
+/// Corresponds to ExoPlayer's onRenderedFirstFrame.
+///
+/// Pigeon (Kotlin) can't generate a data class without fields, so this carries
+/// the time from player creation to the first frame for diagnostics.
+class FirstFrameRenderedEvent extends PlatformVideoEvent {
+  FirstFrameRenderedEvent({
+    required this.sinceCreateMs,
+  });
+
+  /// Milliseconds between creating the native player and its first rendered frame.
+  int sinceCreateMs;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      sinceCreateMs,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static FirstFrameRenderedEvent decode(Object result) {
+    result as List<Object?>;
+    return FirstFrameRenderedEvent(
+      sinceCreateMs: result[0]! as int,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! FirstFrameRenderedEvent || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(sinceCreateMs, other.sinceCreateMs);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+}
+
+/// Sent when the size of the rendered video changes, e.g. when adaptive
+/// streaming switches to another HLS variant.
+///
+/// Corresponds to ExoPlayer's onVideoSizeChanged.
+class VideoSizeChangedEvent extends PlatformVideoEvent {
+  VideoSizeChangedEvent({
+    required this.width,
+    required this.height,
+    required this.bitrate,
+  });
+
+  /// The width of the rendered video in pixels.
+  int width;
+
+  /// The height of the rendered video in pixels.
+  int height;
+
+  /// The declared bitrate of the rendered format in bits per second, or 0
+  /// when unknown.
+  int bitrate;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      width,
+      height,
+      bitrate,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static VideoSizeChangedEvent decode(Object result) {
+    result as List<Object?>;
+    return VideoSizeChangedEvent(
+      width: result[0]! as int,
+      height: result[1]! as int,
+      bitrate: result[2]! as int,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! VideoSizeChangedEvent || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(width, other.width) && _deepEquals(height, other.height) && _deepEquals(bitrate, other.bitrate);
   }
 
   @override
@@ -1193,32 +1310,38 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is VideoTrackChangedEvent) {
       buffer.putUint8(139);
       writeValue(buffer, value.encode());
-    }    else if (value is PlatformVideoViewCreationParams) {
+    }    else if (value is FirstFrameRenderedEvent) {
       buffer.putUint8(140);
       writeValue(buffer, value.encode());
-    }    else if (value is CreationOptions) {
+    }    else if (value is VideoSizeChangedEvent) {
       buffer.putUint8(141);
       writeValue(buffer, value.encode());
-    }    else if (value is TexturePlayerIds) {
+    }    else if (value is PlatformVideoViewCreationParams) {
       buffer.putUint8(142);
       writeValue(buffer, value.encode());
-    }    else if (value is PlaybackState) {
+    }    else if (value is CreationOptions) {
       buffer.putUint8(143);
       writeValue(buffer, value.encode());
-    }    else if (value is AudioTrackMessage) {
+    }    else if (value is TexturePlayerIds) {
       buffer.putUint8(144);
       writeValue(buffer, value.encode());
-    }    else if (value is ExoPlayerAudioTrackData) {
+    }    else if (value is PlaybackState) {
       buffer.putUint8(145);
       writeValue(buffer, value.encode());
-    }    else if (value is NativeAudioTrackData) {
+    }    else if (value is AudioTrackMessage) {
       buffer.putUint8(146);
       writeValue(buffer, value.encode());
-    }    else if (value is ExoPlayerVideoTrackData) {
+    }    else if (value is ExoPlayerAudioTrackData) {
       buffer.putUint8(147);
       writeValue(buffer, value.encode());
-    }    else if (value is NativeVideoTrackData) {
+    }    else if (value is NativeAudioTrackData) {
       buffer.putUint8(148);
+      writeValue(buffer, value.encode());
+    }    else if (value is ExoPlayerVideoTrackData) {
+      buffer.putUint8(149);
+      writeValue(buffer, value.encode());
+    }    else if (value is NativeVideoTrackData) {
+      buffer.putUint8(150);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -1253,22 +1376,26 @@ class _PigeonCodec extends StandardMessageCodec {
       case 139:
         return VideoTrackChangedEvent.decode(readValue(buffer)!);
       case 140:
-        return PlatformVideoViewCreationParams.decode(readValue(buffer)!);
+        return FirstFrameRenderedEvent.decode(readValue(buffer)!);
       case 141:
-        return CreationOptions.decode(readValue(buffer)!);
+        return VideoSizeChangedEvent.decode(readValue(buffer)!);
       case 142:
-        return TexturePlayerIds.decode(readValue(buffer)!);
+        return PlatformVideoViewCreationParams.decode(readValue(buffer)!);
       case 143:
-        return PlaybackState.decode(readValue(buffer)!);
+        return CreationOptions.decode(readValue(buffer)!);
       case 144:
-        return AudioTrackMessage.decode(readValue(buffer)!);
+        return TexturePlayerIds.decode(readValue(buffer)!);
       case 145:
-        return ExoPlayerAudioTrackData.decode(readValue(buffer)!);
+        return PlaybackState.decode(readValue(buffer)!);
       case 146:
-        return NativeAudioTrackData.decode(readValue(buffer)!);
+        return AudioTrackMessage.decode(readValue(buffer)!);
       case 147:
-        return ExoPlayerVideoTrackData.decode(readValue(buffer)!);
+        return ExoPlayerAudioTrackData.decode(readValue(buffer)!);
       case 148:
+        return NativeAudioTrackData.decode(readValue(buffer)!);
+      case 149:
+        return ExoPlayerVideoTrackData.decode(readValue(buffer)!);
+      case 150:
         return NativeVideoTrackData.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
